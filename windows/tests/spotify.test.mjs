@@ -1,4 +1,4 @@
-// The Spotify pill (Linux) and Mochi's dance: the page's rules in
+// The Spotify pill (Linux and Windows) and Mochi's dance: the page's rules in
 // src/core/spotify.ts, the dance in src/mochi/engine.ts, the report handling in
 // src/island/spotify.ts and the views in src/views/spotify.ts. The MPRIS side —
 // metadata, position, the bus itself — is tested in src-tauri/src/spotify.rs.

@@ -3,8 +3,8 @@
 // SpotifyController.swift, NowPlayingViews.swift and the Mac's dance rules
 // (BotCanvasView, DesktopMochi.swift).
 //
-// Windows has no music source yet: nothing ever reports a track there, so
-// nothing plays and Mochi never dances, through the same code.
+// On Windows, src-tauri/src/spotify_win.rs reports the same state from the
+// system media controls: Spotify's session, or whatever else is playing.
 
 import type { BotStateName, IslandMode, IslandViewName } from "./layout";
 

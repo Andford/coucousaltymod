@@ -456,13 +456,18 @@ pub fn focus_session_window(owners: &[u32], folder: &str) -> bool {
     owners.first().is_some_and(|pid| focus_process_window(*pid, folder))
 }
 
-/// Brings forward the window of a running app, by executable name.
-fn focus_app(exe: &str) -> bool {
-    let pids: Vec<u32> = process_table()
+/// The IDs of every running process with this executable name.
+pub fn pids_named(exe: &str) -> Vec<u32> {
+    process_table()
         .into_iter()
         .filter(|(_, p)| p.exe.eq_ignore_ascii_case(exe))
         .map(|(pid, _)| pid)
-        .collect();
+        .collect()
+}
+
+/// Brings forward the window of a running app, by executable name.
+pub fn focus_app(exe: &str) -> bool {
+    let pids = pids_named(exe);
     top_windows()
         .into_iter()
         .find(|(_, owner, _)| pids.contains(owner))

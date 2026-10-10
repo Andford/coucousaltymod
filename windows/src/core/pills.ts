@@ -134,6 +134,10 @@ export const PILL_CATALOG: readonly PillDefinition[] = [
   // the system media controls on Windows (src-tauri/src/spotify_win.rs).
   { id: "integration_spotify", name: "Spotify", color: "#1DB954", category: "service",
     subtitle: N_("Integration"), source: "n8n", support: "yes", connect: none },
+  // coucousaltymod: tasks, Pomodoro and guided breathing, all local
+  // (core/wellness.ts). Not on the Mac.
+  { id: "integration_wellness", name: "Bienestar", color: "#A78BFA", category: "service",
+    subtitle: N_("Wellness"), source: "n8n", support: "yes", connect: none },
 ];
 
 /** The always-on pill unless the user picks another workspace tool. */

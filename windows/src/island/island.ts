@@ -13,6 +13,7 @@ import {
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { SPOTIFY_ID, islandDances } from "../core/spotify";
+import { Wellness, WELLNESS_ID, breathFrame } from "../core/wellness";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
@@ -1085,11 +1086,19 @@ export class Island {
     const inWardrobe = State.mode === "expanded" && State.view === "wardrobe";
     const mainFocused = State.focusId == null || State.focusId === State.mainPillId;
     const showOutfit = mainFocused || State.mode !== "expanded" || inWardrobe;
-    const outfit = State.wardrobePreview ?? this.seasons.get(parseOutfit(State.settings.mochiOutfit));
-    this.engine.setOutfit(showOutfit ? outfit : "none", !inWardrobe);
+    // A Pomodoro focus block: Mochi puts on its reading glasses (coucousaltymod),
+    // on the Wellness card too.
+    const focusing = Wellness.pomodoro.phase === "focus";
+    const outfit = State.wardrobePreview ??
+      (focusing ? "roundGlasses" : this.seasons.get(parseOutfit(State.settings.mochiOutfit)));
+    const showWellness = focusing && State.focusId === WELLNESS_ID;
+    this.engine.setOutfit(showOutfit || showWellness ? outfit : "none", !inWardrobe);
+    // Guided breathing: eyes closed, growing with each inhale.
+    const breath = breathFrame(Wellness.breathing, Date.now());
+    this.engine.setBreathing(breath.active, breath.fill);
     // Dances while music plays: always in the compact island, expanded only on
     // the music pill's card (BotCanvasView, macOS). Asked every frame.
-    this.engine.setDancing(islandDances({
+    this.engine.setDancing(!breath.active && islandDances({
       music: State.spotifyPlaying,
       state: State.effectiveState,
       mode: State.mode,
@@ -1102,6 +1111,7 @@ export class Island {
     ctx.clearRect(-BOT_SIDE, 0, wCss, hCss);
     ctx.save();
     this.engine.applyDance(ctx, w, hCss);
+    this.engine.applyBreath(ctx, w, hCss);
     this.engine.draw(ctx, w, hCss);
     ctx.restore();
   }

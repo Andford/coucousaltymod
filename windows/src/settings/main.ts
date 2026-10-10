@@ -776,6 +776,9 @@ const INTEGRATIONS: IntegrationDef[] = [
   // Nothing to enter: Spotify is read over D-Bus on Linux, through the system
   // media controls on Windows (see core/pills.ts).
   { id: "integration_spotify", name: "Spotify", color: "#1DB954", fields: [] },
+  // Nothing to enter: tasks, Pomodoro and breathing live on this PC.
+  { id: "integration_wellness", name: "Bienestar", color: "#A78BFA", fields: [],
+    hint: N_("Tasks, a Pomodoro timer and guided breathing with Mochi. Everything stays on this PC.") },
 ];
 
 const MAX_ACTIVE = MAX_DECLARED;

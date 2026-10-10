@@ -23,6 +23,8 @@ import { buildRecap } from "./recap";
 import { buildWardrobe } from "./wardrobe";
 import { buildSpotifyCard, buildSpotifyPill, type SpotifyPillHost } from "./spotify";
 import { SPOTIFY_ID } from "../core/spotify";
+import { buildWellnessCard, buildWellnessPill } from "./wellness";
+import { WELLNESS_ID } from "../core/wellness";
 import type { Outfit, OutfitSelection } from "../mochi/wardrobe";
 import { language, t, tl, type Msg } from "../i18n/i18n";
 import type { ViewCommand } from "../island/shortcuts";
@@ -199,6 +201,9 @@ function buildOverview(actions: ViewActions): ViewHost {
   // runs on, and a slider being dragged must not be rebuilt under the pointer.
   const spotifyCard = buildSpotifyCard();
   let spotifyPill: SpotifyPillHost | null = null;
+  // The Wellness card keeps its text field and list across syncs, like Spotify's.
+  const wellnessCard = buildWellnessCard();
+  let wellnessPill: { el: HTMLElement; sync(): void } | null = null;
 
   const el = h("div", { class: "view overview" },
     h("div", { class: "left" }, left),
@@ -208,7 +213,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   let pillIds = "";
   let detailOpen = false;
   let lastFocus: string | null = null;
-  let mode: "ticker" | "card" | "plan" | "diff" | "spotify" | null = null;
+  let mode: "ticker" | "card" | "plan" | "diff" | "spotify" | "wellness" | null = null;
   let cardKey = "";
   /** The list row highlighted at the last sync, to scroll only when it moves. */
   let shownSelection: number | null = null;
@@ -264,6 +269,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   return {
     el,
     tick(nowMs: number) {
+      if (mode === "wellness") return wellnessCard.tick(nowMs);
       if (mode !== "ticker") return false;
       ticker.tick(nowMs);
       return ticker.animating;
@@ -365,6 +371,14 @@ function buildOverview(actions: ViewActions): ViewHost {
           cardKey = "";
         }
         spotifyCard.sync();
+      } else if (task && task.id === WELLNESS_ID) {
+        if (mode !== "wellness") {
+          clear(leftBody);
+          leftBody.append(wellnessCard.el);
+          mode = "wellness";
+          cardKey = "";
+        }
+        wellnessCard.sync();
       } else if (task) {
         const info = State.integrations[task.id];
         const key = [
@@ -380,7 +394,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         }
       }
 
-      jump.style.display = detailOpen || mode === "plan" || mode === "diff" ? "none" : "";
+      jump.style.display = detailOpen || mode === "plan" || mode === "diff" || mode === "wellness" ? "none" : "";
 
       // Ctrl+↓ Ctrl+↑ walk the open GitHub list (cardItemCount / cardSelection).
       const rows = mode === "card" ? listRows(leftBody) : [];
@@ -395,10 +409,14 @@ function buildOverview(actions: ViewActions): ViewHost {
         pillIds = pillKey;
         clear(pills);
         spotifyPill = null;
+        wellnessPill = null;
         for (const t of others) {
           if (t.id === SPOTIFY_ID) {
             spotifyPill = buildSpotifyPill(t, () => actions.setFocus(t.id));
             pills.append(spotifyPill.el);
+          } else if (t.id === WELLNESS_ID) {
+            wellnessPill = buildWellnessPill(t, () => actions.setFocus(t.id));
+            pills.append(wellnessPill.el);
           } else {
             pills.append(buildPill(t, actions));
           }
@@ -406,6 +424,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         pruneMiniBots();
       }
       spotifyPill?.sync();
+      wellnessPill?.sync();
     },
   };
 }

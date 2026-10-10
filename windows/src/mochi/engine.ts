@@ -192,6 +192,15 @@ export function danceTransform(seconds: number, level: number, R: number) {
   };
 }
 
+/**
+ * How much bigger Mochi is at a breath `fill` (0…1) and session `level` (0…1):
+ * up to 16 % wider and 20 % taller, from the base, so it rises as it fills.
+ */
+export function breathTransform(fill: number, level: number) {
+  const f = Math.min(1, Math.max(0, fill)) * Math.min(1, Math.max(0, level));
+  return { sx: 1 + 0.16 * f, sy: 1 + 0.2 * f };
+}
+
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 export class BotEngine {
@@ -229,6 +238,14 @@ export class BotEngine {
   /** Dancing to music; `dancingLevel` follows it, 0→1 in 0.3 s, 1→0 in 0.5 s. */
   isDancing = false;
   dancingLevel = 0;
+
+  /**
+   * Guided breathing (the Wellness pill): `breathFill` is how full Mochi is,
+   * 0…1, set every frame; `breathLevel` fades the whole effect in and out.
+   */
+  isBreathing = false;
+  breathFill = 0;
+  breathLevel = 0;
 
   // Mouth spring (fraction of R)
   slotH = 0; slotHTarget = 0; slotHVel = 0; isChewing = false;
@@ -545,6 +562,7 @@ export class BotEngine {
       this.cfg.bounces || this.cfg.scans || this.cfg.breathes || this.cfg.zz || this.cfg.sweat ||
       this.isMini ||
       this.isDancing || this.dancingLevel > 0.001 ||
+      this.isBreathing || this.breathLevel > 0.001 ||
       Math.abs(this.tgYaw - this.yaw) > 0.002 ||
       Math.abs(this.tgPitch - this.pitch) > 0.002 ||
       Math.abs(this.tgTilt - this.tilt) > 0.002 ||
@@ -685,6 +703,10 @@ export class BotEngine {
     this.slotH = Math.max(0, this.slotH + this.slotHVel * dt);
 
     this.dancingLevel = stepDanceLevel(this.dancingLevel, this.isDancing, dt);
+    // The breathing session fades in over 0.6 s and out over 0.8 s.
+    this.breathLevel = this.isBreathing
+      ? Math.min(1, this.breathLevel + dt / 0.6)
+      : Math.max(0, this.breathLevel - dt / 0.8);
 
     // Soft-part spring: lags behind head turns, hops and rolls (stiffness 60, damping 9).
     if (dt > 0) {
@@ -761,6 +783,42 @@ export class BotEngine {
     x.translate(px + d.dx, py + d.dy);
     x.rotate(d.rotate);
     x.scale(d.sx, d.sy);
+    x.translate(-px, -py);
+  }
+
+  // ── Breathing ───────────────────────────────────────────────────────────────
+
+  /**
+   * A guided breathing session: Mochi closes its eyes and grows with each
+   * inhale. `fill` is 0 (empty) … 1 (full), from core/wellness.ts.
+   */
+  setBreathing(on: boolean, fill = 0) {
+    this.breathFill = Math.min(1, Math.max(0, fill));
+    if (this.isBreathing === on) return;
+    this.isBreathing = on;
+    if (on) {
+      this.permanentEye = "closed";
+      this.eyeOverride = "closed";
+      this.eyeOverrideUntil = Number.POSITIVE_INFINITY;
+    } else if (this.permanentEye === "closed") {
+      this.permanentEye = null;
+      this.eyeOverride = null;
+      this.eyeOverrideUntil = 0;
+    }
+  }
+
+  /**
+   * Grows the body from its base with the breath. Call it on a saved context,
+   * before draw(), like applyDance.
+   */
+  applyBreath(x: CanvasRenderingContext2D, W: number, H: number) {
+    if (this.breathLevel <= 0.001) return;
+    const R = W * 0.3;
+    const px = W / 2 + this.ox * R;
+    const py = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06 + R * 0.88;
+    const b = breathTransform(this.breathFill, this.breathLevel);
+    x.translate(px, py);
+    x.scale(b.sx, b.sy);
     x.translate(-px, -py);
   }
 

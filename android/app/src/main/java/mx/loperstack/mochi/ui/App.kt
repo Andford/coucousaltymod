@@ -100,6 +100,11 @@ import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.mochi.MOCHI_PALETTE
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Mood
+import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.mochi.wellness.BreathSession
+import mx.loperstack.mochi.wellness.calmDrop
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import mx.loperstack.mochi.wellness.BREATHE_MINUTES
 import mx.loperstack.mochi.wellness.Breathing
 import mx.loperstack.mochi.wellness.Phase
@@ -144,26 +149,44 @@ class Actions(private val context: Context) {
         val after = addTask(before, text, now, "${now.toString(36)}-${(0..9999).random()}")
         if (after.size == before.size) return false
         Store.setTasks(after)
+        Sounds.play("pop")
         return true
     }
 
     fun toggle(task: Task) {
         Store.setTasks(toggleTask(Store.state.value.tasks, task.id))
-        if (!task.done) jump++
+        if (!task.done) {
+            jump++
+            Sounds.play("approve")
+        } else Sounds.play("blip")
     }
 
-    fun remove(task: Task) = Store.setTasks(removeTask(Store.state.value.tasks, task.id))
-    fun clearDone() = Store.setTasks(clearDone(Store.state.value.tasks))
+    fun remove(task: Task) {
+        Store.setTasks(removeTask(Store.state.value.tasks, task.id))
+        Sounds.play("blip")
+    }
+
+    fun clearDone() {
+        Store.setTasks(clearDone(Store.state.value.tasks))
+        Sounds.play("blip")
+    }
+
+    /** A poke on Mochi. */
+    fun poke() {
+        jump++
+        Sounds.play(listOf("wink", "pop", "love").random())
+    }
 
     /** Start, pause or resume — the main button. */
     fun playPause() {
         val now = System.currentTimeMillis()
         val p = Store.state.value.pomodoro
         val next = when {
-            p.phase == Phase.IDLE -> p.startFocus(now).also { jump++ }
+            p.phase == Phase.IDLE -> p.startFocus(now).also { jump++; Sounds.play("work") }
             p.isPaused() -> p.resume(now)
             else -> p.pause(now)
         }
+        if (p.phase != Phase.IDLE) Sounds.play("blip")
         Store.setPomodoro(next)
         PomodoroScheduler.sync(context, next, now)
     }
@@ -184,11 +207,18 @@ class Actions(private val context: Context) {
 
     fun startBreathing(minutes: Int) {
         breathing = Breathing(System.currentTimeMillis(), minutes)
+        Sounds.play("open")
     }
 
     fun stopBreathing(completed: Boolean) {
+        val b = breathing
+        val start = b.startedAt
         breathing = Breathing()
-        if (completed) jump++
+        if (completed && start != null) {
+            jump++
+            Sounds.play("love")
+            Store.addSession(BreathSession(start, b.minutes, b.minutes * 6, device = "phone"))
+        } else Sounds.play("close")
     }
 
     fun open(url: String) {
@@ -305,7 +335,7 @@ fun MochiApp(startTab: Tab = Tab.HOME) {
                         )
                         Tab.TASKS -> TasksScreen(data.tasks, actions)
                         Tab.FOCUS -> FocusScreen(data.tasks, data.pomodoro, now, color, actions, startPomodoro)
-                        Tab.BREATHE -> BreatheScreen(color, actions)
+                        Tab.BREATHE -> BreatheScreen(color, actions, data.sessions)
                         Tab.PC -> PcScreen(now)
                     }
                 }
@@ -313,7 +343,20 @@ fun MochiApp(startTab: Tab = Tab.HOME) {
         }
         if (showColors) {
             ModalBottomSheet(onDismissRequest = { showColors = false }, containerColor = Ink.CardHigh) {
-                ColorPicker(data.mochiColor, color) { Store.setColor(it) }
+                ColorPicker(data.mochiColor, color) { Store.setColor(it); Sounds.play("pop") }
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 36.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Sonidos de Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Label("Los mismos de la PC, en el teléfono y el reloj", Ink.Dim2)
+                    }
+                    Switch(
+                        checked = data.soundOn, onCheckedChange = { Store.setSound(it); if (it) Sounds.play("pop") },
+                        colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet),
+                    )
+                }
             }
         }
     }
@@ -471,7 +514,7 @@ fun HomeScreen(
         Spacer(Modifier.height(16.dp))
         Panel(Modifier.fillMaxWidth(), padding = 20.dp) {
             Mochi(
-                Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp).clickable { actions.jump++ },
+                Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp).clickable { actions.poke() },
                 color = color,
                 mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
                 jump = actions.jump,
@@ -619,7 +662,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
 // ── Respirar ──────────────────────────────────────────────────────────────────
 
 @Composable
-fun BreatheScreen(color: Color, actions: Actions) {
+fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> = emptyList()) {
     val b = actions.breathing
     val active = b.startedAt != null
     val now = rememberFrameNow(active)
@@ -658,6 +701,10 @@ fun BreatheScreen(color: Color, actions: Actions) {
                             Text("$m min", color = Ink.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
+                }
+                if (sessions.isNotEmpty()) {
+                    Spacer(Modifier.height(26.dp))
+                    SessionHistory(sessions)
                 }
             }
             Spacer(Modifier.weight(1f))
@@ -763,7 +810,7 @@ fun DeskScreen(
                 Text(hourMinute(now), fontSize = 100.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 100.sp)
             }
             Mochi(
-                Modifier.fillMaxWidth().aspectRatio(1.4f).clickable { actions.jump++ }, color = color,
+                Modifier.fillMaxWidth().aspectRatio(1.4f).clickable { actions.poke() }, color = color,
                 mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
             )
             Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
@@ -795,6 +842,50 @@ fun DeskScreen(
                 }
                 NewTaskField(actions)
             }
+        }
+    }
+}
+
+// ── Historial de respiración ──────────────────────────────────────────────────
+
+/** The week's minutes per day, Monday first, and the last sessions. */
+@Composable
+fun SessionHistory(sessions: List<BreathSession>) {
+    val now = System.currentTimeMillis()
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = now
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
+        add(Calendar.DAY_OF_YEAR, -dow)
+    }
+    val weekStart = cal.timeInMillis
+    val perDay = IntArray(7)
+    for (s in sessions) {
+        val d = ((s.at - weekStart) / 86_400_000L).toInt()
+        if (d in 0..6) perDay[d] += s.minutes
+    }
+    val maxMin = (perDay.maxOrNull() ?: 0).coerceAtLeast(5)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Label("Esta semana · ${perDay.sum()} min", Ink.Dim, weight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.height(56.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+            val days = listOf("L", "M", "M", "J", "V", "S", "D")
+            for (i in 0..6) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier.width(14.dp).height((4 + 36f * perDay[i] / maxMin).dp)
+                            .clip(RoundedCornerShape(4.dp)).background(if (perDay[i] > 0) Ink.Violet else Color(0x1AFFFFFF)),
+                    )
+                    Text(days[i], fontSize = 10.sp, color = Ink.Dim2)
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        for (s in sessions.takeLast(3).reversed()) {
+            val hr = if (s.hrStart > 0 && s.hrEnd > 0) " · ${s.hrStart}→${s.hrEnd} lpm" else ""
+            val calm = s.calmDrop().takeIf { it >= 0.03f }?.let { " · ${(it * 100).toInt()}% más calma" } ?: ""
+            val where = if (s.device == "watch") "Reloj" else "Teléfono"
+            Label("${SimpleDateFormat("EEE HH:mm", ES).format(Date(s.at))} · ${s.minutes} min$hr$calm · $where", Ink.Dim2)
         }
     }
 }

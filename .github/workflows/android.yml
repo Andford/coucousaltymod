@@ -54,10 +54,11 @@ jobs:
       - name: Build the APK
         run: gradle -p android assembleDebug --stacktrace
 
-      - name: Name the APK
+      - name: Name the APKs
         run: |
           mkdir -p out
           cp android/app/build/outputs/apk/debug/app-debug.apk "out/Mochi-${GITHUB_SHA::7}.apk"
+          cp android/wear/build/outputs/apk/debug/wear-debug.apk "out/Mochi-Watch-${GITHUB_SHA::7}.apk"
 
       - uses: actions/upload-artifact@v4
         with:

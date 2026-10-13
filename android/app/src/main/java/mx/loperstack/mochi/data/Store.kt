@@ -9,7 +9,10 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.Phase
+import mx.loperstack.mochi.wellness.sessionsJson
+import mx.loperstack.mochi.wellness.sessionsOf
 import mx.loperstack.mochi.wellness.Pomodoro
 import mx.loperstack.mochi.wellness.Task
 import mx.loperstack.mochi.wellness.TASK_LIMIT
@@ -22,12 +25,18 @@ data class AppData(
     /** ARGB; the violet of the PC's Bienestar pill by default. */
     val mochiColor: Long = 0xFFA78BFA,
     val pomodoro: Pomodoro = Pomodoro(),
+    /** Breathing sessions from the phone and the watch, newest last (at most 200). */
+    val sessions: List<BreathSession> = emptyList(),
+    val soundOn: Boolean = true,
 )
 
 object Store {
     private lateinit var prefs: SharedPreferences
     private val _state = MutableStateFlow(AppData())
     val state: StateFlow<AppData> = _state.asStateFlow()
+
+    /** Told after every change (the watch sync listens). */
+    @Volatile var onChange: (() -> Unit)? = null
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
@@ -36,22 +45,40 @@ object Store {
             tasks = parseTasks(prefs.getString("tasks", null)),
             mochiColor = prefs.getLong("mochiColor", 0xFFA78BFA),
             pomodoro = parsePomodoro(prefs.getString("pomodoro", null)),
+            sessions = sessionsOf(prefs.getString("sessions", null)),
+            soundOn = prefs.getBoolean("soundOn", true),
         )
     }
 
     fun setTasks(tasks: List<Task>) {
         _state.value = _state.value.copy(tasks = tasks)
         prefs.edit().putString("tasks", tasksJson(tasks)).apply()
+        onChange?.invoke()
     }
 
     fun setColor(argb: Long) {
         _state.value = _state.value.copy(mochiColor = argb)
         prefs.edit().putLong("mochiColor", argb).apply()
+        onChange?.invoke()
     }
 
     fun setPomodoro(p: Pomodoro) {
         _state.value = _state.value.copy(pomodoro = p)
         prefs.edit().putString("pomodoro", pomodoroJson(p)).apply()
+        onChange?.invoke()
+    }
+
+    fun addSession(session: BreathSession) {
+        if (_state.value.sessions.any { it.at == session.at && it.device == session.device }) return
+        val list = (_state.value.sessions + session).sortedBy { it.at }.takeLast(200)
+        _state.value = _state.value.copy(sessions = list)
+        prefs.edit().putString("sessions", sessionsJson(list)).apply()
+    }
+
+    fun setSound(on: Boolean) {
+        _state.value = _state.value.copy(soundOn = on)
+        prefs.edit().putBoolean("soundOn", on).apply()
+        onChange?.invoke()
     }
 }
 

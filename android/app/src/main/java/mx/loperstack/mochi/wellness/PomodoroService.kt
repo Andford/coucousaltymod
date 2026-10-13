@@ -14,14 +14,17 @@ import android.content.Intent
 import android.graphics.Color
 import android.app.Notification
 import mx.loperstack.mochi.MainActivity
-import mx.loperstack.mochi.R
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.WearSync
+import android.media.AudioAttributes
+import android.net.Uri
 
 private val NO_ICON: android.graphics.drawable.Icon? = null
 
 object PomodoroScheduler {
     private const val CHANNEL_RUNNING = "pomodoro_running"
-    private const val CHANNEL_DONE = "pomodoro_done"
+    // v2: with Mochi's own "finish" sound.
+    private const val CHANNEL_DONE = "pomodoro_done_v2"
     private const val ID_RUNNING = 1
     private const val ID_DONE = 2
 
@@ -38,11 +41,16 @@ object PomodoroScheduler {
                 setShowBadge(false)
             },
         )
+        nm.deleteNotificationChannel("pomodoro_done")
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_DONE, "Fin de bloque", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Cuando termina un bloque de enfoque o un descanso"
                 enableVibration(true)
                 lightColor = Color.parseColor("#A78BFA")
+                setSound(
+                    Uri.parse("android.resource://${context.packageName}/${mx.loperstack.mochi.shared.R.raw.finish}"),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build(),
+                )
             },
         )
     }
@@ -75,7 +83,7 @@ object PomodoroScheduler {
         }
         val title = phaseTitle(p.phase)
         val builder = Notification.Builder(context, CHANNEL_RUNNING)
-            .setSmallIcon(R.drawable.ic_stat_mochi)
+            .setSmallIcon(mx.loperstack.mochi.shared.R.drawable.ic_stat_mochi)
             .setColor(Color.parseColor("#A78BFA"))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -117,7 +125,7 @@ object PomodoroScheduler {
             PomodoroEvent.BREAK_DONE -> "De vuelta al enfoque" to "25 minutos más, tú puedes"
         }
         val n = Notification.Builder(context, CHANNEL_DONE)
-            .setSmallIcon(R.drawable.ic_stat_mochi)
+            .setSmallIcon(mx.loperstack.mochi.shared.R.drawable.ic_stat_mochi)
             .setColor(Color.parseColor("#A78BFA"))
             .setContentTitle(title)
             .setContentText(text)
@@ -154,5 +162,6 @@ class PomodoroReceiver : BroadcastReceiver() {
         }
         Store.setPomodoro(next)
         PomodoroScheduler.sync(context, next, now)
+        WearSync.push(context)
     }
 }

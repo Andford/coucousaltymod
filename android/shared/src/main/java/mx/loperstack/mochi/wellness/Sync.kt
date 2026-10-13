@@ -1,0 +1,145 @@
+// What the phone and the watch tell each other (Wearable Data Layer):
+// - phone → watch: a Snapshot (tasks, Mochi's colour, the phone's battery, the
+//   next events, the Pomodoro), as one DataItem at STATE_PATH;
+// - watch → phone: small messages (toggle or add a task, a breathing session,
+//   start/pause the Pomodoro, "send me the state").
+// Plain JSON, so both sides and the tests read the same thing.
+
+package mx.loperstack.mochi.wellness
+
+import org.json.JSONArray
+import org.json.JSONObject
+
+object SyncPaths {
+    const val STATE = "/mochi/state"
+    const val TOGGLE_TASK = "/mochi/task/toggle"
+    const val ADD_TASK = "/mochi/task/add"
+    const val SESSION = "/mochi/session"
+    const val POMODORO = "/mochi/pomodoro/toggle"
+    const val REQUEST = "/mochi/sync"
+}
+
+data class EventLite(val title: String, val begin: Long, val end: Long, val allDay: Boolean, val meetUrl: String?)
+
+data class Snapshot(
+    val tasks: List<Task> = emptyList(),
+    val mochiColor: Long = 0xFFA78BFA,
+    val phoneBattery: Int = -1,
+    val phoneCharging: Boolean = false,
+    val events: List<EventLite> = emptyList(),
+    val pomodoro: Pomodoro = Pomodoro(),
+    val soundOn: Boolean = true,
+    val at: Long = 0,
+)
+
+/** A breathing session, from the phone or the watch (heart rate only from the watch). */
+data class BreathSession(
+    val at: Long,
+    val minutes: Int,
+    val breaths: Int,
+    /** Beats per minute; 0 = not measured. */
+    val hrStart: Int = 0,
+    val hrEnd: Int = 0,
+    val hrMin: Int = 0,
+    val device: String = "phone",
+)
+
+/** How much calmer: the drop from the first to the last beats, as a share. 0 when not measured. */
+fun BreathSession.calmDrop(): Float =
+    if (hrStart <= 0 || hrEnd <= 0) 0f else ((hrStart - hrEnd).toFloat() / hrStart).coerceAtLeast(0f)
+
+fun taskJson(t: Task): JSONObject =
+    JSONObject().put("id", t.id).put("text", t.text).put("done", t.done).put("createdAt", t.createdAt)
+
+fun taskOf(o: JSONObject?): Task? {
+    o ?: return null
+    val id = o.optString("id", "")
+    val text = o.optString("text", "").trim()
+    return if (id.isEmpty() || text.isEmpty()) null else Task(id, text.take(TASK_MAX_LEN), o.optBoolean("done"), o.optLong("createdAt"))
+}
+
+fun Snapshot.toJson(): String = JSONObject()
+    .put("tasks", JSONArray().apply { tasks.forEach { put(taskJson(it)) } })
+    .put("color", mochiColor)
+    .put("battery", phoneBattery)
+    .put("charging", phoneCharging)
+    .put("events", JSONArray().apply {
+        events.forEach {
+            put(JSONObject().put("title", it.title).put("begin", it.begin).put("end", it.end).put("allDay", it.allDay).put("meet", it.meetUrl ?: ""))
+        }
+    })
+    .put("pomodoro", JSONObject()
+        .put("phase", pomodoro.phase.name)
+        .put("endsAt", pomodoro.endsAt ?: 0L)
+        .put("pausedLeft", pomodoro.pausedLeft ?: -1)
+        .put("today", pomodoro.today))
+    .put("sound", soundOn)
+    .put("at", at)
+    .toString()
+
+fun snapshotOf(raw: String?): Snapshot {
+    if (raw.isNullOrBlank()) return Snapshot()
+    return try {
+        val o = JSONObject(raw)
+        val tasks = o.optJSONArray("tasks")?.let { a -> (0 until a.length()).mapNotNull { taskOf(a.optJSONObject(it)) } } ?: emptyList()
+        val events = o.optJSONArray("events")?.let { a ->
+            (0 until a.length()).mapNotNull { i ->
+                val e = a.optJSONObject(i) ?: return@mapNotNull null
+                EventLite(
+                    e.optString("title", ""), e.optLong("begin"), e.optLong("end"), e.optBoolean("allDay"),
+                    e.optString("meet", "").takeIf { it.startsWith("https://") },
+                )
+            }
+        } ?: emptyList()
+        val p = o.optJSONObject("pomodoro")
+        val phase = runCatching { Phase.valueOf(p?.optString("phase") ?: "IDLE") }.getOrDefault(Phase.IDLE)
+        Snapshot(
+            tasks = tasks,
+            mochiColor = o.optLong("color", 0xFFA78BFA),
+            phoneBattery = o.optInt("battery", -1),
+            phoneCharging = o.optBoolean("charging"),
+            events = events,
+            pomodoro = Pomodoro(
+                phase = phase,
+                endsAt = p?.optLong("endsAt")?.takeIf { it > 0 && phase != Phase.IDLE },
+                pausedLeft = p?.optInt("pausedLeft", -1)?.takeIf { it >= 0 && phase != Phase.IDLE },
+                today = p?.optInt("today") ?: 0,
+            ),
+            soundOn = o.optBoolean("sound", true),
+            at = o.optLong("at"),
+        )
+    } catch (_: Exception) {
+        Snapshot()
+    }
+}
+
+fun BreathSession.toJson(): String = JSONObject()
+    .put("at", at).put("minutes", minutes).put("breaths", breaths)
+    .put("hrStart", hrStart).put("hrEnd", hrEnd).put("hrMin", hrMin).put("device", device)
+    .toString()
+
+fun sessionOf(raw: String?): BreathSession? = try {
+    val o = JSONObject(raw ?: "")
+    BreathSession(
+        o.getLong("at"), o.optInt("minutes"), o.optInt("breaths"),
+        o.optInt("hrStart"), o.optInt("hrEnd"), o.optInt("hrMin"), o.optString("device", "phone"),
+    )
+} catch (_: Exception) {
+    null
+}
+
+fun sessionsJson(list: List<BreathSession>): String = JSONArray().apply { list.forEach { put(JSONObject(it.toJson())) } }.toString()
+
+fun sessionsOf(raw: String?): List<BreathSession> = try {
+    val a = JSONArray(raw ?: "[]")
+    (0 until a.length()).mapNotNull { sessionOf(a.optJSONObject(it)?.toString()) }
+} catch (_: Exception) {
+    emptyList()
+}
+
+/** Next events for the watch: not over, soonest first, at most `max`. */
+fun nextEvents(events: List<EventLite>, now: Long, max: Int = 5) =
+    events.filter { it.end > now }.sortedBy { it.begin }.take(max)
+
+/** "En 12 min", "Ahora", or null past an hour (the caller shows the time). */
+fun minutesUntil(begin: Long, now: Long): Int = ((begin - now) / 60_000).toInt()

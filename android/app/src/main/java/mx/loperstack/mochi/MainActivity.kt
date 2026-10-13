@@ -7,6 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.WearSync
+import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.ui.MochiApp
 import mx.loperstack.mochi.ui.Tab
 import mx.loperstack.mochi.wellness.PomodoroScheduler
@@ -24,6 +26,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Store.init(this)
+        Sounds.init(this)
+        Sounds.enabled = Store.state.value.soundOn
+        // Every change goes to the watch, if there is one.
+        Store.onChange = {
+            Sounds.enabled = Store.state.value.soundOn
+            WearSync.push(applicationContext)
+        }
         PomodoroScheduler.channels(this)
         catchUp()
         startTab.value = tabOf(intent)
@@ -38,6 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         catchUp()
+        WearSync.push(this)
     }
 
     /** A phase that ended while the alarm could not run: move on, quietly. */

@@ -2633,10 +2633,10 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 
 .wl-card {
   height: 100%;
-  padding: 8px 12px 8px 108px;
+  padding: 7px 12px 6px 108px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-height: 0;
 }
 
@@ -2874,10 +2874,13 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
   align-items: center;
   gap: 9px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .wl-ring {
   flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
 }
 
 .wl-ring .fill {
@@ -2887,12 +2890,26 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 .wl-clock-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.wl-time-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
 }
 
+.wl-time-row .wl-phase {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .wl-time {
-  font: 600 20px var(--font);
+  font: 600 19px var(--font);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -2915,13 +2932,13 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 .wl-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: auto;
+  gap: 5px;
+  margin-top: 2px;
 }
 
 .btn.wl-main {
-  padding: 4px 14px;
-  font-size: 11.5px;
+  padding: 3px 12px;
+  font-size: 11px;
 }
 
 /* Breathe */
@@ -2942,14 +2959,20 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
   color: var(--dim-2);
 }
 
+.wl-breathe-idle .wl-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .wl-durations {
   display: flex;
-  gap: 6px;
-  margin-top: 5px;
+  gap: 5px;
+  margin-top: 4px;
 }
 
 .btn.wl-dur {
-  padding: 4px 11px;
+  padding: 3px 10px;
   font-size: 11px;
 }
 
@@ -2972,8 +2995,8 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 
 .wl-orb {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #c4b5fd 0%, #a78bfa 45%, rgba(167, 139, 250, 0.15) 100%);
   box-shadow: 0 0 18px rgba(167, 139, 250, 0.45);
@@ -3008,4 +3031,101 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
 .pill.wl-pill.wl-live .lbl {
   font-variant-numeric: tabular-nums;
   color: #c4b5fd;
+}
+
+/* Four tabs in the card: the inactive ones keep only their icon (and the badge). */
+.wl-tab:not(.on) > span {
+  display: none;
+}
+
+.wl-tab:not(.on) {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+}
+
+.wl-tab.on {
+  flex: 1 1 auto;
+}
+
+/* Agenda */
+
+.wl-agenda {
+  gap: 0;
+}
+
+.wl-day {
+  font: 600 9.5px var(--font);
+  color: var(--dim-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 2px 1px;
+}
+
+.wl-event {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 17px;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+
+.wl-event.next {
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.wl-event.now .wl-event-time {
+  color: #4ade80;
+}
+
+.wl-event-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.wl-event-time {
+  flex: 0 0 auto;
+  min-width: 38px;
+  font: 500 10.5px var(--font);
+  color: #c4b5fd;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wl-join {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+  font-size: 10px;
+}
+
+.wl-join:hover {
+  background: rgba(74, 222, 128, 0.32);
+}
+
+.wl-agenda-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.wl-agenda-msg .wl-sub {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wl-agenda-msg .btn {
+  margin-top: 2px;
+}
+
+.wl-error {
+  font: 400 10px var(--font);
+  color: #f5a524;
 }

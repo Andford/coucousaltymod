@@ -9,7 +9,7 @@
 export const WELLNESS_ID = "integration_wellness";
 export const WELLNESS_COLOR = "#A78BFA";
 
-export type WellnessTab = "tasks" | "focus" | "breathe";
+export type WellnessTab = "tasks" | "focus" | "breathe" | "agenda";
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
@@ -19,6 +19,8 @@ export interface Task {
   done: boolean;
   /** Unix ms. */
   createdAt: number;
+  /** A Google Tasks task (its id is Google's); local ones have none. */
+  remote?: boolean;
 }
 
 /** Longest task text kept; the card shows one line anyway. */
@@ -72,6 +74,7 @@ export function parseTasks(raw: unknown): Task[] {
       text: o.text.slice(0, TASK_MAX_LEN),
       done: o.done === true,
       createdAt: typeof o.createdAt === "number" ? o.createdAt : 0,
+      ...(o.remote === true ? { remote: true } : {}),
     });
   }
   return out.slice(-TASK_LIMIT);
@@ -285,6 +288,105 @@ export function breathFrame(b: Breathing, nowMs: number): BreathFrame {
   };
 }
 
+// ── Google Calendar & Tasks ───────────────────────────────────────────────────
+
+export interface GoogleStatus {
+  /** A client ID and secret are saved. */
+  configured: boolean;
+  /** Signed in. */
+  connected: boolean;
+  email: string | null;
+}
+
+export interface CalEvent {
+  id: string;
+  title: string;
+  /** RFC 3339, or YYYY-MM-DD for an all-day event. */
+  start: string;
+  end: string;
+  allDay: boolean;
+  meetUrl: string | null;
+  color: string | null;
+}
+
+export interface GTask {
+  id: string;
+  title: string;
+  done: boolean;
+  updated: string;
+}
+
+/** Minutes before an event Mochi comes to say so. */
+export const REMINDER_LEAD_MIN = 10;
+
+/** "2026-10-13" as local midnight; anything else as an instant. */
+export function eventMs(when: string): number {
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when);
+  if (day) return new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])).getTime();
+  return Date.parse(when);
+}
+
+/** RFC 3339 with the local offset, as Google's timeMin wants it. */
+export function localIso(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(Math.trunc(Math.abs(n))).padStart(2, "0");
+  const off = -d.getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${sign}${pad(off / 60)}:${pad(off % 60)}`;
+}
+
+/** What the agenda asks Google for: today from midnight to the end of tomorrow. */
+export function agendaWindow(nowMs: number): { timeMin: string; timeMax: string } {
+  const d = new Date(nowMs);
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2).getTime();
+  return { timeMin: localIso(start), timeMax: localIso(end) };
+}
+
+export type EventDay = "today" | "tomorrow" | "later";
+
+export function eventDay(e: CalEvent, nowMs: number): EventDay {
+  const d = new Date(nowMs);
+  const tomorrow = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  const after = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2).getTime();
+  const at = eventMs(e.start);
+  return at < tomorrow ? "today" : at < after ? "tomorrow" : "later";
+}
+
+/** Events not over yet, soonest first; all-day ones lead their day. */
+export function upcomingEvents(events: readonly CalEvent[], nowMs: number): CalEvent[] {
+  return events
+    .filter((e) => eventMs(e.end) > nowMs)
+    .sort((a, b) => eventMs(a.start) - eventMs(b.start) || Number(b.allDay) - Number(a.allDay));
+}
+
+/** The next timed event that has not started, if any. */
+export function nextEvent(events: readonly CalEvent[], nowMs: number): CalEvent | null {
+  return upcomingEvents(events, nowMs).find((e) => !e.allDay && eventMs(e.start) > nowMs) ?? null;
+}
+
+/** Timed events starting within the lead time that Mochi has not announced yet. */
+export function dueReminders(
+  events: readonly CalEvent[], nowMs: number, announced: ReadonlySet<string>, leadMin = REMINDER_LEAD_MIN,
+): CalEvent[] {
+  return events.filter((e) => {
+    if (e.allDay || announced.has(reminderKey(e))) return false;
+    const until = eventMs(e.start) - nowMs;
+    return until > -60_000 && until <= leadMin * 60_000;
+  });
+}
+
+/** An event moved to another time is announced again. */
+export function reminderKey(e: CalEvent): string {
+  return `${e.id}@${e.start}`;
+}
+
+/** Google's tasks as the card's: pending in Google's order, done after. */
+export function fromGoogle(list: readonly GTask[]): Task[] {
+  return list.map((g, i) => ({ id: g.id, text: g.title, done: g.done, createdAt: i, remote: true }));
+}
+
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 /** 1500 → "25:00". */
@@ -315,10 +417,17 @@ function write(key: string, value: unknown) {
 }
 
 function parseTab(raw: unknown): WellnessTab {
-  return raw === "focus" || raw === "breathe" ? raw : "tasks";
+  return raw === "focus" || raw === "breathe" || raw === "agenda" ? raw : "tasks";
 }
 
 export const Wellness = {
+  /** Google: whether it is set up and signed in (null until asked). */
+  google: null as GoogleStatus | null,
+  events: [] as CalEvent[],
+  /** Unix ms of the last good calendar read; 0 = never. */
+  eventsAt: 0,
+  /** The last Google error, for the card ("" = fine). */
+  googleError: "",
   tasks: parseTasks(read(STORE.tasks)),
   pomodoro: parsePomodoro(read(STORE.pomodoro)),
   breathing: { ...IDLE_BREATHING } as Breathing,

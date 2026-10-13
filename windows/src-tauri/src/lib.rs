@@ -9,6 +9,7 @@ mod config_file;
 mod desktop;
 mod files;
 mod github;
+mod google;
 mod hooks;
 mod i18n;
 mod identity;
@@ -502,6 +503,10 @@ fn secret_set(app: AppHandle, key: String, value: String) -> Result<(), String> 
     if key == local_chat::CUSTOM_KEY {
         return Err("use local_set_key".into());
     }
+    // Only Google's own sign-in writes these (google.rs).
+    if key == google::REFRESH_KEY || key == google::EMAIL_KEY {
+        return Err("use google_connect".into());
+    }
     let before = (key == "github-token").then(|| secrets::get(&key));
     secrets::set(&key, &value)?;
     if let Some(before) = before {
@@ -739,6 +744,15 @@ pub fn run() {
             spotify::spotify_control,
             spotify::spotify_open,
             spotify::spotify_installed,
+            google::google_status,
+            google::google_connect,
+            google::google_disconnect,
+            google::google_events,
+            google::google_tasks,
+            google::google_task_add,
+            google::google_task_set_done,
+            google::google_task_delete,
+            google::google_tasks_clear_done,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

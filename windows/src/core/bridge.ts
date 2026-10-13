@@ -8,6 +8,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { Settings } from "./state";
 import type { RecapHistory, RecapPrefs } from "../recap/summary";
 import type { SpotifyState } from "./spotify";
+import type { CalEvent, GTask, GoogleStatus } from "./wellness";
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -221,6 +222,18 @@ export const Bridge = {
   spotifyOpen: () => call<boolean>("spotify_open"),
   /** Whether there is a Spotify to launch (Settings). */
   spotifyInstalled: () => call<boolean>("spotify_installed"),
+
+  // ── Google Calendar & Tasks (src-tauri/src/google.rs, coucousaltymod) ─────
+  googleStatus: () => call<GoogleStatus>("google_status"),
+  /** Opens Google's sign-in in the browser and waits for it (up to 5 minutes). */
+  googleConnect: () => callOrThrow<GoogleStatus>("google_connect"),
+  googleDisconnect: () => callOrThrow<GoogleStatus>("google_disconnect"),
+  googleEvents: (timeMin: string, timeMax: string) => callOrThrow<CalEvent[]>("google_events", { timeMin, timeMax }),
+  googleTasks: () => callOrThrow<GTask[]>("google_tasks"),
+  googleTaskAdd: (title: string) => callOrThrow<GTask>("google_task_add", { title }),
+  googleTaskSetDone: (id: string, done: boolean) => callOrThrow<void>("google_task_set_done", { id, done }),
+  googleTaskDelete: (id: string) => callOrThrow<void>("google_task_delete", { id }),
+  googleTasksClearDone: () => callOrThrow<void>("google_tasks_clear_done"),
 };
 
 export type SpotifyAction = "playPause" | "next" | "previous" | "seek" | "shuffle" | "repeat" | "volume";

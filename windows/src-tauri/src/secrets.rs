@@ -20,6 +20,11 @@ pub const KNOWN_KEYS: &[&str] = &[
     "resend-api-key",
     "notion-api-key",
     "calcom-api-key",
+    // The Bienestar pill's Google Calendar and Tasks (google.rs).
+    "google-oauth-client-id",
+    "google-oauth-client-secret",
+    "google-refresh-token",
+    "google-account-email",
 ];
 
 fn entry(key: &str) -> Option<Entry> {

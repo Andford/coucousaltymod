@@ -7,12 +7,16 @@ import { h, svg, clear } from "./dom";
 import { ICONS } from "./icons";
 import type { AgentTask } from "../core/state";
 import {
-  BREATHE_MINUTES, Wellness, WELLNESS_COLOR, WELLNESS_ID, breathFrame, clock, isPaused, isRunning, orderedTasks, pendingCount,
-  pomodoroLeft, pomodoroProgress, type WellnessTab,
+  BREATHE_MINUTES, Wellness, WELLNESS_COLOR, WELLNESS_ID, breathFrame, clock, eventDay, eventMs, isPaused, isRunning,
+  nextEvent, orderedTasks, pendingCount, pomodoroLeft, pomodoroProgress, upcomingEvents, type CalEvent, type WellnessTab,
 } from "../core/wellness";
-import { WellnessControl } from "../island/wellness";
+import { WellnessControl, refreshGoogle } from "../island/wellness";
+import { Bridge } from "../core/bridge";
 import { createMiniBot } from "../mochi/minibots";
-import { t, tl } from "../i18n/i18n";
+import { language, t, tl } from "../i18n/i18n";
+
+/** calendar, on the 24×24 grid of views/icons.ts. */
+const CALENDAR_ICON = "M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2zm12 8H5v9h14v-9z";
 
 export interface WellnessHost {
   el: HTMLElement;
@@ -29,7 +33,23 @@ export function wellnessPillLabel(name: string, nowMs: number): string {
   if (b.active) return `${t("Breathe")} ${clock(b.left)}`;
   const p = Wellness.pomodoro;
   if (p.phase !== "idle") return clock(pomodoroLeft(p, nowMs));
+  // An event within the hour: how long until it.
+  const next = nextEvent(Wellness.events, nowMs);
+  if (next) {
+    const min = Math.ceil((eventMs(next.start) - nowMs) / 60_000);
+    if (min <= 60) return t("In {minutes} min", { minutes: min });
+  }
   return name;
+}
+
+/** "10:30", in the island's language. */
+export function eventTime(e: CalEvent): string {
+  if (e.allDay) return t("All day");
+  try {
+    return new Date(eventMs(e.start)).toLocaleTimeString(language(), { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return new Date(eventMs(e.start)).toTimeString().slice(0, 5);
+  }
 }
 
 export function buildWellnessPill(task: AgentTask, onTap: () => void): { el: HTMLElement; sync(): void } {
@@ -66,8 +86,13 @@ export function buildWellnessCard(): WellnessHost {
     tasks: h("button", { class: "wl-tab", onclick: () => WellnessControl.setTab("tasks") }, svg(ICONS.check, 9, { stroke: 2.6 }), h("span", { text: tl("Tasks") }), badge),
     focus: h("button", { class: "wl-tab", onclick: () => WellnessControl.setTab("focus") }, svg(ICONS.timer, 9), h("span", { text: tl("Focus") })),
     breathe: h("button", { class: "wl-tab", onclick: () => WellnessControl.setTab("breathe") }, h("i", { class: "wl-tab-dot" }), h("span", { text: tl("Breathe") })),
+    agenda: h("button", { class: "wl-tab", onclick: () => WellnessControl.setTab("agenda") }, svg(CALENDAR_ICON, 9), h("span", { text: tl("Agenda") })),
   };
-  const tabRow = h("div", { class: "wl-tabs" }, tabs.tasks, tabs.focus, tabs.breathe);
+  tabs.tasks.title = t("Tasks");
+  tabs.focus.title = t("Focus");
+  tabs.breathe.title = t("Breathe");
+  tabs.agenda.title = t("Agenda");
+  const tabRow = h("div", { class: "wl-tabs" }, tabs.tasks, tabs.focus, tabs.breathe, tabs.agenda);
 
   // ── Tasks ──
   const input = h("input", {
@@ -136,9 +161,13 @@ export function buildWellnessCard(): WellnessHost {
   const mainBtn = h("button", { class: "btn primary wl-main", onclick: () => WellnessControl.playPause() }, mainLabel);
   const skipBtn = h("button", { class: "wl-icon", title: tl("Skip"), onclick: () => WellnessControl.skip() }, svg(ICONS.forward, 9));
   const resetBtn = h("button", { class: "wl-icon", title: tl("Reset"), onclick: () => WellnessControl.reset() }, svg(ICONS.arrowClockwise, 9, { stroke: 2.4 }));
+  // One row: the ring, then the time, the phase and the buttons stacked.
   const focusPane = h("div", { class: "wl-pane wl-focus" },
-    h("div", { class: "wl-clock" }, ring, h("div", { class: "wl-clock-text" }, time, phaseLabel, working)),
-    h("div", { class: "wl-actions" }, mainBtn, skipBtn, resetBtn),
+    h("div", { class: "wl-clock" }, ring, h("div", { class: "wl-clock-text" },
+      h("div", { class: "wl-time-row" }, time, phaseLabel),
+      working,
+      h("div", { class: "wl-actions" }, mainBtn, skipBtn, resetBtn),
+    )),
   );
 
   function syncFocus(now: number) {
@@ -168,7 +197,7 @@ export function buildWellnessCard(): WellnessHost {
       h("span", { text: t("{minutes} min", { minutes: m }) })));
   }
   const breatheIdle = h("div", { class: "wl-breathe-idle" },
-    h("div", { class: "wl-title", text: tl("Breathe with Mochi") }),
+    h("div", { class: "wl-title", text: tl("Breathe with Mochi"), title: tl("Inhale as Mochi grows, exhale as it shrinks.") }),
     h("div", { class: "wl-sub", text: tl("Inhale as Mochi grows, exhale as it shrinks.") }),
     pick,
   );
@@ -197,10 +226,77 @@ export function buildWellnessCard(): WellnessHost {
     orb.style.transform = `scale(${0.55 + 0.45 * b.fill})`;
   }
 
+  // ── Agenda ──
+  const agendaList = h("div", { class: "wl-list wl-agenda" });
+  const agendaMsg = h("div", { class: "wl-agenda-msg" });
+  const agendaPane = h("div", { class: "wl-pane" }, agendaList, agendaMsg);
+  let agendaKey = "";
+
+  function syncAgenda(now: number) {
+    const g = Wellness.google;
+    const minuteNow = Math.floor(now / 60_000);
+    const key = [g?.configured, g?.connected, Wellness.eventsAt, Wellness.googleError, minuteNow, language()].join("~");
+    if (key === agendaKey) return;
+    agendaKey = key;
+    clear(agendaList);
+    clear(agendaMsg);
+    if (!g?.connected) {
+      agendaList.style.display = "none";
+      agendaMsg.append(
+        h("div", { class: "wl-title", text: tl("Your Google Calendar here") }),
+        h("div", { class: "wl-sub", text: g?.configured
+          ? tl("Sign in once; Mochi reminds you 10 minutes before each event.")
+          : tl("Set up the Google connection in Settings → Integrations.") }),
+        g?.configured
+          ? h("button", { class: "btn primary wl-main", onclick: () => connectGoogle() }, h("span", { text: tl("Connect Google") }))
+          : h("button", { class: "btn secondary wl-main", onclick: () => void Bridge.openSettingsWindow() }, h("span", { text: tl("Settings…") })),
+      );
+      return;
+    }
+    agendaList.style.display = "";
+    const events = upcomingEvents(Wellness.events, now);
+    const next = nextEvent(Wellness.events, now);
+    let shownDay = "today";
+    for (const e of events) {
+      const day = eventDay(e, now);
+      if (day !== shownDay) {
+        shownDay = day;
+        agendaList.append(h("div", { class: "wl-day", text: day === "tomorrow" ? tl("Tomorrow") : tl("Later") }));
+      }
+      const started = !e.allDay && eventMs(e.start) <= now;
+      const row = h("div", { class: e === next ? "wl-event next" : started ? "wl-event now" : "wl-event" },
+        h("i", { class: "wl-event-dot", style: `background:${e.color ?? WELLNESS_COLOR}` }),
+        h("span", { class: "wl-event-time", text: started ? t("Now") : eventTime(e) }),
+        h("span", { class: "wl-text", text: e.title, title: e.title }),
+      );
+      if (e.meetUrl) {
+        const url = e.meetUrl;
+        row.append(h("button", { class: "link-btn wl-join", text: tl("Join"), onclick: () => WellnessControl.openUrl(url) }));
+      }
+      agendaList.append(row);
+    }
+    if (events.length === 0) {
+      agendaList.append(h("div", { class: "wl-empty", text: tl("Nothing else today — enjoy it.") }));
+    }
+    if (Wellness.googleError) {
+      agendaMsg.append(h("div", { class: "wl-error", text: t("Google didn't answer — retrying soon."), title: Wellness.googleError }));
+    }
+  }
+
+  function connectGoogle() {
+    Bridge.googleConnect().then(
+      () => void refreshGoogle(),
+      (err) => {
+        Wellness.googleError = String(err?.message ?? err);
+        void refreshGoogle();
+      },
+    );
+  }
+
   // ── Root ──
-  const panes: Record<WellnessTab, HTMLElement> = { tasks: tasksPane, focus: focusPane, breathe: breathePane };
+  const panes: Record<WellnessTab, HTMLElement> = { tasks: tasksPane, focus: focusPane, breathe: breathePane, agenda: agendaPane };
   const head = h("div", { class: "wl-head" }, tabRow);
-  const el = h("div", { class: "wl-card" }, head, tasksPane, focusPane, breathePane);
+  const el = h("div", { class: "wl-card" }, head, tasksPane, focusPane, breathePane, agendaPane);
   let shownTab: WellnessTab | null = null;
 
   function sync() {
@@ -215,7 +311,9 @@ export function buildWellnessCard(): WellnessHost {
     syncBadge();
     if (tab === "tasks") syncTasks();
     else if (tab === "focus") syncFocus(now);
+    else if (tab === "agenda") syncAgenda(now);
     else syncBreathe(now);
+    if (el.isConnected !== false) WellnessControl.shown();
     tabs.focus.classList.toggle("live", isRunning(Wellness.pomodoro));
   }
 

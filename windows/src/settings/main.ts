@@ -777,8 +777,14 @@ const INTEGRATIONS: IntegrationDef[] = [
   // media controls on Windows (see core/pills.ts).
   { id: "integration_spotify", name: "Spotify", color: "#1DB954", fields: [] },
   // Nothing to enter: tasks, Pomodoro and breathing live on this PC.
-  { id: "integration_wellness", name: "Bienestar", color: "#A78BFA", fields: [],
-    hint: N_("Tasks, a Pomodoro timer and guided breathing with Mochi. Everything stays on this PC.") },
+  { id: "integration_wellness", name: "Bienestar", color: "#A78BFA",
+    // Optional: a "Desktop app" OAuth client from the user's own Google Cloud
+    // project, for Google Calendar and Google Tasks (src-tauri/src/google.rs).
+    fields: [
+      { key: "google-oauth-client-id", label: N_("Google client ID"), placeholder: "….apps.googleusercontent.com", secret: false },
+      { key: "google-oauth-client-secret", label: N_("Client secret"), placeholder: "GOCSPX-…", secret: true },
+    ],
+    hint: N_("Tasks, a Pomodoro timer and guided breathing with Mochi. Optional: a Desktop OAuth client from your Google Cloud project (Calendar and Tasks APIs on) syncs Google Calendar and Google Tasks.") },
 ];
 
 const MAX_ACTIVE = MAX_DECLARED;
@@ -849,6 +855,41 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
     }
 
     if (def.hint) rows.append(h("div", { class: "hint", text: t(def.hint) }));
+    if (def.id === "integration_wellness") {
+      // Google sign-in: its state, and the button to sign in or out.
+      const state = h("span", { class: "hint", style: "padding:0" });
+      const button = h("button", {}) as HTMLButtonElement;
+      const paint = (g: Awaited<ReturnType<typeof Bridge.googleStatus>>, error = "") => {
+        if (g?.connected) {
+          state.textContent = t("Connected as {email}", { email: g.email ?? "Google" });
+          button.textContent = t("Disconnect");
+        } else {
+          state.textContent = error ? t("Google sign-in did not finish: {error}", { error }) : g?.configured
+            ? t("Not connected yet") : t("Save the client ID and secret first");
+          button.textContent = t("Connect Google");
+        }
+        button.disabled = !g?.configured && !g?.connected;
+      };
+      button.addEventListener("click", async () => {
+        const g = await Bridge.googleStatus();
+        button.disabled = true;
+        try {
+          if (g?.connected) paint(await Bridge.googleDisconnect());
+          else {
+            state.textContent = t("Finish signing in in your browser…");
+            paint(await Bridge.googleConnect());
+          }
+        } catch (err) {
+          paint(await Bridge.googleStatus(), String((err as Error)?.message ?? err));
+        }
+      });
+      rows.append(h("div", { class: "row", style: "gap:10px;padding-top:4px" }, button, state));
+      void Bridge.googleStatus().then((g) => paint(g));
+      // A saved client changes what the button can do.
+      rows.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement)?.textContent === t("Save")) setTimeout(() => void Bridge.googleStatus().then((g) => paint(g)), 300);
+      });
+    }
     if (def.id === "integration_spotify") {
       // As on the Mac's row: said only when there is no Spotify to launch.
       const hint = h("div", { class: "hint", style: "padding-top:5px" });

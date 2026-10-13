@@ -7,12 +7,13 @@
 // island is open, so a hidden island costs nothing.
 
 import {
-  Wellness, WELLNESS_ID, addTask, breathFrame, clearDone, finishPhase, isPaused, isRunning, newTaskId, pause,
-  removeTask, resetPomodoro, resume, startBreathing, startFocus, tickPomodoro, toggleTask, wellnessBusy,
-  type PomodoroEvent, type WellnessTab,
+  Wellness, WELLNESS_ID, addTask, agendaWindow, breathFrame, clearDone, dueReminders, finishPhase, fromGoogle,
+  isPaused, isRunning, newTaskId, pause, reminderKey, removeTask, resetPomodoro, resume, startBreathing, startFocus,
+  tickPomodoro, toggleTask, wellnessBusy, type PomodoroEvent, type WellnessTab,
 } from "../core/wellness";
 import { State } from "../core/state";
 import { Sound } from "../core/sound";
+import { Bridge } from "../core/bridge";
 import type { BotEmoteName, IslandViewName } from "../core/layout";
 
 export interface WellnessHost {
@@ -30,6 +31,9 @@ let pinnedForBreath = false;
 
 export function registerWellness(h: WellnessHost) {
   host = h;
+  // Google and the reminders: once a minute, and only the minute's work.
+  setInterval(minute, 60_000);
+  void refreshGoogle(true);
   // A Pomodoro that ran while Coucou was closed: catch up, quietly.
   const now = Date.now();
   if (isRunning(Wellness.pomodoro) && (Wellness.pomodoro.endsAt ?? 0) <= now) {
@@ -66,13 +70,13 @@ function tick() {
 function announce(event: PomodoroEvent) {
   if (!event) return;
   Sound.play(event === "focusDone" ? "finish" : "greet");
-  showCard();
+  showCard(Wellness.breathing.startedAt != null ? "breathe" : "focus");
   host?.emote(event === "focusDone" ? "proud" : "happy");
 }
 
-function showCard() {
+function showCard(tab: WellnessTab) {
   if (State.paused) return;
-  Wellness.tab = Wellness.breathing.startedAt != null ? "breathe" : "focus";
+  Wellness.tab = Wellness.breathing.startedAt != null ? "breathe" : tab;
   if (State.tasks.some((t) => t.id === WELLNESS_ID)) State.setFocus(WELLNESS_ID);
   host?.alert("overview");
 }
@@ -91,6 +95,122 @@ function finishBreathing(completed: boolean) {
   State.notify();
 }
 
+// ── Google Calendar & Tasks ───────────────────────────────────────────────────
+
+const declared = () => State.settings.activeIntegrations.includes(WELLNESS_ID) || State.mainPillId === WELLNESS_ID;
+const connected = () => Wellness.google?.connected === true;
+/** Reminders already shown, by event and start time. */
+const announced = new Set<string>();
+let lastTasksAt = 0;
+let syncing = false;
+let minutes = 0;
+
+function minute() {
+  minutes += 1;
+  checkReminders();
+  // The calendar every 5 minutes, the tasks every 2, and only for a declared pill.
+  if (!declared() || !connected() || State.paused) return;
+  if (minutes % 5 === 0) void refreshEvents();
+  if (minutes % 2 === 0) void refreshTasks();
+}
+
+function checkReminders() {
+  const due = dueReminders(Wellness.events, Date.now(), announced);
+  if (due.length === 0) return;
+  for (const e of due) announced.add(reminderKey(e));
+  if (!declared() || State.paused) return;
+  Sound.play("approval");
+  showCard("agenda");
+  host?.emote("surprised");
+}
+
+function googleFailed(err: unknown) {
+  const msg = String((err as Error)?.message ?? err ?? "");
+  Wellness.googleError = msg || "error";
+  if (/signed out|not connected/.test(msg) && Wellness.google) Wellness.google = { ...Wellness.google, connected: false };
+  State.notify();
+}
+
+async function refreshEvents() {
+  try {
+    const { timeMin, timeMax } = agendaWindow(Date.now());
+    Wellness.events = await Bridge.googleEvents(timeMin, timeMax);
+    Wellness.eventsAt = Date.now();
+    Wellness.googleError = "";
+    checkReminders();
+    State.notify();
+  } catch (err) {
+    googleFailed(err);
+  }
+}
+
+async function refreshTasks() {
+  lastTasksAt = Date.now();
+  try {
+    const list = await Bridge.googleTasks();
+    Wellness.tasks = fromGoogle(list);
+    Wellness.saveTasks();
+    Wellness.googleError = "";
+    State.notify();
+  } catch (err) {
+    googleFailed(err);
+  }
+}
+
+/** The tasks made before Google was connected go up to it, once. */
+async function uploadLocalTasks() {
+  const local = Wellness.tasks.filter((t) => !t.remote && !t.done);
+  for (const t of local) {
+    try {
+      await Bridge.googleTaskAdd(t.text);
+      Wellness.tasks = Wellness.tasks.filter((x) => x.id !== t.id);
+    } catch (err) {
+      googleFailed(err);
+      return;
+    }
+  }
+  Wellness.tasks = Wellness.tasks.filter((t) => t.remote);
+}
+
+/** Asks Google again: the status, then — signed in — the calendar and the tasks. */
+export async function refreshGoogle(quiet = false) {
+  if (syncing) return;
+  syncing = true;
+  try {
+    Wellness.google = (await Bridge.googleStatus()) ?? null;
+    if (!connected()) {
+      // Signed out: the card goes back to the tasks kept on this PC.
+      if (Wellness.tasks.some((t) => t.remote)) {
+        Wellness.tasks = Wellness.tasks.filter((t) => !t.remote);
+        Wellness.saveTasks();
+      }
+      Wellness.events = [];
+      if (!quiet) State.notify();
+      return;
+    }
+    if (State.paused) return;
+    await uploadLocalTasks();
+    await Promise.all([refreshEvents(), refreshTasks()]);
+  } finally {
+    syncing = false;
+    State.notify();
+  }
+}
+
+/** Runs a Google call after the card already shows its result; on failure, reads Google again. */
+function remote(op: () => Promise<unknown>) {
+  if (!connected()) return;
+  void op().then(
+    () => {
+      Wellness.googleError = "";
+    },
+    (err) => {
+      googleFailed(err);
+      void refreshTasks();
+    },
+  );
+}
+
 // ── What the card can do ──────────────────────────────────────────────────────
 
 export const WellnessControl = {
@@ -102,14 +222,38 @@ export const WellnessControl = {
     State.notify();
   },
 
+  /** The card is on screen: a list older than a minute is read again. */
+  shown() {
+    if (!connected() || State.paused || Date.now() - lastTasksAt < 60_000) return;
+    void refreshTasks();
+    if (Date.now() - Wellness.eventsAt > 60_000) void refreshEvents();
+  },
+
+  openUrl(url: string) {
+    if (url.startsWith("https://")) void Bridge.openUrl(url);
+  },
+
   addTask(text: string): boolean {
     const now = Date.now();
     const before = Wellness.tasks.length;
-    Wellness.tasks = addTask(Wellness.tasks, text, now, newTaskId(now));
+    const id = newTaskId(now);
+    Wellness.tasks = addTask(Wellness.tasks, text, now, id);
     if (Wellness.tasks.length === before) return false;
     Wellness.saveTasks();
     Sound.play("pop");
     State.notify();
+    if (connected()) {
+      const added = Wellness.tasks.find((t) => t.id === id)!;
+      void Bridge.googleTaskAdd(added.text).then(
+        (g) => {
+          // Swap the stand-in for Google's own task.
+          Wellness.tasks = Wellness.tasks.map((t) => (t.id === id ? { ...t, id: g.id, remote: true } : t));
+          Wellness.saveTasks();
+          State.notify();
+        },
+        (err) => googleFailed(err),
+      );
+    }
     return true;
   },
 
@@ -118,6 +262,7 @@ export const WellnessControl = {
     if (!was) return;
     Wellness.tasks = toggleTask(Wellness.tasks, id);
     Wellness.saveTasks();
+    if (was.remote) remote(() => Bridge.googleTaskSetDone(id, !was.done));
     if (!was.done) {
       // Done: Mochi's little jump.
       Sound.play("approve");
@@ -129,6 +274,8 @@ export const WellnessControl = {
   },
 
   removeTask(id: string) {
+    const was = Wellness.tasks.find((t) => t.id === id);
+    if (was?.remote) remote(() => Bridge.googleTaskDelete(id));
     Wellness.tasks = removeTask(Wellness.tasks, id);
     Wellness.saveTasks();
     Sound.play("blip");
@@ -136,6 +283,7 @@ export const WellnessControl = {
   },
 
   clearDone() {
+    if (Wellness.tasks.some((t) => t.remote && t.done)) remote(() => Bridge.googleTasksClearDone());
     Wellness.tasks = clearDone(Wellness.tasks);
     Wellness.saveTasks();
     Sound.play("blip");

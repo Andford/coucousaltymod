@@ -9,7 +9,8 @@ import {
   DEFAULT_POMODORO, IDLE_BREATHING, IDLE_POMODORO, TASK_LIMIT, Wellness, addTask, breathFrame, clearDone, clock,
   dayKey, finishPhase, isPaused, isRunning, orderedTasks, parsePomodoro, parseTasks, pause, pendingCount,
   pomodoroLeft, pomodoroProgress, removeTask, resetPomodoro, resume, startBreathing, startFocus, tickPomodoro,
-  toggleTask,
+  toggleTask, agendaWindow, dueReminders, eventDay, eventMs, fromGoogle, localIso, nextEvent, reminderKey,
+  upcomingEvents,
 } from "../src/core/wellness.ts";
 import { BotEngine, breathTransform } from "../src/mochi/engine.ts";
 import { buildWellnessCard, wellnessPillLabel } from "../src/views/wellness.ts";
@@ -26,6 +27,10 @@ beforeEach(() => {
   Wellness.pomodoro = { ...IDLE_POMODORO };
   Wellness.breathing = { ...IDLE_BREATHING };
   Wellness.tab = "tasks";
+  Wellness.google = null;
+  Wellness.events = [];
+  Wellness.eventsAt = 0;
+  Wellness.googleError = "";
 });
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
@@ -192,4 +197,85 @@ test("the card shows the tab picked, and a running breath above all", () => {
   card.sync();
   assert.ok(card.el.textContent.includes("Respira con Mochi"));
   assert.ok(card.el.textContent.includes("5 min"));
+});
+
+// ── Agenda (Google Calendar) ──────────────────────────────────────────────────
+
+const at = (h, m = 0, dayOffset = 0) => new Date(2026, 9, 13 + dayOffset, h, m).getTime();
+const ev = (id, startMs, endMs, over = {}) => ({
+  id, title: id, start: localIso(startMs), end: localIso(endMs), allDay: false, meetUrl: null, color: null, ...over,
+});
+
+test("the agenda asks for today and tomorrow, in local time", () => {
+  const { timeMin, timeMax } = agendaWindow(at(15, 30));
+  assert.equal(eventMs(timeMin), at(0));
+  assert.equal(eventMs(timeMax), at(0, 0, 2));
+  assert.match(timeMin, /^2026-10-13T00:00:00[+-]\d\d:\d\d$/);
+});
+
+test("all-day events are local days; past events drop off; tomorrow is told apart", () => {
+  const now = at(12);
+  const allDay = { ...ev("cumple", 0, 0), allDay: true, start: "2026-10-13", end: "2026-10-14" };
+  const past = ev("desayuno", at(8), at(9));
+  const lunch = ev("comida", at(14), at(15));
+  const tomorrow = ev("junta", at(10, 0, 1), at(11, 0, 1));
+  assert.equal(eventMs("2026-10-13"), at(0));
+  assert.deepEqual(upcomingEvents([tomorrow, past, lunch, allDay], now).map((e) => e.id), ["cumple", "comida", "junta"]);
+  assert.equal(eventDay(lunch, now), "today");
+  assert.equal(eventDay(tomorrow, now), "tomorrow");
+  assert.equal(nextEvent([allDay, lunch, tomorrow], now).id, "comida");
+});
+
+test("a reminder comes 10 minutes before, once, and again if the event moves", () => {
+  const meeting = ev("bunday", at(10), at(11));
+  const announced = new Set();
+  assert.deepEqual(dueReminders([meeting], at(9, 45), announced), []);
+  assert.deepEqual(dueReminders([meeting], at(9, 50), announced).map((e) => e.id), ["bunday"]);
+  announced.add(reminderKey(meeting));
+  assert.deepEqual(dueReminders([meeting], at(9, 55), announced), []);
+  const moved = ev("bunday", at(10, 30), at(11, 30));
+  assert.deepEqual(dueReminders([moved], at(10, 25), announced).map((e) => e.id), ["bunday"]);
+  // All-day events and long-gone ones never ring.
+  assert.deepEqual(dueReminders([{ ...meeting, allDay: true }], at(9, 55), new Set()), []);
+  assert.deepEqual(dueReminders([meeting], at(10, 5), new Set()), []);
+});
+
+test("Google's tasks become the card's, flagged as remote", () => {
+  assert.deepEqual(fromGoogle([{ id: "g1", title: "Llamar", done: false, updated: "" }]), [
+    { id: "g1", text: "Llamar", done: false, createdAt: 0, remote: true },
+  ]);
+  assert.equal(parseTasks([{ id: "g1", text: "x", done: false, createdAt: 0, remote: true }])[0].remote, true);
+});
+
+test("the pill counts down to an event within the hour", () => {
+  const now = Date.now();
+  Wellness.events = [ev("junta", now + 12 * MIN - 1000, now + 60 * MIN)];
+  assert.equal(wellnessPillLabel("Bienestar", now), "In 12 min");
+  Wellness.events = [ev("junta", now + 90 * MIN, now + 120 * MIN)];
+  assert.equal(wellnessPillLabel("Bienestar", now), "Bienestar");
+});
+
+test("the Agenda tab: set up first, then sign in, then the day's events", () => {
+  const card = buildWellnessCard();
+  Wellness.tab = "agenda";
+  Wellness.google = { configured: false, connected: false, email: null };
+  card.sync();
+  assert.ok(card.el.textContent.includes("Set up the Google connection"));
+  Wellness.google = { configured: true, connected: false, email: null };
+  Wellness.eventsAt = 1;
+  card.sync();
+  assert.ok(card.el.textContent.includes("Connect Google"));
+  const now = Date.now();
+  Wellness.google = { configured: true, connected: true, email: "andy@example.com" };
+  Wellness.events = [
+    ev("Junta Bunday", now + 20 * MIN, now + 80 * MIN, { meetUrl: "https://meet.google.com/x" }),
+  ];
+  Wellness.eventsAt = 2;
+  card.sync();
+  assert.ok(card.el.textContent.includes("Junta Bunday"));
+  assert.ok(card.el.textContent.includes("Join"));
+  Wellness.events = [];
+  Wellness.eventsAt = 3;
+  card.sync();
+  assert.ok(card.el.textContent.includes("Nothing else today"));
 });

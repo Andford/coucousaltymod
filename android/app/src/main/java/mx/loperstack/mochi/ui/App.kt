@@ -692,7 +692,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
             Text(PomodoroScheduler.phaseTitle(p.phase), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
         }
         Spacer(Modifier.height(18.dp))
-        FocusRing(p, now, color, Modifier.size(260.dp))
+        FocusRing(p, now, color, Modifier.size(260.dp), dancing = actions.music)
         val current = orderedTasks(tasks).firstOrNull { !it.done }
         if (current != null && p.phase == Phase.FOCUS) {
             Spacer(Modifier.height(14.dp))
@@ -716,7 +716,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
 }
 
 @Composable
-fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, modifier: Modifier, mochi: Boolean = true) {
+fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, modifier: Modifier, mochi: Boolean = true, dancing: Boolean = false) {
     val ring = if (p.phase == Phase.BREAK || p.phase == Phase.LONG_BREAK) Ink.Green else Ink.Violet
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -730,7 +730,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (mochi) {
-                Mochi(Modifier.width(90.dp).height(72.dp), color = color, mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, dancing = actions.music)
+                Mochi(Modifier.width(90.dp).height(72.dp), color = color, mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, dancing = dancing)
             }
             Text(clock(p.left(now)), fontSize = 46.sp, fontWeight = FontWeight.ExtraBold)
         }

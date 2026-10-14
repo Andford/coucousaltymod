@@ -12,8 +12,8 @@ android {
         applicationId = "mx.loperstack.mochi"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     // One stable key for every CI build, so a new APK installs over the old one
@@ -35,8 +35,11 @@ android {
         debug {
             if (System.getenv("MOCHI_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
         }
+        // The build you install: R8-optimised, so Compose runs smooth (a debug
+        // build is several times slower, especially on the watch).
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (System.getenv("MOCHI_KEYSTORE") != null) signingConfigs.getByName("stable")
             else signingConfigs.getByName("debug")
         }
@@ -52,6 +55,11 @@ android {
     buildFeatures {
         compose = true
     }
+    // Personal builds: lint runs on its own, it does not stop a release.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 dependencies {
@@ -66,6 +74,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.wear:wear-remote-interactions:1.1.0")
+    implementation("androidx.glance:glance-appwidget:1.1.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

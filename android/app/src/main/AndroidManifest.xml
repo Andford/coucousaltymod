@@ -33,6 +33,47 @@
             android:name=".wellness.PomodoroReceiver"
             android:exported="false" />
 
+        <!-- Home screen widgets (widget/Widgets.kt). -->
+        <receiver
+            android:name=".widget.MochiWidgetReceiver"
+            android:label="@string/widget_mochi"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_mochi" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BreatheWidgetReceiver"
+            android:label="@string/widget_breathe"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_breathe" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.PomodoroWidgetReceiver"
+            android:label="@string/widget_pomodoro"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_pomodoro" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TasksWidgetReceiver"
+            android:label="@string/widget_tasks"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks" />
+        </receiver>
+
         <!-- Messages from the Mochi app on the watch (shared/…/Sync.kt). -->
         <service
             android:name=".data.PhoneListenerService"

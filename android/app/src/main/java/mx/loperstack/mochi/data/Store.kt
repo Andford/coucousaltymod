@@ -6,6 +6,7 @@ package mx.loperstack.mochi.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import mx.loperstack.mochi.widget.Widgets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,8 +23,8 @@ import org.json.JSONObject
 
 data class AppData(
     val tasks: List<Task> = emptyList(),
-    /** ARGB; the violet of the PC's Bienestar pill by default. */
-    val mochiColor: Long = 0xFFA78BFA,
+    /** ARGB; white is the PC's own Mochi (the default), any other colour tints him. */
+    val mochiColor: Long = 0xFFF5F6F8,
     val pomodoro: Pomodoro = Pomodoro(),
     /** Breathing sessions from the phone and the watch, newest last (at most 200). */
     val sessions: List<BreathSession> = emptyList(),
@@ -32,53 +33,74 @@ data class AppData(
 
 object Store {
     private lateinit var prefs: SharedPreferences
+    private lateinit var app: Context
     private val _state = MutableStateFlow(AppData())
     val state: StateFlow<AppData> = _state.asStateFlow()
 
-    /** Told after every change (the watch sync listens). */
+    /** Told after every change (the app keeps its sound switch in step). */
     @Volatile var onChange: (() -> Unit)? = null
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
+        app = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences("mochi", Context.MODE_PRIVATE)
+        // Mochi now looks like the PC's: the old violet default becomes white, once.
+        if (!prefs.getBoolean("pcLook", false)) {
+            val e = prefs.edit().putBoolean("pcLook", true)
+            if (prefs.getLong("mochiColor", 0xFFA78BFA) == 0xFFA78BFA) e.putLong("mochiColor", 0xFFF5F6F8)
+            e.apply()
+        }
         _state.value = AppData(
             tasks = parseTasks(prefs.getString("tasks", null)),
-            mochiColor = prefs.getLong("mochiColor", 0xFFA78BFA),
+            mochiColor = prefs.getLong("mochiColor", 0xFFF5F6F8),
             pomodoro = parsePomodoro(prefs.getString("pomodoro", null)),
             sessions = sessionsOf(prefs.getString("sessions", null)),
             soundOn = prefs.getBoolean("soundOn", true),
         )
     }
 
+    /** Every change reaches the watch and the home screen widgets. */
+    private fun changed() {
+        onChange?.invoke()
+        WearSync.push(app)
+        Widgets.refresh(app)
+    }
+
     fun setTasks(tasks: List<Task>) {
         _state.value = _state.value.copy(tasks = tasks)
         prefs.edit().putString("tasks", tasksJson(tasks)).apply()
-        onChange?.invoke()
+        changed()
     }
 
     fun setColor(argb: Long) {
         _state.value = _state.value.copy(mochiColor = argb)
         prefs.edit().putLong("mochiColor", argb).apply()
-        onChange?.invoke()
+        changed()
     }
 
     fun setPomodoro(p: Pomodoro) {
         _state.value = _state.value.copy(pomodoro = p)
         prefs.edit().putString("pomodoro", pomodoroJson(p)).apply()
-        onChange?.invoke()
+        changed()
     }
 
+    /**
+     * A session from the phone or the watch. Breathing together, both send the
+     * same start: the one with the pulse (the watch's) wins.
+     */
     fun addSession(session: BreathSession) {
-        if (_state.value.sessions.any { it.at == session.at && it.device == session.device }) return
-        val list = (_state.value.sessions + session).sortedBy { it.at }.takeLast(200)
+        val same = _state.value.sessions.firstOrNull { it.at == session.at }
+        if (same != null && (same.hrEnd > 0 || session.hrEnd <= 0)) return
+        val list = (_state.value.sessions.filter { it.at != session.at } + session).sortedBy { it.at }.takeLast(200)
         _state.value = _state.value.copy(sessions = list)
         prefs.edit().putString("sessions", sessionsJson(list)).apply()
+        Widgets.refresh(app)
     }
 
     fun setSound(on: Boolean) {
         _state.value = _state.value.copy(soundOn = on)
         prefs.edit().putBoolean("soundOn", on).apply()
-        onChange?.invoke()
+        changed()
     }
 }
 

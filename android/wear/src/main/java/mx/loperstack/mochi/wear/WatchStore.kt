@@ -5,14 +5,21 @@
 
 package mx.loperstack.mochi.wear
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import androidx.core.app.NotificationCompat
 import androidx.wear.tiles.TileService
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +32,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.wellness.BreathSession
+import mx.loperstack.mochi.wellness.Breathing
+import mx.loperstack.mochi.wellness.breathingOf
 import mx.loperstack.mochi.wellness.Snapshot
 import mx.loperstack.mochi.wellness.SyncPaths
 import mx.loperstack.mochi.wellness.snapshotOf
@@ -37,6 +46,13 @@ object WatchStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _state = MutableStateFlow(Snapshot())
     val state: StateFlow<Snapshot> = _state.asStateFlow()
+
+    /** A session the phone started: the breathe screen opens it, in step. */
+    val breathRequest = MutableStateFlow<Breathing?>(null)
+    /** The phone cut its session short (its start time). */
+    val stopRequest = MutableStateFlow<Long?>(null)
+    /** The app is on screen (no notification needed). */
+    @Volatile var foreground = false
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
@@ -114,10 +130,60 @@ object WatchStore {
     }
 
     fun session(s: BreathSession) = send(SyncPaths.SESSION, s.toJson())
+
+    fun heartRate(bpm: Int) = send(SyncPaths.HEART_RATE, bpm.toString())
+
+    /** The phone asked to breathe together. */
+    fun breatheFromPhone(context: Context, b: Breathing) {
+        val start = b.startedAt ?: return
+        if (System.currentTimeMillis() - start > b.minutes * 60_000L) return
+        breathRequest.value = b
+        if (foreground) return
+        // Not on screen: open it (or, if the system says no, a tap away).
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("mochi://breathe?at=$start&min=${b.minutes}"))
+            .setClass(context, WearActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pi = PendingIntent.getActivity(context, 7, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(CHANNEL_BREATHE, "Respirar con el teléfono", NotificationManager.IMPORTANCE_HIGH))
+        val n = NotificationCompat.Builder(context, CHANNEL_BREATHE)
+            .setSmallIcon(mx.loperstack.mochi.shared.R.drawable.ic_stat_mochi)
+            .setContentTitle("Respira con Mochi")
+            .setContentText("${b.minutes} min · toca para medir tu pulso")
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setContentIntent(pi)
+            .setFullScreenIntent(pi, true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(b.minutes * 60_000L)
+            .build()
+        runCatching { nm.notify(NOTIFY_BREATHE, n) }
+        runCatching { context.startActivity(intent) }
+    }
+
+    fun clearBreatheNotice(context: Context) {
+        runCatching { context.getSystemService(NotificationManager::class.java).cancel(NOTIFY_BREATHE) }
+    }
+
+    private const val CHANNEL_BREATHE = "breathe_phone"
+    private const val NOTIFY_BREATHE = 42
 }
 
-/** The phone's state arrives here, app open or not. */
+/** The phone's state and requests arrive here, app open or not. */
 class WatchListenerService : WearableListenerService() {
+    override fun onMessageReceived(event: MessageEvent) {
+        WatchStore.init(this)
+        val text = (event.data ?: ByteArray(0)).toString(Charsets.UTF_8)
+        when (event.path) {
+            SyncPaths.BREATHE_START -> breathingOf(text)?.let { WatchStore.breatheFromPhone(this, it) }
+            SyncPaths.BREATHE_STOP -> {
+                WatchStore.stopRequest.value = System.currentTimeMillis()
+                WatchStore.breathRequest.value = null
+                WatchStore.clearBreatheNotice(this)
+            }
+        }
+    }
+
     override fun onDataChanged(events: DataEventBuffer) {
         WatchStore.init(this)
         for (e in events) {

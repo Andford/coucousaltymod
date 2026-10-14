@@ -11,10 +11,10 @@ android {
     defaultConfig {
         // The same id and key as the phone app: the Data Layer only links apps that match.
         applicationId = "mx.loperstack.mochi"
-        minSdk = 30
+        minSdk = 33
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -32,6 +32,13 @@ android {
         debug {
             if (System.getenv("MOCHI_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
         }
+        // The build you install: R8-optimised, so Compose runs smooth on the watch.
+        release {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (System.getenv("MOCHI_KEYSTORE") != null) signingConfigs.getByName("stable")
+            else signingConfigs.getByName("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -42,6 +49,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    // Personal builds: lint runs on its own, it does not stop a release.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 

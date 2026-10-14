@@ -51,14 +51,15 @@ jobs:
       - name: Unit tests
         run: gradle -p android testDebugUnitTest --stacktrace
 
-      - name: Build the APK
-        run: gradle -p android assembleDebug --stacktrace
+      # Release: R8-optimised (smooth on the watch), signed with the stable key.
+      - name: Build the APKs
+        run: gradle -p android assembleRelease --stacktrace
 
       - name: Name the APKs
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/Mochi-${GITHUB_SHA::7}.apk"
-          cp android/wear/build/outputs/apk/debug/wear-debug.apk "out/Mochi-Watch-${GITHUB_SHA::7}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "out/Mochi-${GITHUB_SHA::7}.apk"
+          cp android/wear/build/outputs/apk/release/wear-release.apk "out/Mochi-Watch-${GITHUB_SHA::7}.apk"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -9,6 +9,8 @@ import mx.loperstack.mochi.data.pomodoroJson
 import mx.loperstack.mochi.data.tasksJson
 import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.wellness.Breathing
+import mx.loperstack.mochi.wellness.breathingOf
+import mx.loperstack.mochi.wellness.toWire
 import mx.loperstack.mochi.wellness.Phase
 import mx.loperstack.mochi.wellness.PomodoroEvent
 import mx.loperstack.mochi.wellness.Pomodoro
@@ -135,5 +137,12 @@ class LogicTest {
     @Test fun clockFormats() {
         assertEquals("25:00", clock(1500))
         assertEquals("0:05", clock(5))
+    }
+
+    @Test fun breathingTravelsToTheWatch() {
+        val b = Breathing(1_700_000_000_000, 5)
+        assertEquals(b, breathingOf(b.toWire()))
+        assertEquals(null, breathingOf("nope"))
+        assertEquals(null, breathingOf("1700000000000,0"))
     }
 }

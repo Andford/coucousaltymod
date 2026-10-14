@@ -94,6 +94,7 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.data.Agenda
 import mx.loperstack.mochi.data.CalEvent
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.data.isTomorrow
 import mx.loperstack.mochi.data.nextEvent
 import mx.loperstack.mochi.data.upcoming
@@ -143,6 +144,11 @@ class Actions(private val context: Context) {
     var jump by mutableIntStateOf(0)
     var breathing by mutableStateOf(Breathing())
 
+    // The watch's pulse during the session (0 = none yet).
+    var hrStart = 0
+    var hrMin = 0
+    var hrLast = 0
+
     fun addTask(text: String): Boolean {
         val now = System.currentTimeMillis()
         val before = Store.state.value.tasks
@@ -169,12 +175,6 @@ class Actions(private val context: Context) {
     fun clearDone() {
         Store.setTasks(clearDone(Store.state.value.tasks))
         Sounds.play("blip")
-    }
-
-    /** A poke on Mochi. */
-    fun poke() {
-        jump++
-        Sounds.play(listOf("wink", "pop", "love").random())
     }
 
     /** Start, pause or resume — the main button. */
@@ -206,8 +206,18 @@ class Actions(private val context: Context) {
     }
 
     fun startBreathing(minutes: Int) {
-        breathing = Breathing(System.currentTimeMillis(), minutes)
+        val b = Breathing(System.currentTimeMillis(), minutes)
+        breathing = b
+        hrStart = 0; hrMin = 0; hrLast = 0
         Sounds.play("open")
+        WearSync.breatheTogether(context, b)
+    }
+
+    fun heartRate(bpm: Int) {
+        if (bpm <= 0) return
+        if (hrStart == 0) hrStart = bpm
+        hrMin = if (hrMin == 0) bpm else minOf(hrMin, bpm)
+        hrLast = bpm
     }
 
     fun stopBreathing(completed: Boolean) {
@@ -217,8 +227,14 @@ class Actions(private val context: Context) {
         if (completed && start != null) {
             jump++
             Sounds.play("love")
-            Store.addSession(BreathSession(start, b.minutes, b.minutes * 6, device = "phone"))
-        } else Sounds.play("close")
+            val withWatch = hrLast > 0
+            Store.addSession(
+                BreathSession(start, b.minutes, b.minutes * 6, hrStart, hrLast, hrMin, device = if (withWatch) "watch" else "phone"),
+            )
+        } else {
+            Sounds.play("close")
+            WearSync.stopTogether(context)
+        }
     }
 
     fun open(url: String) {
@@ -268,12 +284,20 @@ fun longDate(now: Long): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MochiApp(startTab: Tab = Tab.HOME) {
+fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
     val context = LocalContext.current
     val data by Store.state.collectAsState()
     val actions = remember { Actions(context) }
     var tab by remember { mutableStateOf(startTab) }
     LaunchedEffect(startTab) { tab = startTab }
+    // The Respirar widget's 1 · 5 · 10 buttons.
+    LaunchedEffect(breatheNow) {
+        val (min, key) = breatheNow
+        if (min > 0 && key != 0L) {
+            tab = Tab.BREATHE
+            if (actions.breathing.startedAt == null) actions.startBreathing(min)
+        }
+    }
     var showColors by remember { mutableStateOf(false) }
     val now = rememberNow()
 
@@ -514,10 +538,12 @@ fun HomeScreen(
         Spacer(Modifier.height(16.dp))
         Panel(Modifier.fillMaxWidth(), padding = 20.dp) {
             Mochi(
-                Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp).clickable { actions.poke() },
+                Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp),
                 color = color,
                 mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
                 jump = actions.jump,
+                interactive = true,
+                greet = true,
             )
             Spacer(Modifier.height(10.dp))
             when {
@@ -659,60 +685,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
     }
 }
 
-// ── Respirar ──────────────────────────────────────────────────────────────────
-
-@Composable
-fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> = emptyList()) {
-    val b = actions.breathing
-    val active = b.startedAt != null
-    val now = rememberFrameNow(active)
-    val f = breathFrame(b, now)
-    LaunchedEffect(f.done) { if (f.done) actions.stopBreathing(completed = true) }
-    // The screen stays on for the session, as a watch's would.
-    val view = LocalView.current
-    DisposableEffect(active) {
-        view.keepScreenOn = active
-        onDispose { view.keepScreenOn = false }
-    }
-    Box(
-        Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1C1733), Ink.Ground), center = Offset.Unspecified, radius = 1400f)),
-    ) {
-        Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(30.dp))
-            Text(if (active) "Sesión de ${b.minutes} min" else "Respira con Mochi", color = if (active) Ink.Dim else Ink.Text, fontSize = if (active) 14.sp else 26.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.ExtraBold)
-            Spacer(Modifier.weight(0.6f))
-            Mochi(Modifier.width(230.dp).height(190.dp), color = color, mood = if (active) Mood.BREATHING else Mood.IDLE, breathFill = f.fill, jump = actions.jump)
-            Spacer(Modifier.height(40.dp))
-            if (active) {
-                Text(if (f.inhaling) "Inhala…" else "Exhala…", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
-                Label("4 s inhalar · 6 s exhalar")
-                Spacer(Modifier.height(28.dp))
-                LinearProgressIndicator(progress = { f.progress }, modifier = Modifier.width(280.dp).height(6.dp).clip(CircleShape), color = Ink.Violet, trackColor = Color(0x14FFFFFF))
-                Row(Modifier.width(280.dp).padding(top = 8.dp)) {
-                    Label("${f.breaths} respiraciones", modifier = Modifier.weight(1f))
-                    Label("Quedan ${clock(f.left)}")
-                }
-            } else {
-                Label("Inhala cuando Mochi crece, exhala cuando se encoge.", Ink.Dim)
-                Spacer(Modifier.height(22.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    for (m in BREATHE_MINUTES) {
-                        OutlinedButton(onClick = { actions.startBreathing(m) }, modifier = Modifier.heightIn(min = 52.dp)) {
-                            Text("$m min", color = Ink.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                if (sessions.isNotEmpty()) {
-                    Spacer(Modifier.height(26.dp))
-                    SessionHistory(sessions)
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            if (active) PrimaryButton("Terminar") { actions.stopBreathing(completed = false) }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
+// ── Respirar: BreatheScreen and the history live in Breathe.kt ─────────────
 
 // ── PC ────────────────────────────────────────────────────────────────────────
 
@@ -770,7 +743,7 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("El color de Mochi", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(8.dp))
-        Mochi(Modifier.width(150.dp).height(124.dp), color = color, mood = Mood.HAPPY)
+        Mochi(Modifier.width(150.dp).height(124.dp), color = color, interactive = true)
         Spacer(Modifier.height(16.dp))
         val rows = MOCHI_PALETTE.chunked(6)
         for (row in rows) {
@@ -787,7 +760,7 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
             }
         }
         Spacer(Modifier.height(8.dp))
-        Label("Los mismos colores que las pills de Coucou en la PC.", Ink.Dim2)
+        Label("Blanco es el Mochi de la PC; los demás lo tiñen como las pills de Coucou.", Ink.Dim2)
     }
 }
 
@@ -810,8 +783,9 @@ fun DeskScreen(
                 Text(hourMinute(now), fontSize = 100.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 100.sp)
             }
             Mochi(
-                Modifier.fillMaxWidth().aspectRatio(1.4f).clickable { actions.poke() }, color = color,
+                Modifier.fillMaxWidth().aspectRatio(1.4f), color = color,
                 mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
+                interactive = true, greet = true,
             )
             Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
@@ -846,46 +820,3 @@ fun DeskScreen(
     }
 }
 
-// ── Historial de respiración ──────────────────────────────────────────────────
-
-/** The week's minutes per day, Monday first, and the last sessions. */
-@Composable
-fun SessionHistory(sessions: List<BreathSession>) {
-    val now = System.currentTimeMillis()
-    val cal = Calendar.getInstance().apply {
-        timeInMillis = now
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
-        add(Calendar.DAY_OF_YEAR, -dow)
-    }
-    val weekStart = cal.timeInMillis
-    val perDay = IntArray(7)
-    for (s in sessions) {
-        val d = ((s.at - weekStart) / 86_400_000L).toInt()
-        if (d in 0..6) perDay[d] += s.minutes
-    }
-    val maxMin = (perDay.maxOrNull() ?: 0).coerceAtLeast(5)
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Label("Esta semana · ${perDay.sum()} min", Ink.Dim, weight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.height(56.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-            val days = listOf("L", "M", "M", "J", "V", "S", "D")
-            for (i in 0..6) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier.width(14.dp).height((4 + 36f * perDay[i] / maxMin).dp)
-                            .clip(RoundedCornerShape(4.dp)).background(if (perDay[i] > 0) Ink.Violet else Color(0x1AFFFFFF)),
-                    )
-                    Text(days[i], fontSize = 10.sp, color = Ink.Dim2)
-                }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        for (s in sessions.takeLast(3).reversed()) {
-            val hr = if (s.hrStart > 0 && s.hrEnd > 0) " · ${s.hrStart}→${s.hrEnd} lpm" else ""
-            val calm = s.calmDrop().takeIf { it >= 0.03f }?.let { " · ${(it * 100).toInt()}% más calma" } ?: ""
-            val where = if (s.device == "watch") "Reloj" else "Teléfono"
-            Label("${SimpleDateFormat("EEE HH:mm", ES).format(Date(s.at))} · ${s.minutes} min$hr$calm · $where", Ink.Dim2)
-        }
-    }
-}

@@ -17,13 +17,29 @@ object SyncPaths {
     const val SESSION = "/mochi/session"
     const val POMODORO = "/mochi/pomodoro/toggle"
     const val REQUEST = "/mochi/sync"
+    /** phone → watch: "startedAt,minutes" — breathe together, the watch reads the pulse. */
+    const val BREATHE_START = "/mochi/breathe/start"
+    /** phone → watch: the session was cut short. */
+    const val BREATHE_STOP = "/mochi/breathe/stop"
+    /** watch → phone: the pulse right now, "bpm". */
+    const val HEART_RATE = "/mochi/hr"
 }
+
+/** "1700000000000,5" → a session, or null. */
+fun breathingOf(text: String): Breathing? {
+    val parts = text.split(",")
+    val at = parts.getOrNull(0)?.toLongOrNull() ?: return null
+    val min = parts.getOrNull(1)?.toIntOrNull()?.takeIf { it in 1..60 } ?: return null
+    return Breathing(at, min)
+}
+
+fun Breathing.toWire(): String = "${startedAt ?: 0},$minutes"
 
 data class EventLite(val title: String, val begin: Long, val end: Long, val allDay: Boolean, val meetUrl: String?)
 
 data class Snapshot(
     val tasks: List<Task> = emptyList(),
-    val mochiColor: Long = 0xFFA78BFA,
+    val mochiColor: Long = 0xFFF5F6F8,
     val phoneBattery: Int = -1,
     val phoneCharging: Boolean = false,
     val events: List<EventLite> = emptyList(),

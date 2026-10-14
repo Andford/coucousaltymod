@@ -18,9 +18,13 @@ import mx.loperstack.mochi.wellness.tick
 class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_TAB = "tab"
+        /** From the Respirar widget: start a session of this many minutes. */
+        const val EXTRA_BREATHE_MIN = "breatheMin"
     }
 
     private val startTab = mutableStateOf(Tab.HOME)
+    /** minutes to breathe, and a nonce so the same button works twice. */
+    private val breatheNow = mutableStateOf(0 to 0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,20 +32,19 @@ class MainActivity : ComponentActivity() {
         Store.init(this)
         Sounds.init(this)
         Sounds.enabled = Store.state.value.soundOn
-        // Every change goes to the watch, if there is one.
-        Store.onChange = {
-            Sounds.enabled = Store.state.value.soundOn
-            WearSync.push(applicationContext)
-        }
+        // Every change already reaches the watch and the widgets (Store).
+        Store.onChange = { Sounds.enabled = Store.state.value.soundOn }
         PomodoroScheduler.channels(this)
         catchUp()
         startTab.value = tabOf(intent)
-        setContent { MochiApp(startTab.value) }
+        breatheNow.value = breatheOf(intent)
+        setContent { MochiApp(startTab.value, breatheNow.value) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         startTab.value = tabOf(intent)
+        breatheNow.value = breatheOf(intent)
     }
 
     override fun onResume() {
@@ -59,6 +62,11 @@ class MainActivity : ComponentActivity() {
             Store.setPomodoro(next)
             PomodoroScheduler.sync(this, next, now)
         }
+    }
+
+    private fun breatheOf(intent: Intent?): Pair<Int, Long> {
+        val m = intent?.getIntExtra(EXTRA_BREATHE_MIN, 0) ?: 0
+        return if (m > 0) m to System.nanoTime() else 0 to 0L
     }
 
     private fun tabOf(intent: Intent?): Tab = when (intent?.getStringExtra(EXTRA_TAB)) {

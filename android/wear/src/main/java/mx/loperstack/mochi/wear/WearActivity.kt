@@ -1,6 +1,10 @@
-// Mochi on the wrist: Mochi himself, the tasks (check them off, dictate new
-// ones), breathing with a gentle buzz on each turn and your pulse, and the
-// batteries. Swipe right to go back.
+// Mochi on the wrist: Mochi himself (tap him, as on the PC), the tasks (check
+// them off, dictate new ones), breathing with a gentle buzz on each turn and
+// your pulse — started here or from the phone — and the batteries.
+//
+// Kept light for the watch: Mochi animates on his own Canvas only while he
+// moves, clocks tick only where a number shows, and the breathing loop
+// recomposes on each inhale/exhale and once a second, not every frame.
 
 package mx.loperstack.mochi.wear
 
@@ -13,6 +17,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.VibratorManager
@@ -21,6 +26,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,12 +50,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +76,7 @@ import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.Colors
+import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
@@ -72,7 +84,6 @@ import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
 import androidx.wear.compose.material.ToggleChipDefaults
-import androidx.wear.compose.material.Icon
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -84,6 +95,7 @@ import mx.loperstack.mochi.wellness.BREATHE_MINUTES
 import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.Breathing
 import mx.loperstack.mochi.wellness.Phase
+import mx.loperstack.mochi.wellness.Pomodoro
 import mx.loperstack.mochi.wellness.Snapshot
 import mx.loperstack.mochi.wellness.breathFrame
 import mx.loperstack.mochi.wellness.clock
@@ -100,19 +112,49 @@ private val Violet = Color(0xFFA78BFA)
 private val VioletSoft = Color(0xFFC4B5FD)
 private val Green = Color(0xFF4ADE80)
 private val Dim = Color(0xFFA5A9B1)
-private val Card = Color(0xFF17181C)
+private val Pink = Color(0xFFFF7896)
+private val HM = SimpleDateFormat("HH:mm", Locale("es", "MX"))
 
 class WearActivity : ComponentActivity() {
+    private val askOnce = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WatchStore.init(this)
         Sounds.init(this)
+        handle(intent)
+        val missing = buildList {
+            add(Manifest.permission.BODY_SENSORS)
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty() && savedInstanceState == null) askOnce.launch(missing.toTypedArray())
         setContent { WearApp() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    /** mochi://breathe?at=…&min=… — the phone started a session. */
+    private fun handle(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "mochi" || uri.host != "breathe") return
+        val at = uri.getQueryParameter("at")?.toLongOrNull() ?: return
+        val min = uri.getQueryParameter("min")?.toIntOrNull() ?: return
+        if (System.currentTimeMillis() - at < min * 60_000L) WatchStore.breathRequest.value = Breathing(at, min)
+        WatchStore.clearBreatheNotice(this)
     }
 
     override fun onResume() {
         super.onResume()
+        WatchStore.foreground = true
         WatchStore.pull()
+    }
+
+    override fun onPause() {
+        WatchStore.foreground = false
+        super.onPause()
     }
 }
 
@@ -120,10 +162,14 @@ class WearActivity : ComponentActivity() {
 fun WearApp() {
     val nav = rememberSwipeDismissableNavController()
     val snap by WatchStore.state.collectAsState()
+    val request by WatchStore.breathRequest.collectAsState()
     var jump by remember { mutableIntStateOf(0) }
+    LaunchedEffect(request) {
+        if (request != null && nav.currentDestination?.route != "breathe") nav.navigate("breathe")
+    }
     MaterialTheme(colors = Colors(primary = Violet, onPrimary = Color(0xFF14102A), secondary = Green)) {
         SwipeDismissableNavHost(navController = nav, startDestination = "home") {
-            composable("home") { Home(snap, jump, onPoke = { jump++; Sounds.play(listOf("wink", "pop", "love").random()) }, go = { nav.navigate(it) }) }
+            composable("home") { Home(snap, jump) { nav.navigate(it) } }
             composable("tasks") { Tasks(snap) { jump++ } }
             composable("breathe") { Breathe(snap) }
             composable("battery") { Batteries(snap) }
@@ -131,8 +177,9 @@ fun WearApp() {
     }
 }
 
-// ── Mochi ─────────────────────────────────────────────────────────────────────
+// ── Clocks ────────────────────────────────────────────────────────────────────
 
+/** The time, refreshed on each whole `periodMs`. */
 @Composable
 fun rememberNow(periodMs: Long = 1000): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -145,43 +192,37 @@ fun rememberNow(periodMs: Long = 1000): Long {
     return now
 }
 
-private fun hm(ms: Long) = SimpleDateFormat("HH:mm", Locale("es", "MX")).format(Date(ms))
+/** Only this text ticks each second, not the screen around it. */
+@Composable
+fun PomodoroLabel(p: Pomodoro) {
+    val now = rememberNow(1000)
+    Text("${if (p.phase == Phase.FOCUS) "Enfoque" else "Descanso"} · ${clock(p.left(now))}${if (p.endsAt == null) " ⏸" else ""}")
+}
+
+// ── Mochi ─────────────────────────────────────────────────────────────────────
 
 @Composable
-fun Home(snap: Snapshot, jump: Int, onPoke: () -> Unit, go: (String) -> Unit) {
+fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
     val listState = rememberScalingLazyListState()
-    val now = rememberNow()
-    val next = nextEvents(snap.events, now).firstOrNull { !it.allDay }
     val focusing = snap.pomodoro.phase == Phase.FOCUS
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
         ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             item {
                 Mochi(
-                    Modifier.width(130.dp).height(108.dp).clickable(onClick = onPoke),
+                    Modifier.width(130.dp).height(108.dp),
                     color = Color(snap.mochiColor),
                     mood = if (focusing) Mood.FOCUS else Mood.IDLE,
                     jump = jump,
+                    interactive = true,
+                    greet = true,
                 )
             }
-            item {
-                if (next != null) {
-                    val min = minutesUntil(next.begin, now)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            if (min <= 0) "Ahora" else if (min < 60) "En $min min" else hm(next.begin),
-                            color = VioletSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        )
-                        Text(next.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                    }
-                } else {
-                    Text(if (snap.at == 0L) "Abre Mochi en tu teléfono" else "Nada más por hoy", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center)
-                }
-            }
+            item { NextEvent(snap) }
             if (snap.pomodoro.phase != Phase.IDLE) {
                 item {
                     Chip(
                         onClick = { WatchStore.pomodoro() },
-                        label = { Text(if (focusing) "Enfoque · ${clock(snap.pomodoro.left(now))}" else "Descanso · ${clock(snap.pomodoro.left(now))}") },
+                        label = { PomodoroLabel(snap.pomodoro) },
                         secondaryLabel = { Text("Toca para pausar o seguir") },
                         colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF2D2547)),
                         modifier = Modifier.fillMaxWidth(),
@@ -229,6 +270,24 @@ fun Home(snap: Snapshot, jump: Int, onPoke: () -> Unit, go: (String) -> Unit) {
     }
 }
 
+@Composable
+fun NextEvent(snap: Snapshot) {
+    val now = rememberNow(30_000)
+    val next = remember(snap.events, now / 60_000) { nextEvents(snap.events, now).firstOrNull { !it.allDay } }
+    if (next != null) {
+        val min = minutesUntil(next.begin, now)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                if (min <= 0) "Ahora" else if (min < 60) "En $min min" else HM.format(Date(next.begin)),
+                color = VioletSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            )
+            Text(next.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        }
+    } else {
+        Text(if (snap.at == 0L) "Abre Mochi en tu teléfono" else "Nada más por hoy", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+}
+
 // ── Pendientes ────────────────────────────────────────────────────────────────
 
 @Composable
@@ -237,10 +296,11 @@ fun Tasks(snap: Snapshot, onDone: () -> Unit) {
     val dictate = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { WatchStore.addTask(it) }
     }
+    val tasks = remember(snap.tasks) { orderedTasks(snap.tasks).take(30) }
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
         ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item { Text("Pendientes · ${pendingCount(snap.tasks)}", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-            items(orderedTasks(snap.tasks).take(30)) { t ->
+            items(tasks, key = { it.id }) { t ->
                 ToggleChip(
                     checked = t.done,
                     onCheckedChange = {
@@ -285,10 +345,11 @@ fun rememberHeartRate(active: Boolean): Int {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(e: SensorEvent) {
                 val v = e.values.firstOrNull()?.toInt() ?: 0
-                if (v in 30..220) bpm = v
+                if (v in 30..220 && v != bpm) bpm = v
             }
             override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
         }
+        if (!active) bpm = 0
         if (active && granted && sensor != null) sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
         onDispose { sm?.unregisterListener(listener) }
     }
@@ -306,60 +367,90 @@ private fun buzz(context: Context, inhale: Boolean) {
 fun Breathe(snap: Snapshot) {
     val context = LocalContext.current
     var b by remember { mutableStateOf(Breathing()) }
+    var linked by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<BreathSession?>(null) }
     val active = b.startedAt != null
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(active) { while (active) withFrameMillis { now = System.currentTimeMillis() } }
-    val f = breathFrame(b, now)
     val bpm = rememberHeartRate(active)
-    var hrStart by remember { mutableIntStateOf(0) }
-    var hrMin by remember { mutableIntStateOf(0) }
-    LaunchedEffect(bpm) {
-        if (!active || bpm <= 0) return@LaunchedEffect
-        if (hrStart == 0) hrStart = bpm
-        hrMin = if (hrMin == 0) bpm else minOf(hrMin, bpm)
+    val bpmNow by rememberUpdatedState(bpm)
+    var inhaling by remember { mutableStateOf(true) }
+    var left by remember { mutableIntStateOf(0) }
+    val askSensors = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    fun start(session: Breathing, fromPhone: Boolean) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
+            askSensors.launch(Manifest.permission.BODY_SENSORS)
+        }
+        summary = null
+        linked = fromPhone
+        b = session
+        Sounds.play("open")
     }
-    // A gentle buzz on each turn: one for in, two for out.
-    var lastInhale by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(f.inhaling, active) {
-        if (!active) { lastInhale = null; return@LaunchedEffect }
-        if (lastInhale != f.inhaling) {
-            lastInhale = f.inhaling
-            buzz(context, f.inhaling)
+
+    // The phone asks: open its session, in step with it.
+    val request by WatchStore.breathRequest.collectAsState()
+    LaunchedEffect(request) {
+        val r = request ?: return@LaunchedEffect
+        if (r.startedAt != b.startedAt) start(r, fromPhone = true)
+        WatchStore.breathRequest.value = null
+    }
+    val stop by WatchStore.stopRequest.collectAsState()
+    LaunchedEffect(stop) {
+        if (stop != null && linked && active) { b = Breathing(); linked = false; Sounds.play("close") }
+    }
+
+    // The session's clock: buzz on each turn, the pulse to the phone, the end.
+    LaunchedEffect(b) {
+        val start = b.startedAt ?: return@LaunchedEffect
+        var hrStart = 0
+        var hrMin = 0
+        var lastSent = 0L
+        var lastInhale: Boolean? = null
+        while (true) {
+            val now = System.currentTimeMillis()
+            val f = breathFrame(b, now)
+            if (f.inhaling != lastInhale && !f.done) {
+                lastInhale = f.inhaling
+                inhaling = f.inhaling
+                buzz(context, f.inhaling)
+            }
+            if (f.left != left) left = f.left
+            val hr = bpmNow
+            if (hr > 0) {
+                if (hrStart == 0) hrStart = hr
+                hrMin = if (hrMin == 0) hr else minOf(hrMin, hr)
+                if (now - lastSent >= 3000) { lastSent = now; WatchStore.heartRate(hr) }
+            }
+            if (f.done) {
+                val s = BreathSession(start, b.minutes, f.breaths, hrStart, hr, hrMin, device = "watch")
+                WatchStore.session(s)
+                summary = s
+                b = Breathing()
+                linked = false
+                Sounds.play("love")
+                break
+            }
+            delay(100)
         }
     }
-    LaunchedEffect(f.done) {
-        val start = b.startedAt
-        if (f.done && start != null) {
-            val s = BreathSession(start, b.minutes, f.breaths, hrStart, bpm, hrMin, device = "watch")
-            WatchStore.session(s)
-            summary = s
-            b = Breathing()
-            Sounds.play("love")
-        }
-    }
+
     val view = LocalView.current
     DisposableEffect(active) {
         view.keepScreenOn = active
         onDispose { view.keepScreenOn = false }
     }
-    val askSensors = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     if (active) {
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = f.progress, modifier = Modifier.fillMaxSize().padding(4.dp),
-                startAngle = 290f, endAngle = 250f, indicatorColor = Violet, trackColor = Color(0x14FFFFFF), strokeWidth = 5.dp,
-            )
+            BreathRing(b, Modifier.fillMaxSize().padding(4.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Quedan ${clock(f.left)}", color = Dim, fontSize = 12.sp)
-                Mochi(Modifier.width(120.dp).height(98.dp), color = Color(snap.mochiColor), mood = Mood.BREATHING, breathFill = f.fill)
-                Text(if (f.inhaling) "Inhala…" else "Exhala…", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(if (bpm > 0) "♥ $bpm lpm" else "Midiendo pulso…", color = if (bpm > 0) Color(0xFFFF7896) else Dim, fontSize = 13.sp)
+                Text("${if (linked) "Con tu teléfono · " else ""}quedan ${clock(left)}", color = Dim, fontSize = 11.sp)
+                Mochi(Modifier.width(120.dp).height(98.dp), color = Color(snap.mochiColor), breathing = b)
+                Text(if (inhaling) "Inhala…" else "Exhala…", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(if (bpm > 0) "♥ $bpm lpm" else "Midiendo pulso…", color = if (bpm > 0) Pink else Dim, fontSize = 13.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Terminar", color = Dim, fontSize = 12.sp,
-                    modifier = Modifier.clip(CircleShape).clickable { b = Breathing(); Sounds.play("close") }.padding(8.dp),
+                    modifier = Modifier.clip(CircleShape).clickable { b = Breathing(); linked = false; Sounds.play("close") }.padding(8.dp),
                 )
             }
         }
@@ -375,7 +466,7 @@ fun Breathe(snap: Snapshot) {
                         Text("¡Bien hecho!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Text("${s.minutes} min · ${s.breaths} respiraciones", color = Dim, fontSize = 13.sp)
                         if (s.hrStart > 0 && s.hrEnd > 0) {
-                            Text("♥ ${s.hrStart} → ${s.hrEnd} lpm", color = Color(0xFFFF7896), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text("♥ ${s.hrStart} → ${s.hrEnd} lpm", color = Pink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                         Text("Guardado en tu teléfono", color = Dim, fontSize = 11.sp)
                     }
@@ -384,16 +475,7 @@ fun Breathe(snap: Snapshot) {
             item { Text("Respira con Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             items(BREATHE_MINUTES) { m ->
                 Chip(
-                    onClick = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
-                            askSensors.launch(Manifest.permission.BODY_SENSORS)
-                        }
-                        summary = null
-                        hrStart = 0
-                        hrMin = 0
-                        b = Breathing(System.currentTimeMillis(), m)
-                        Sounds.play("open")
-                    },
+                    onClick = { start(Breathing(System.currentTimeMillis(), m), fromPhone = false) },
                     label = { Text("$m min") },
                     secondaryLabel = { Text("4 s inhalar · 6 s exhalar") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -401,6 +483,22 @@ fun Breathe(snap: Snapshot) {
                 )
             }
         }
+    }
+}
+
+/** The session's ring, smooth: it redraws each frame without recomposing. */
+@Composable
+fun BreathRing(b: Breathing, modifier: Modifier) {
+    var frame by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(b) { while (true) withFrameMillis { frame = it } }
+    Canvas(modifier) {
+        if (frame < 0) return@Canvas
+        val p = breathFrame(b, System.currentTimeMillis()).progress
+        val stroke = 5.dp.toPx()
+        val inset = stroke / 2
+        val arcSize = Size(size.width - stroke, size.height - stroke)
+        drawArc(Color(0x14FFFFFF), 290f, 320f, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        drawArc(Violet, 290f, 320f * p, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
     }
 }
 

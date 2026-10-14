@@ -6,14 +6,22 @@ package mx.loperstack.mochi.data
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.BatteryManager
 import androidx.core.content.ContextCompat
+import androidx.wear.remote.interactions.RemoteActivityHelper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.Executors
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.mochi.wellness.Breathing
 import mx.loperstack.mochi.wellness.EventLite
 import mx.loperstack.mochi.wellness.Phase
 import mx.loperstack.mochi.wellness.PomodoroScheduler
@@ -26,9 +34,54 @@ import mx.loperstack.mochi.wellness.resume
 import mx.loperstack.mochi.wellness.sessionOf
 import mx.loperstack.mochi.wellness.startFocus
 import mx.loperstack.mochi.wellness.toJson
+import mx.loperstack.mochi.wellness.toWire
 import mx.loperstack.mochi.wellness.toggleTask
 
+/** The watch's pulse, as it last sent it, and when. */
+data class LiveHeartRate(val bpm: Int = 0, val at: Long = 0)
+
 object WearSync {
+    private val _heartRate = MutableStateFlow(LiveHeartRate())
+    val heartRate: StateFlow<LiveHeartRate> = _heartRate.asStateFlow()
+    private val io = Executors.newSingleThreadExecutor()
+
+    /**
+     * Breathing on the phone: the watch opens the same session (same start, so
+     * they stay in step), vibrates on each turn and sends the pulse back.
+     */
+    fun breatheTogether(context: Context, b: Breathing) {
+        val app = context.applicationContext
+        _heartRate.value = LiveHeartRate()
+        io.execute {
+            runCatching {
+                val nodes = com.google.android.gms.tasks.Tasks.await(Wearable.getNodeClient(app).connectedNodes)
+                val helper = RemoteActivityHelper(app, io)
+                val uri = Uri.parse("mochi://breathe?at=${b.startedAt}&min=${b.minutes}")
+                for (n in nodes) {
+                    // Opens Mochi on the watch, even with its screen off…
+                    runCatching {
+                        helper.startRemoteActivity(
+                            Intent(Intent.ACTION_VIEW).addCategory(Intent.CATEGORY_BROWSABLE).setData(uri),
+                            n.id,
+                        )
+                    }
+                    // …and the message covers the case where it is already open.
+                    Wearable.getMessageClient(app).sendMessage(n.id, SyncPaths.BREATHE_START, b.toWire().toByteArray())
+                }
+            }
+        }
+    }
+
+    fun stopTogether(context: Context) {
+        val app = context.applicationContext
+        io.execute {
+            runCatching {
+                val nodes = com.google.android.gms.tasks.Tasks.await(Wearable.getNodeClient(app).connectedNodes)
+                for (n in nodes) Wearable.getMessageClient(app).sendMessage(n.id, SyncPaths.BREATHE_STOP, ByteArray(0))
+            }
+        }
+    }
+
     fun snapshot(context: Context, now: Long = System.currentTimeMillis()): Snapshot {
         val d = Store.state.value
         val bm = context.getSystemService(BatteryManager::class.java)
@@ -82,6 +135,10 @@ object WearSync {
                 }
                 Store.setPomodoro(next)
                 PomodoroScheduler.sync(context, next, now)
+            }
+            SyncPaths.HEART_RATE -> {
+                text.trim().toIntOrNull()?.let { _heartRate.value = LiveHeartRate(it, System.currentTimeMillis()) }
+                return
             }
             SyncPaths.REQUEST -> Unit
         }

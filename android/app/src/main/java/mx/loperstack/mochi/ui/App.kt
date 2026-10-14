@@ -13,6 +13,13 @@ import android.net.Uri
 import android.os.BatteryManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -332,6 +339,9 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
     val googleConsent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         (context as? Activity)?.let { GoogleTasks.onResult(it, r.data) }
     }
+    val connectGoogle: () -> Unit = {
+        (context as? Activity)?.let { a -> GoogleTasks.connect(a) { req -> googleConsent.launch(req) } }
+    }
 
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val startPomodoro = {
@@ -345,7 +355,14 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
     val config = LocalConfiguration.current
     val desk = config.screenWidthDp >= 840 && config.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    MochiTheme {
+    MochiTheme(data.theme) {
+        if (!data.onboarded) {
+            Welcome(data, googleTasks, actions, connectGoogle) {
+                Store.setOnboarded(true)
+                calendarOk = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+            }
+            return@MochiTheme
+        }
         if (desk) {
             DeskScreen(data.tasks, data.pomodoro, events, now, color, actions, startPomodoro, calendarOk) { askCalendar.launch(Manifest.permission.READ_CALENDAR) }
         } else {
@@ -363,7 +380,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Ink.VioletSoft,
                                     selectedTextColor = Ink.Text,
-                                    indicatorColor = Color(0xFF2D2547),
+                                    indicatorColor = Ink.VioletDeep,
                                     unselectedIconColor = Ink.Dim,
                                     unselectedTextColor = Ink.Dim,
                                 ),
@@ -372,8 +389,16 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                     }
                 },
             ) { pad ->
-                Box(Modifier.padding(pad).fillMaxSize()) {
-                    when (tab) {
+                AnimatedContent(
+                    targetState = tab, modifier = Modifier.padding(pad).fillMaxSize(),
+                    transitionSpec = {
+                        val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                        (fadeIn(tween(240)) + slideInHorizontally(tween(320)) { it / 8 * dir }) togetherWith
+                            (fadeOut(tween(160)) + slideOutHorizontally(tween(260)) { -it / 8 * dir })
+                    },
+                    label = "tab",
+                ) { shown ->
+                    when (shown) {
                         Tab.HOME -> HomeScreen(
                             data.tasks, data.pomodoro, events, now, color, actions, calendarOk,
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
@@ -401,23 +426,11 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
         }
         if (showColors) {
             ModalBottomSheet(onDismissRequest = { showColors = false }, containerColor = Ink.CardHigh) {
-                ColorPicker(data.mochiColor, color) { Store.setColor(it); Sounds.play("pop") }
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 36.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Sonidos de Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Label("Los mismos de la PC, en el teléfono y el reloj", Ink.Dim2)
-                    }
-                    Switch(
-                        checked = data.soundOn, onCheckedChange = { Store.setSound(it); if (it) Sounds.play("pop") },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet),
-                    )
-                }
-                GoogleTasksRow(googleTasks, connect = {
-                    (context as? Activity)?.let { a -> GoogleTasks.connect(a) { req -> googleConsent.launch(req) } }
-                }, sync = { TaskSync.refresh(context) }, disconnect = { GoogleTasks.disconnect(context) })
+                SettingsSheet(
+                    data, color, googleTasks, connectGoogle, syncGoogle = { TaskSync.refresh(context) },
+                    disconnectGoogle = { GoogleTasks.disconnect(context) },
+                    replayWelcome = { showColors = false; Store.setOnboarded(false) },
+                )
             }
         }
     }
@@ -453,7 +466,7 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = In
 @Composable
 fun RoundIcon(glyph: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(52.dp).clip(CircleShape).background(Ink.CardHigh)) {
-        Icon(glyph, contentDescription = description, tint = Color(0xFFC5C8CD), modifier = Modifier.size(20.dp))
+        Icon(glyph, contentDescription = description, tint = Ink.Dim, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -507,7 +520,7 @@ fun NewTaskField(actions: Actions, modifier: Modifier = Modifier) {
 fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-            .background(if (highlight) Color(0x24A78BFA) else Color.Transparent)
+            .background(if (highlight) Ink.Violet.copy(alpha = 0.14f) else Color.Transparent)
             .heightIn(min = 52.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -523,7 +536,7 @@ fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
         if (e.meetUrl != null) {
             Text(
                 "Unirse", color = Ink.Green, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0x2E4ADE80))
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ink.Green.copy(alpha = 0.18f))
                     .clickable { actions.open(e.meetUrl) }.padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
@@ -568,12 +581,16 @@ fun HomeScreen(
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Label(longDate(now))
-                Text(greeting(now), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
+                val who = Store.state.value.name
+                Text(if (who.isBlank()) greeting(now) else "${greeting(now)}, $who", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
             }
             RoundIcon(Glyph.Gear, "Color de Mochi", openColors)
         }
         Spacer(Modifier.height(16.dp))
-        Panel(Modifier.fillMaxWidth(), padding = 20.dp) {
+        Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+          Box {
+            Aurora(color, Modifier.matchParentSize())
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Mochi(
                 Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp),
                 color = color,
@@ -606,6 +623,8 @@ fun HomeScreen(
                 }
                 else -> Text("Nada más en tu agenda hoy", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
+            }
+          }
         }
         if (calendarOk) {
             Spacer(Modifier.height(20.dp))
@@ -623,7 +642,7 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "25:00" else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.VioletSoft, Modifier.weight(1f), goFocus)
-            Tile("Respirar", "1 · 5 · 10 min", Color(0xFF141E1B), Color(0xFF1D2A26), Color(0xFF86EFAC), Modifier.weight(1f), goBreathe, small = true)
+            Tile("Respirar", "1 · 5 · 10 min", Ink.Green.copy(alpha = 0.10f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true)
         }
         Spacer(Modifier.height(20.dp))
         Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.Bottom) {
@@ -697,7 +716,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
         if (current != null && p.phase == Phase.FOCUS) {
             Spacer(Modifier.height(14.dp))
             Text(
-                "✓  ${current.text}", color = Color(0xFFDDD6FE), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                "✓  ${current.text}", color = Ink.VioletSoft, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clip(RoundedCornerShape(17.dp)).background(Ink.VioletDeep).border(1.dp, Ink.VioletLine, RoundedCornerShape(17.dp))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             )
@@ -722,7 +741,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
         Canvas(Modifier.fillMaxSize()) {
             val stroke = size.minDimension * 0.05f
             val inset = stroke / 2
-            drawArc(Color(0x12FFFFFF), 0f, 360f, false, Offset(inset, inset), Size(size.width - stroke, size.height - stroke), style = Stroke(stroke))
+            drawArc(Ink.Track, 0f, 360f, false, Offset(inset, inset), Size(size.width - stroke, size.height - stroke), style = Stroke(stroke))
             drawArc(
                 ring, -90f, 360f * p.progress(now), false, Offset(inset, inset), Size(size.width - stroke, size.height - stroke),
                 style = Stroke(stroke, cap = StrokeCap.Round),
@@ -764,10 +783,10 @@ fun PcScreen(now: Long) {
             }
             LinearProgressIndicator(
                 progress = { level / 100f }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                color = if (level <= 15) Ink.Red else Ink.Green, trackColor = Color(0x14FFFFFF),
+                color = if (level <= 15) Ink.Red else Ink.Green, trackColor = Ink.Track,
             )
             Spacer(Modifier.height(8.dp))
-            Label(if (charging) "Cargando" else "Con batería", if (charging) Color(0xFF86EFAC) else Ink.Dim)
+            Label(if (charging) "Cargando" else "Con batería", if (charging) Ink.GreenSoft else Ink.Dim)
         }
         Spacer(Modifier.height(12.dp))
         Panel(Modifier.fillMaxWidth()) {
@@ -781,40 +800,14 @@ fun PcScreen(now: Long) {
             )) {
                 Row(Modifier.padding(vertical = 6.dp)) {
                     Box(Modifier.padding(top = 7.dp).size(6.dp).clip(CircleShape).background(Ink.Violet))
-                    Text(line, fontSize = 15.sp, color = Color(0xFFC5C8CD), modifier = Modifier.padding(start = 12.dp))
+                    Text(line, fontSize = 15.sp, color = Ink.Dim, modifier = Modifier.padding(start = 12.dp))
                 }
             }
         }
     }
 }
 
-// ── Color de Mochi ────────────────────────────────────────────────────────────
-
-@Composable
-fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("El color de Mochi", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-        Spacer(Modifier.height(8.dp))
-        Mochi(Modifier.width(150.dp).height(124.dp), color = color, interactive = true)
-        Spacer(Modifier.height(16.dp))
-        val rows = MOCHI_PALETTE.chunked(6)
-        for (row in rows) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                for (c in row) {
-                    val argb = c.value.toLong().let { (it shr 32) and 0xFFFFFFFFL }
-                    val on = argb == current
-                    Box(
-                        Modifier.size(44.dp).clip(CircleShape).background(c)
-                            .border(if (on) 3.dp else 1.dp, if (on) Ink.Text else Color(0x33FFFFFF), CircleShape)
-                            .clickable { onPick(argb) },
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Label("Blanco es el Mochi de la PC; los demás lo tiñen como las pills de Coucou.", Ink.Dim2)
-    }
-}
+// ── Color de Mochi: ColorPicker.kt ─────────────────────────────────────────────
 
 // ── Tablet: modo escritorio ───────────────────────────────────────────────────
 
@@ -823,15 +816,15 @@ fun DeskScreen(
     tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, start: () -> Unit, calendarOk: Boolean, askCalendar: () -> Unit,
 ) {
-    Row(Modifier.fillMaxSize().background(Color(0xFF08090B)).padding(24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Row(Modifier.fillMaxSize().background(Ink.Ground).padding(24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Column(
             Modifier.weight(1.1f).fillMaxHeight().clip(RoundedCornerShape(34.dp))
-                .background(Brush.radialGradient(listOf(Color(0xFF221B3C), Color(0xFF111117)), radius = 1100f))
+                .background(Brush.radialGradient(listOf(Ink.VioletDeep, Ink.Card), radius = 1100f))
                 .border(1.dp, Ink.Hairline, RoundedCornerShape(34.dp)).padding(30.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
-                Label(longDate(now), Color(0xFFA5A9B1), 16.sp, FontWeight.SemiBold)
+                Label(longDate(now), Ink.Dim, 16.sp, FontWeight.SemiBold)
                 Text(hourMinute(now), fontSize = 100.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 100.sp)
             }
             Mochi(
@@ -842,7 +835,7 @@ fun DeskScreen(
             Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Column(
-            Modifier.weight(1.3f).fillMaxHeight().clip(RoundedCornerShape(34.dp)).background(Color(0xFF111216))
+            Modifier.weight(1.3f).fillMaxHeight().clip(RoundedCornerShape(34.dp)).background(Ink.Card)
                 .border(1.dp, Ink.Hairline, RoundedCornerShape(34.dp)).padding(26.dp).verticalScroll(rememberScrollState()),
         ) {
             Text("Hoy", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
@@ -887,7 +880,7 @@ fun GoogleTasksRow(st: GoogleTasks.Status, connect: () -> Unit, sync: () -> Unit
                         st.connected -> "Conectado · la misma lista que en tu PC"
                         else -> "Tus tareas, también en Google y en la PC"
                     },
-                    if (st.connected) Color(0xFF86EFAC) else Ink.Dim2,
+                    if (st.connected) Ink.GreenSoft else Ink.Dim2,
                 )
             }
             if (st.connected) {

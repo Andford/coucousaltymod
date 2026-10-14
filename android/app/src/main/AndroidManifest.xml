@@ -37,6 +37,15 @@
             android:name=".wellness.PomodoroReceiver"
             android:exported="false" />
 
+        <!-- Sharing the diary's day as an image. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Home screen widgets (widget/Widgets.kt). -->
         <receiver
             android:name=".widget.MochiWidgetReceiver"

@@ -16,7 +16,7 @@ object Sounds {
         "greet" to R.raw.greet, "love" to R.raw.love, "open" to R.raw.open, "peek" to R.raw.peek,
         "pop" to R.raw.pop, "proud" to R.raw.proud, "question" to R.raw.question, "sleep" to R.raw.sleep,
         "tick" to R.raw.tick, "wink" to R.raw.wink, "work" to R.raw.work, "yawn" to R.raw.yawn,
-        "dizzy" to R.raw.dizzy, "slap" to R.raw.slap,
+        "dizzy" to R.raw.dizzy, "slap" to R.raw.slap, "gulp" to R.raw.gulp,
     )
 
     private var pool: SoundPool? = null

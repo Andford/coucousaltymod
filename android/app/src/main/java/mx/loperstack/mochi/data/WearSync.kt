@@ -96,13 +96,25 @@ object WearSync {
             events = events,
             pomodoro = d.pomodoro,
             soundOn = d.soundOn,
+            name = d.name,
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
             at = now,
         )
     }
 
-    /** Publishes the state for the watch; a phone without a watch just drops it. */
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var pushApp: Context? = null
+    private val pushLater = Runnable { pushApp?.let { pushNow(it) } }
+
+    /** Publishes the state for the watch, at most every 300 ms (a colour drag sends many changes). */
     fun push(context: Context) {
+        pushApp = context.applicationContext
+        main.removeCallbacks(pushLater)
+        main.postDelayed(pushLater, 300)
+    }
+
+    /** A phone without a watch just drops it. */
+    private fun pushNow(context: Context) {
         val app = context.applicationContext
         Thread {
             runCatching {

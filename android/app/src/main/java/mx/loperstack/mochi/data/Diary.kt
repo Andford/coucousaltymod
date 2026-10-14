@@ -1,6 +1,7 @@
-// The diary: one entry per day — a mood (1…5) and short timestamped lines, the
-// daily log. Kept only on this phone, never sent anywhere (the watch only
-// learns today's mood, to show it).
+// The diary: one entry per day — a mood (1…5) and short timestamped lines,
+// the daily log, some of them photos. Kept only on this phone, never sent
+// anywhere (the watch only learns today's mood); you can export it as a PDF,
+// or a .zip copy you can restore.
 
 package mx.loperstack.mochi.data
 
@@ -11,11 +12,15 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-data class LogNote(val at: Long, val text: String)
+/** A line of the day; `image` is a photo's file name in the diary's folder (DiaryImages). */
+data class LogNote(val at: Long, val text: String, val image: String? = null)
 
 data class DayLog(val day: String, val mood: Int = 0, val notes: List<LogNote> = emptyList())
 
 const val NOTE_MAX_LEN = 500
+
+/** Only the names DiaryImages makes: nothing that could point outside its folder. */
+fun isImageName(name: String) = Regex("""img-[A-Za-z0-9_-]{1,60}\.jpg""").matches(name)
 
 /** yyyy-MM-dd, local. */
 fun dayKey(ms: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(ms))
@@ -45,10 +50,21 @@ fun streak(logs: List<DayLog>, now: Long): Int {
 
 fun withMood(logs: List<DayLog>, day: String, mood: Int): List<DayLog> = upsert(logs, day) { it.copy(mood = mood.coerceIn(0, 5)) }
 
-fun withNote(logs: List<DayLog>, day: String, at: Long, text: String): List<DayLog> {
+fun withNote(logs: List<DayLog>, day: String, at: Long, text: String, image: String? = null): List<DayLog> {
     val clean = text.trim().take(NOTE_MAX_LEN)
-    if (clean.isEmpty()) return logs
-    return upsert(logs, day) { it.copy(notes = (it.notes + LogNote(at, clean)).sortedBy { n -> n.at }) }
+    if (clean.isEmpty() && image == null) return logs
+    return upsert(logs, day) { it.copy(notes = (it.notes.filter { n -> n.at != at } + LogNote(at, clean, image)).sortedBy { n -> n.at }) }
+}
+
+/** A restored copy joins what is here: its days and lines are added, nothing is lost. */
+fun mergeLogs(here: List<DayLog>, other: List<DayLog>): List<DayLog> {
+    val days = (here.map { it.day } + other.map { it.day }).toSortedSet()
+    return days.map { d ->
+        val a = here.firstOrNull { it.day == d }
+        val b = other.firstOrNull { it.day == d }
+        val notes = ((a?.notes ?: emptyList()) + (b?.notes ?: emptyList())).distinctBy { it.at to it.text }.sortedBy { it.at }
+        DayLog(d, a?.mood?.takeIf { it > 0 } ?: b?.mood ?: 0, notes)
+    }
 }
 
 fun withoutNote(logs: List<DayLog>, day: String, at: Long): List<DayLog> =
@@ -62,7 +78,9 @@ private fun upsert(logs: List<DayLog>, day: String, f: (DayLog) -> DayLog): List
 fun logsJson(logs: List<DayLog>): String = JSONArray().apply {
     for (l in logs) put(
         JSONObject().put("day", l.day).put("mood", l.mood)
-            .put("notes", JSONArray().apply { l.notes.forEach { put(JSONObject().put("at", it.at).put("text", it.text)) } }),
+            .put("notes", JSONArray().apply { l.notes.forEach { n ->
+                put(JSONObject().put("at", n.at).put("text", n.text).apply { n.image?.let { put("image", it) } })
+            } }),
     )
 }.toString()
 
@@ -78,7 +96,8 @@ fun logsOf(raw: String?): List<DayLog> {
                 (0 until n.length()).mapNotNull { j ->
                     val x = n.optJSONObject(j) ?: return@mapNotNull null
                     val t = x.optString("text", "").trim()
-                    if (t.isEmpty()) null else LogNote(x.optLong("at"), t.take(NOTE_MAX_LEN))
+                    val img = x.optString("image", "").takeIf { isImageName(it) }
+                    if (t.isEmpty() && img == null) null else LogNote(x.optLong("at"), t.take(NOTE_MAX_LEN), img)
                 }
             } ?: emptyList()
             DayLog(day, o.optInt("mood", 0).coerceIn(0, 5), notes)

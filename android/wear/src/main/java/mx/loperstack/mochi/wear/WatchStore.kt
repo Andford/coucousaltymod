@@ -75,7 +75,8 @@ object WatchStore {
     /** The tile and the complications show the new state too. */
     fun refreshSurfaces() {
         runCatching { TileService.getUpdater(app).requestUpdate(MochiTileService::class.java) }
-        for (cls in listOf(PendingComplicationService::class.java, PhoneBatteryComplicationService::class.java)) {
+        runCatching { TileService.getUpdater(app).requestUpdate(MoodTileService::class.java) }
+        for (cls in listOf(PendingComplicationService::class.java, PhoneBatteryComplicationService::class.java, MoodComplicationService::class.java)) {
             runCatching { ComplicationDataSourceUpdateRequester.create(app, ComponentName(app, cls)).requestUpdateAll() }
         }
     }
@@ -133,12 +134,25 @@ object WatchStore {
 
     fun heartRate(bpm: Int) = send(SyncPaths.HEART_RATE, bpm.toString())
 
-    /** Today's mood for the diary on the phone. */
-    fun mood(value: Int) {
-        _state.value = _state.value.copy(moodToday = value)
-        Sounds.play(if (value >= 4) "love" else "pop")
+    /** Today's mood for the diary on the phone (from the app, the tile or the complication). */
+    fun mood(value: Int, sound: Boolean = true) {
+        // "now" marks it as today's, so the tile and complication trust it.
+        _state.value = _state.value.copy(moodToday = value, at = maxOf(_state.value.at, System.currentTimeMillis()))
+        prefs.edit().putString("snapshot", _state.value.toJson()).apply()
+        if (sound) Sounds.play(if (value >= 4) "love" else "pop")
         send(SyncPaths.MOOD, value.toString())
+        refreshSurfaces()
     }
+
+    /** Today's mood, 0 if the last word from the phone is from another day. */
+    fun todayMood(): Int {
+        val s = _state.value
+        val fmt = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+        return if (fmt.format(java.util.Date(s.at)) == fmt.format(java.util.Date())) s.moodToday else 0
+    }
+
+    /** A screen to open (the mood complication asks for "mood"). */
+    val openScreen = MutableStateFlow<String?>(null)
 
     /** The phone asked to breathe together. */
     fun breatheFromPhone(context: Context, b: Breathing) {

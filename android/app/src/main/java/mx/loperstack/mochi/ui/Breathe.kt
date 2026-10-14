@@ -77,7 +77,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
     }
 
     if (active) {
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1C1733), Ink.Ground), radius = 1400f))) {
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Ink.VioletDeep, Ink.Ground), radius = 1400f))) {
             Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.height(30.dp))
                 Label("Sesión de ${b.minutes} min", Ink.Dim, 14.sp, FontWeight.SemiBold)
@@ -93,7 +93,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
                     else -> Unit
                 }
                 Spacer(Modifier.height(20.dp))
-                LinearProgressIndicator(progress = { f.progress }, modifier = Modifier.width(280.dp).height(6.dp).clip(CircleShape), color = Ink.Violet, trackColor = Color(0x14FFFFFF))
+                LinearProgressIndicator(progress = { f.progress }, modifier = Modifier.width(280.dp).height(6.dp).clip(CircleShape), color = Ink.Violet, trackColor = Ink.Track)
                 Row(Modifier.width(280.dp).padding(top = 8.dp)) {
                     Label("${f.breaths} respiraciones", modifier = Modifier.weight(1f))
                     Label("Quedan ${clock(f.left)}")
@@ -234,7 +234,7 @@ private fun WeekBars(perDay: IntArray, now: Long, start: Long) {
                 Box(
                     Modifier.width(26.dp).height((6 + 100f * perDay[i] / maxMin).dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (perDay[i] > 0) Ink.Violet else Color(0x1AFFFFFF)),
+                        .background(if (perDay[i] > 0) Ink.Violet else Ink.Track),
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(days[i], fontSize = 12.sp, fontWeight = if (i == today) FontWeight.ExtraBold else FontWeight.Medium, color = if (i == today) Ink.Text else Ink.Dim2)
@@ -255,7 +255,7 @@ private fun PulseChart(list: List<BreathSession>) {
                 Canvas(Modifier.weight(1f).height(18.dp)) {
                     fun x(bpm: Int) = size.width * (bpm - lo).toFloat() / (hi - lo).coerceAtLeast(1)
                     val y = size.height / 2
-                    drawRoundRect(Color(0x10FFFFFF), Offset(0f, y - 2f), Size(size.width, 4f), CornerRadius(2f, 2f))
+                    drawRoundRect(Ink.Track, Offset(0f, y - 2f), Size(size.width, 4f), CornerRadius(2f, 2f))
                     drawLine(Brush.horizontalGradient(listOf(Pink, Color(0xFF8E939C)), x(s.hrEnd), x(s.hrStart)), Offset(x(s.hrEnd), y), Offset(x(s.hrStart), y), strokeWidth = 6f, cap = StrokeCap.Round)
                     drawCircle(Color(0xFF8E939C), radius = 7f, center = Offset(x(s.hrStart), y))
                     drawCircle(Pink, radius = 7f, center = Offset(x(s.hrEnd), y))
@@ -293,7 +293,7 @@ private fun SessionRow(s: BreathSession) {
             if (drop >= 0.02f) {
                 Text(
                     "−${(drop * 100).toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink.Green,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0x264ADE80)).padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Ink.Green.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp),
                 )
                 Spacer(Modifier.height(6.dp))
             }

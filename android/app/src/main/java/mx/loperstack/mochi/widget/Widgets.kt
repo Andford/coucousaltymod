@@ -132,7 +132,7 @@ class MochiWidget : GlanceAppWidget() {
         val focusing = data.pomodoro.phase == Phase.FOCUS
         val image = mochi(context, if (focusing) Mood.FOCUS else Mood.IDLE)
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }
+        val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }.let { if (data.name.isBlank()) it else "$it, ${data.name}" }
         val pending = pendingCount(data.tasks)
         provideContent {
             Column(

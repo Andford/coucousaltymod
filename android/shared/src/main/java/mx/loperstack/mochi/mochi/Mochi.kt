@@ -57,11 +57,21 @@ import kotlin.math.tanh
 /** What Mochi is up to. */
 enum class Mood { IDLE, HAPPY, FOCUS, BREATHING, SLEEPY }
 
-/** White first — the PC's own Mochi — then the PC's pill colours as a tint. */
+/**
+ * White first — the PC's own Mochi — then the PC's pill colours, pastels and
+ * deep tones. Any other colour can be picked by hand (the app's colour sheet).
+ */
 val MOCHI_PALETTE = listOf(
-    0xFFF5F6F8, 0xFFF4505E, 0xFFF29B38, 0xFFFACC15, 0xFF4ADE80,
-    0xFF2DD4BF, 0xFF38BDF8, 0xFF818CF8, 0xFFC084FC, 0xFFE879F9,
-).map { Color(it) } + Color(0xFFA78BFA)
+    // The PC's own, and its pill colours.
+    0xFFF5F6F8, 0xFFF4505E, 0xFFF29B38, 0xFFFACC15, 0xFF4ADE80, 0xFF2DD4BF,
+    0xFF38BDF8, 0xFF818CF8, 0xFFA78BFA, 0xFFC084FC, 0xFFE879F9, 0xFFFB7185,
+    // Pastels.
+    0xFFFECACA, 0xFFFED7AA, 0xFFFEF08A, 0xFFBBF7D0, 0xFFA5F3FC, 0xFFBFDBFE,
+    0xFFDDD6FE, 0xFFF5D0FE, 0xFFFBCFE8, 0xFFE7E5E4, 0xFFD6D3D1, 0xFFCBD5E1,
+    // Deep tones.
+    0xFFB91C1C, 0xFFC2410C, 0xFFA16207, 0xFF15803D, 0xFF0F766E, 0xFF0369A1,
+    0xFF1D4ED8, 0xFF4338CA, 0xFF6D28D9, 0xFFA21CAF, 0xFFBE185D, 0xFF334155,
+).map { Color(it) }
 
 /**
  * Mochi, drawn to fill the composable's width (keep it about 1.2 : 1).

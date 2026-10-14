@@ -1,8 +1,21 @@
 package mx.loperstack.mochi.ui
 
+import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -11,42 +24,95 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
-/** The island's palette (windows/src/style.css), so the phone feels like the PC. */
+/**
+ * The app's colours. They follow the theme you pick: your Pixel's wallpaper
+ * colours (Material You, light or dark as the phone is), or the island's own
+ * dark palette (windows/src/style.css). State-backed, so a change of wallpaper
+ * or theme repaints everything, Canvas drawings included.
+ */
 object Ink {
-    val Ground = Color(0xFF0B0C0E)
-    val Card = Color(0xFF141518)
-    val CardHigh = Color(0xFF17181C)
-    val Hairline = Color(0xFF1D1F24)
-    val Text = Color(0xFFF5F6F8)
-    val Dim = Color(0xFF8E939C)
-    val Dim2 = Color(0xFF6B7079)
-    val Violet = Color(0xFFA78BFA)
-    val VioletSoft = Color(0xFFC4B5FD)
-    val VioletDeep = Color(0xFF1A1726)
-    val VioletLine = Color(0xFF2A2440)
-    val Green = Color(0xFF4ADE80)
-    val GreenDeep = Color(0xFF06260F)
-    val Amber = Color(0xFFF5A524)
-    val Red = Color(0xFFF4505E)
+    var Ground by mutableStateOf(Color(0xFF0B0C0E))
+    var Card by mutableStateOf(Color(0xFF141518))
+    var CardHigh by mutableStateOf(Color(0xFF17181C))
+    var Hairline by mutableStateOf(Color(0xFF1D1F24))
+    var Text by mutableStateOf(Color(0xFFF5F6F8))
+    var Dim by mutableStateOf(Color(0xFF8E939C))
+    var Dim2 by mutableStateOf(Color(0xFF6B7079))
+    var Violet by mutableStateOf(Color(0xFFA78BFA))
+    var VioletSoft by mutableStateOf(Color(0xFFC4B5FD))
+    var VioletDeep by mutableStateOf(Color(0xFF1A1726))
+    var VioletLine by mutableStateOf(Color(0xFF2A2440))
+    var Green by mutableStateOf(Color(0xFF4ADE80))
+    var GreenSoft by mutableStateOf(Color(0xFF86EFAC))
+    var GreenDeep by mutableStateOf(Color(0xFF06260F))
+    var Amber by mutableStateOf(Color(0xFFF5A524))
+    var Red by mutableStateOf(Color(0xFFF4505E))
+    /** Empty tracks and faint fills: the text colour, barely there. */
+    var Track by mutableStateOf(Color(0x14FFFFFF))
+    var Dark by mutableStateOf(true)
+
+    internal fun classic() {
+        Ground = Color(0xFF0B0C0E); Card = Color(0xFF141518); CardHigh = Color(0xFF17181C); Hairline = Color(0xFF1D1F24)
+        Text = Color(0xFFF5F6F8); Dim = Color(0xFF8E939C); Dim2 = Color(0xFF6B7079)
+        Violet = Color(0xFFA78BFA); VioletSoft = Color(0xFFC4B5FD); VioletDeep = Color(0xFF1A1726); VioletLine = Color(0xFF2A2440)
+        Green = Color(0xFF4ADE80); GreenSoft = Color(0xFF86EFAC); GreenDeep = Color(0xFF06260F); Red = Color(0xFFF4505E)
+        Track = Color(0x14FFFFFF); Dark = true
+    }
+
+    internal fun from(cs: ColorScheme, dark: Boolean) {
+        Ground = cs.surface; Card = cs.surfaceContainer; CardHigh = cs.surfaceContainerHigh; Hairline = cs.outlineVariant
+        Text = cs.onSurface; Dim = cs.onSurfaceVariant; Dim2 = cs.outline
+        Violet = cs.primary; VioletSoft = cs.primary; VioletDeep = cs.primaryContainer; VioletLine = cs.primaryContainer
+        Green = if (dark) Color(0xFF4ADE80) else Color(0xFF16A34A)
+        GreenSoft = if (dark) Color(0xFF86EFAC) else Color(0xFF15803D)
+        GreenDeep = if (dark) Color(0xFF06260F) else Color.White
+        Red = cs.error
+        Track = cs.onSurface.copy(alpha = 0.08f); Dark = dark
+    }
 }
 
+private val ClassicScheme = darkColorScheme(
+    primary = Color(0xFFA78BFA),
+    onPrimary = Color(0xFF14102A),
+    secondary = Color(0xFF4ADE80),
+    background = Color(0xFF0B0C0E),
+    onBackground = Color(0xFFF5F6F8),
+    surface = Color(0xFF141518),
+    onSurface = Color(0xFFF5F6F8),
+    surfaceVariant = Color(0xFF17181C),
+    onSurfaceVariant = Color(0xFF8E939C),
+    outline = Color(0xFF1D1F24),
+    surfaceContainer = Color(0xFF141518),
+    surfaceContainerHigh = Color(0xFF17181C),
+)
+
+/**
+ * @param theme "pixel" (wallpaper colours, follows the phone's light/dark),
+ *   "pixelDark" (wallpaper colours, always dark) or "mochi" (the island's).
+ */
 @Composable
-fun MochiTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Ink.Violet,
-            onPrimary = Color(0xFF14102A),
-            secondary = Ink.Green,
-            background = Ink.Ground,
-            onBackground = Ink.Text,
-            surface = Ink.Card,
-            onSurface = Ink.Text,
-            surfaceVariant = Ink.CardHigh,
-            onSurfaceVariant = Ink.Dim,
-            outline = Ink.Hairline,
-        ),
-        content = content,
-    )
+fun MochiTheme(theme: String = "pixel", content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val systemDark = isSystemInDarkTheme()
+    val dark = theme != "pixel" || systemDark
+    val scheme = remember(theme, dark, context.resources.configuration) {
+        when {
+            theme == "mochi" -> ClassicScheme
+            dark -> dynamicDarkColorScheme(context)
+            else -> dynamicLightColorScheme(context)
+        }
+    }
+    if (theme == "mochi") Ink.classic() else Ink.from(scheme, dark)
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (context as? Activity)?.window ?: return@SideEffect
+            val bars = WindowCompat.getInsetsController(window, view)
+            bars.isAppearanceLightStatusBars = !dark
+            bars.isAppearanceLightNavigationBars = !dark
+        }
+    }
+    MaterialTheme(colorScheme = scheme, content = content)
 }
 
 /** Stroke icons from the mockup, on a 24×24 grid. */

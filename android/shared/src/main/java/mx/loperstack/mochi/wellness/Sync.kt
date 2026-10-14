@@ -49,6 +49,8 @@ data class Snapshot(
     val soundOn: Boolean = true,
     /** Today's mood in the diary, 1…5 (0 = not logged yet). */
     val moodToday: Int = 0,
+    /** Your name, for Mochi's hello. */
+    val name: String = "",
     val at: Long = 0,
 )
 
@@ -95,6 +97,7 @@ fun Snapshot.toJson(): String = JSONObject()
         .put("today", pomodoro.today))
     .put("sound", soundOn)
     .put("mood", moodToday)
+    .put("name", name)
     .put("at", at)
     .toString()
 
@@ -128,6 +131,7 @@ fun snapshotOf(raw: String?): Snapshot {
             ),
             soundOn = o.optBoolean("sound", true),
             moodToday = o.optInt("mood", 0).coerceIn(0, 5),
+            name = o.optString("name", "").take(30),
             at = o.optLong("at"),
         )
     } catch (_: Exception) {

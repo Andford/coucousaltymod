@@ -119,6 +119,11 @@ private val Pink = Color(0xFFFF7896)
 private val HM = SimpleDateFormat("HH:mm", Locale("es", "MX"))
 
 class WearActivity : ComponentActivity() {
+    companion object {
+        /** A screen to open: "mood" (from the mood complication). */
+        const val EXTRA_SCREEN = "screen"
+    }
+
     private val askOnce = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,6 +146,7 @@ class WearActivity : ComponentActivity() {
 
     /** mochi://breathe?at=…&min=… — the phone started a session. */
     private fun handle(intent: Intent?) {
+        intent?.getStringExtra(EXTRA_SCREEN)?.let { WatchStore.openScreen.value = it }
         val uri = intent?.data ?: return
         if (uri.scheme != "mochi" || uri.host != "breathe") return
         val at = uri.getQueryParameter("at")?.toLongOrNull() ?: return
@@ -169,6 +175,12 @@ fun WearApp() {
     var jump by remember { mutableIntStateOf(0) }
     LaunchedEffect(request) {
         if (request != null && nav.currentDestination?.route != "breathe") nav.navigate("breathe")
+    }
+    val open by WatchStore.openScreen.collectAsState()
+    LaunchedEffect(open) {
+        val screen = open ?: return@LaunchedEffect
+        if (nav.currentDestination?.route != screen) nav.navigate(screen)
+        WatchStore.openScreen.value = null
     }
     MaterialTheme(colors = Colors(primary = Violet, onPrimary = Color(0xFF14102A), secondary = Green)) {
         SwipeDismissableNavHost(navController = nav, startDestination = "home") {
@@ -222,6 +234,9 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     dancing = rememberMusicPlaying(),
                 )
             }
+            if (snap.name.isNotBlank()) {
+                item { Text("Hola, ${snap.name}", color = VioletSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+            }
             item { NextEvent(snap) }
             if (snap.pomodoro.phase != Phase.IDLE) {
                 item {
@@ -255,7 +270,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                 Chip(
                     onClick = { go("mood") },
                     label = { Text("¿Cómo te sientes?") },
-                    secondaryLabel = { Text(moodOf(snap.moodToday)?.let { "Hoy: ${it.label}" } ?: "Anótalo en tu diario") },
+                    secondaryLabel = { Text(moodOf(WatchStore.todayMood())?.let { "Hoy: ${it.label}" } ?: "Anótalo en tu diario") },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -555,15 +570,16 @@ fun BatteryRing(level: Int?, label: String, color: Color) {
 @Composable
 fun MoodPicker(snap: Snapshot, done: () -> Unit) {
     val listState = rememberScalingLazyListState()
+    val today = remember(snap) { WatchStore.todayMood() }
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
         ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item { Text("¿Cómo te sientes?", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             items(MOODS) { m ->
                 Chip(
                     onClick = { WatchStore.mood(m.value); done() },
-                    label = { Text(m.label, fontWeight = if (snap.moodToday == m.value) FontWeight.Bold else FontWeight.Normal) },
+                    label = { Text(m.label, fontWeight = if (today == m.value) FontWeight.Bold else FontWeight.Normal) },
                     icon = { Mochi(Modifier.width(34.dp).height(28.dp), color = Color(m.color), face = m.face) },
-                    colors = if (snap.moodToday == m.value) ChipDefaults.primaryChipColors(backgroundColor = Color(m.color).copy(alpha = 0.35f))
+                    colors = if (today == m.value) ChipDefaults.primaryChipColors(backgroundColor = Color(m.color).copy(alpha = 0.35f))
                     else ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )

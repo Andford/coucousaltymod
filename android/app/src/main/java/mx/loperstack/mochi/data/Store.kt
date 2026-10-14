@@ -31,6 +31,12 @@ data class AppData(
     val soundOn: Boolean = true,
     /** The diary, oldest day first. */
     val logs: List<DayLog> = emptyList(),
+    /** What Mochi calls you ("" until the welcome). */
+    val name: String = "",
+    /** "pixel" (your wallpaper's colours, light or dark as the phone), "pixelDark", or "mochi" (the island's). */
+    val theme: String = "pixel",
+    /** The welcome has been through once. */
+    val onboarded: Boolean = false,
 )
 
 object Store {
@@ -59,6 +65,9 @@ object Store {
             sessions = sessionsOf(prefs.getString("sessions", null)),
             soundOn = prefs.getBoolean("soundOn", true),
             logs = logsOf(prefs.getString("logs", null)),
+            name = prefs.getString("name", "") ?: "",
+            theme = prefs.getString("theme", "pixel") ?: "pixel",
+            onboarded = prefs.getBoolean("onboarded", false),
         )
     }
 
@@ -106,6 +115,23 @@ object Store {
         prefs.edit().putString("logs", logsJson(logs)).apply()
         // Only today's mood leaves the phone (the watch shows it).
         if (logs.firstOrNull { it.day == dayKey(System.currentTimeMillis()) }?.mood != moodBefore) changed()
+    }
+
+    fun setName(name: String) {
+        val clean = name.trim().take(30)
+        _state.value = _state.value.copy(name = clean)
+        prefs.edit().putString("name", clean).apply()
+        changed()
+    }
+
+    fun setTheme(theme: String) {
+        _state.value = _state.value.copy(theme = theme)
+        prefs.edit().putString("theme", theme).apply()
+    }
+
+    fun setOnboarded(done: Boolean) {
+        _state.value = _state.value.copy(onboarded = done)
+        prefs.edit().putBoolean("onboarded", done).apply()
     }
 
     fun setSound(on: Boolean) {

@@ -1,0 +1,89 @@
+// The diary: one entry per day — a mood (1…5) and short timestamped lines, the
+// daily log. Kept only on this phone, never sent anywhere (the watch only
+// learns today's mood, to show it).
+
+package mx.loperstack.mochi.data
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+data class LogNote(val at: Long, val text: String)
+
+data class DayLog(val day: String, val mood: Int = 0, val notes: List<LogNote> = emptyList())
+
+const val NOTE_MAX_LEN = 500
+
+/** yyyy-MM-dd, local. */
+fun dayKey(ms: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(ms))
+
+/** The local midnight of a day key. */
+fun dayStart(day: String): Long = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day)!!.time }.getOrDefault(0L)
+
+/** "Día 042": days since the first entry, the first being day 1. */
+fun dayNumber(logs: List<DayLog>, day: String): Int {
+    val first = logs.minOfOrNull { it.day } ?: day
+    val a = Calendar.getInstance().apply { timeInMillis = dayStart(minOf(first, day)) }
+    val b = Calendar.getInstance().apply { timeInMillis = dayStart(day) }
+    var n = 1
+    while (a.before(b) && n < 100_000) { a.add(Calendar.DAY_OF_YEAR, 1); n++ }
+    return n
+}
+
+/** Days in a row with an entry, ending today (or yesterday, if today has none yet). */
+fun streak(logs: List<DayLog>, now: Long): Int {
+    val days = logs.filter { it.mood > 0 || it.notes.isNotEmpty() }.map { it.day }.toHashSet()
+    val c = Calendar.getInstance().apply { timeInMillis = now }
+    if (dayKey(c.timeInMillis) !in days) c.add(Calendar.DAY_OF_YEAR, -1)
+    var n = 0
+    while (dayKey(c.timeInMillis) in days) { n++; c.add(Calendar.DAY_OF_YEAR, -1) }
+    return n
+}
+
+fun withMood(logs: List<DayLog>, day: String, mood: Int): List<DayLog> = upsert(logs, day) { it.copy(mood = mood.coerceIn(0, 5)) }
+
+fun withNote(logs: List<DayLog>, day: String, at: Long, text: String): List<DayLog> {
+    val clean = text.trim().take(NOTE_MAX_LEN)
+    if (clean.isEmpty()) return logs
+    return upsert(logs, day) { it.copy(notes = (it.notes + LogNote(at, clean)).sortedBy { n -> n.at }) }
+}
+
+fun withoutNote(logs: List<DayLog>, day: String, at: Long): List<DayLog> =
+    upsert(logs, day) { it.copy(notes = it.notes.filter { n -> n.at != at }) }.filter { it.mood > 0 || it.notes.isNotEmpty() }
+
+private fun upsert(logs: List<DayLog>, day: String, f: (DayLog) -> DayLog): List<DayLog> {
+    val old = logs.firstOrNull { it.day == day } ?: DayLog(day)
+    return (logs.filter { it.day != day } + f(old)).sortedBy { it.day }.takeLast(1500)
+}
+
+fun logsJson(logs: List<DayLog>): String = JSONArray().apply {
+    for (l in logs) put(
+        JSONObject().put("day", l.day).put("mood", l.mood)
+            .put("notes", JSONArray().apply { l.notes.forEach { put(JSONObject().put("at", it.at).put("text", it.text)) } }),
+    )
+}.toString()
+
+fun logsOf(raw: String?): List<DayLog> {
+    if (raw.isNullOrBlank()) return emptyList()
+    return try {
+        val a = JSONArray(raw)
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val day = o.optString("day", "")
+            if (!Regex("""\d{4}-\d{2}-\d{2}""").matches(day)) return@mapNotNull null
+            val notes = o.optJSONArray("notes")?.let { n ->
+                (0 until n.length()).mapNotNull { j ->
+                    val x = n.optJSONObject(j) ?: return@mapNotNull null
+                    val t = x.optString("text", "").trim()
+                    if (t.isEmpty()) null else LogNote(x.optLong("at"), t.take(NOTE_MAX_LEN))
+                }
+            } ?: emptyList()
+            DayLog(day, o.optInt("mood", 0).coerceIn(0, 5), notes)
+        }.sortedBy { it.day }
+    } catch (_: Exception) {
+        emptyList()
+    }
+}

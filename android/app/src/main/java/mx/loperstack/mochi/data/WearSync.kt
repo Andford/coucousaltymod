@@ -96,6 +96,7 @@ object WearSync {
             events = events,
             pomodoro = d.pomodoro,
             soundOn = d.soundOn,
+            moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
             at = now,
         )
     }
@@ -119,10 +120,10 @@ object WearSync {
         Store.init(context)
         val text = data.toString(Charsets.UTF_8)
         when (path) {
-            SyncPaths.TOGGLE_TASK -> Store.setTasks(toggleTask(Store.state.value.tasks, text))
-            SyncPaths.ADD_TASK -> {
-                val now = System.currentTimeMillis()
-                Store.setTasks(addTask(Store.state.value.tasks, text, now, "${now.toString(36)}-w"))
+            SyncPaths.TOGGLE_TASK -> TaskSync.toggle(context, text)
+            SyncPaths.ADD_TASK -> TaskSync.add(context, text, "-w")
+            SyncPaths.MOOD -> text.trim().toIntOrNull()?.takeIf { it in 1..5 }?.let {
+                Store.setLogs(withMood(Store.state.value.logs, dayKey(System.currentTimeMillis()), it))
             }
             SyncPaths.SESSION -> sessionOf(text)?.let { Store.addSession(it) }
             SyncPaths.POMODORO -> {

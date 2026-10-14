@@ -14,7 +14,8 @@ import kotlin.math.min
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
-data class Task(val id: String, val text: String, val done: Boolean, val createdAt: Long)
+/** `remote`: a Google Tasks task (its id is Google's), as on the PC. */
+data class Task(val id: String, val text: String, val done: Boolean, val createdAt: Long, val remote: Boolean = false)
 
 const val TASK_MAX_LEN = 200
 const val TASK_LIMIT = 100

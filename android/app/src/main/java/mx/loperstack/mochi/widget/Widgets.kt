@@ -312,7 +312,6 @@ class TasksWidgetReceiver : GlanceAppWidgetReceiver() {
 class TaskDone : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val taskId = parameters[TaskId] ?: return
-        Store.init(context)
-        Store.setTasks(toggleTask(Store.state.value.tasks, taskId))
+        mx.loperstack.mochi.data.TaskSync.toggle(context, taskId)
     }
 }

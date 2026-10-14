@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Today's agenda from the calendars synced on this device (Google Calendar included). -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Events made in Mochi go into your Google calendar on this phone. -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- Google Tasks. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

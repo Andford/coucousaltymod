@@ -70,6 +70,7 @@ object Glyph {
     val Tasks = stroke("tasks", "M9 11l3 3 8-8", "M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9")
     val Focus = stroke("focus", "M12 5a8 8 0 1 0 0.01 0z", "M12 9v4l2 2", "M9 2h6")
     val Breathe = stroke("breathe", "M12 4a8 8 0 1 0 0.01 0z", "M12 8.5a3.5 3.5 0 1 0 0.01 0z")
+    val Diary = stroke("diary", "M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z", "M6 17a2 2 0 0 1 2-2h11", "M10 7h5M10 10h3")
     val Pc = stroke("pc", "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 20h8", "M12 16v4")
     val Gear = stroke("gear", "M12 9a3 3 0 1 0 0.01 0z", "M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1")
     val Video = stroke("video", "M15 10l5-3v10l-5-3z", "M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z")

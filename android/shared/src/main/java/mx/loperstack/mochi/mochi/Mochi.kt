@@ -72,6 +72,8 @@ val MOCHI_PALETTE = listOf(
  * @param interactive taps slap him, as on the PC — three quick ones and he gets
  *   dizzy and says so; a long press gets hearts.
  * @param greet wave hello when he first appears.
+ * @param dancing music is playing: he bounces to it, with happy eyes.
+ * @param face fixed eyes (the diary's moods).
  */
 @Composable
 fun Mochi(
@@ -82,15 +84,17 @@ fun Mochi(
     jump: Int = 0,
     interactive: Boolean = false,
     greet: Boolean = false,
+    dancing: Boolean = false,
+    face: MochiEngine.Eye? = null,
 ) {
     val engine = remember { MochiEngine() }
     var frame by remember { mutableLongStateOf(0L) }
-    SideEffect { engine.configure(color, mood, breathing) }
+    SideEffect { engine.configure(color, mood, breathing, dancing, face) }
 
     LaunchedEffect(jump) { if (jump > 0) engine.cheer() }
 
     LaunchedEffect(engine) {
-        engine.configure(color, mood, breathing)
+        engine.configure(color, mood, breathing, dancing, face)
         if (greet) engine.greet()
         var last = System.nanoTime()
         while (true) {
@@ -170,11 +174,32 @@ private object AboveAnchor : PopupPositionProvider {
     }
 }
 
+/**
+ * Whether music is playing on this device (any app: Spotify, YouTube Music…),
+ * checked every 2 s while the screen shows — the frame clock pauses the loop
+ * when the app is in the background.
+ */
+@Composable
+fun rememberMusicPlaying(): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var playing by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val audio = context.getSystemService(android.media.AudioManager::class.java)
+        while (true) {
+            withFrameNanos { }
+            val now = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
+            if (now != playing) playing = now
+            kotlinx.coroutines.delay(2000)
+        }
+    }
+    return playing
+}
+
 /** Mochi at rest as a bitmap — for home screen widgets. */
-fun mochiBitmap(widthPx: Int, heightPx: Int, color: Color, mood: Mood = Mood.IDLE): Bitmap {
+fun mochiBitmap(widthPx: Int, heightPx: Int, color: Color, mood: Mood = Mood.IDLE, face: MochiEngine.Eye? = null): Bitmap {
     val image = ImageBitmap(widthPx, heightPx)
     val engine = MochiEngine().apply {
-        configure(color, mood, null)
+        configure(color, mood, null, false, face)
         settle()
     }
     CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(widthPx.toFloat(), heightPx.toFloat())) {

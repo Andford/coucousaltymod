@@ -7,6 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.GoogleTasks
+import mx.loperstack.mochi.data.TaskSync
 import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.ui.MochiApp
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Store.init(this)
+        GoogleTasks.init(this)
         Sounds.init(this)
         Sounds.enabled = Store.state.value.soundOn
         // Every change already reaches the watch and the widgets (Store).
@@ -51,6 +54,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         catchUp()
         WearSync.push(this)
+        // Tasks changed on the PC or in Google: bring them in.
+        if (GoogleTasks.connected) TaskSync.refresh(this)
     }
 
     /** A phase that ended while the alarm could not run: move on, quietly. */
@@ -73,6 +78,7 @@ class MainActivity : ComponentActivity() {
         "focus" -> Tab.FOCUS
         "breathe" -> Tab.BREATHE
         "tasks" -> Tab.TASKS
+        "diary" -> Tab.DIARY
         else -> Tab.HOME
     }
 }

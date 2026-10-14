@@ -9,6 +9,18 @@ import mx.loperstack.mochi.data.pomodoroJson
 import mx.loperstack.mochi.data.tasksJson
 import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.wellness.Breathing
+import mx.loperstack.mochi.data.DayLog
+import mx.loperstack.mochi.data.dayKey
+import mx.loperstack.mochi.data.dayNumber
+import mx.loperstack.mochi.data.fromGoogle
+import mx.loperstack.mochi.data.gTaskOf
+import mx.loperstack.mochi.data.logsJson
+import mx.loperstack.mochi.data.logsOf
+import mx.loperstack.mochi.data.streak
+import mx.loperstack.mochi.data.withMood
+import mx.loperstack.mochi.data.withNote
+import mx.loperstack.mochi.data.withoutNote
+import org.json.JSONObject
 import mx.loperstack.mochi.wellness.breathingOf
 import mx.loperstack.mochi.wellness.toWire
 import mx.loperstack.mochi.wellness.Phase
@@ -144,5 +156,40 @@ class LogicTest {
         assertEquals(b, breathingOf(b.toWire()))
         assertEquals(null, breathingOf("nope"))
         assertEquals(null, breathingOf("1700000000000,0"))
+    }
+
+    @Test fun diaryKeepsMoodAndLines() {
+        var logs = withMood(emptyList(), "2026-10-13", 4)
+        logs = withNote(logs, "2026-10-13", 2000, "segunda")
+        logs = withNote(logs, "2026-10-13", 1000, "primera")
+        logs = withNote(logs, "2026-10-13", 3000, "   ")
+        val day = logs.single()
+        assertEquals(4, day.mood)
+        assertEquals(listOf("primera", "segunda"), day.notes.map { it.text })
+        assertEquals(logs, logsOf(logsJson(logs)))
+        // A day with nothing left disappears.
+        var gone = withMood(withNote(emptyList(), "2026-10-12", 1, "x"), "2026-10-12", 0)
+        gone = withoutNote(gone, "2026-10-12", 1)
+        assertEquals(emptyList<DayLog>(), gone)
+    }
+
+    @Test fun diaryCountsDaysAndStreaks() {
+        val logs = listOf(DayLog("2026-10-01", 3), DayLog("2026-10-12", 4), DayLog("2026-10-13", 5))
+        assertEquals(1, dayNumber(logs, "2026-10-01"))
+        assertEquals(13, dayNumber(logs, "2026-10-13"))
+        val noon13 = java.util.Calendar.getInstance().apply { set(2026, 9, 13, 12, 0) }.timeInMillis
+        assertEquals("2026-10-13", dayKey(noon13))
+        assertEquals(2, streak(logs, noon13))
+    }
+
+    @Test fun googleTasksBecomeRemoteTasks() {
+        val a = gTaskOf(JSONObject("""{"id":"abc","title":" Comprar pan ","status":"needsAction","position":"002"}"""))!!
+        val b = gTaskOf(JSONObject("""{"id":"def","title":"Llamar","status":"completed","position":"001"}"""))!!
+        assertEquals(null, gTaskOf(JSONObject("""{"id":"x","title":"Borrada","deleted":true}""")))
+        assertEquals(null, gTaskOf(JSONObject("""{"id":"y","title":"  "}""")))
+        val tasks = fromGoogle(listOf(a, b))
+        assertEquals(listOf("Llamar", "Comprar pan"), tasks.map { it.text })
+        assertEquals(true, tasks.all { it.remote })
+        assertEquals(true, tasks[0].done)
     }
 }

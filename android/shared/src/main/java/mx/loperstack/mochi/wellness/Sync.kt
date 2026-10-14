@@ -23,6 +23,8 @@ object SyncPaths {
     const val BREATHE_STOP = "/mochi/breathe/stop"
     /** watch → phone: the pulse right now, "bpm". */
     const val HEART_RATE = "/mochi/hr"
+    /** watch → phone: today's mood, "1"…"5". */
+    const val MOOD = "/mochi/mood"
 }
 
 /** "1700000000000,5" → a session, or null. */
@@ -45,6 +47,8 @@ data class Snapshot(
     val events: List<EventLite> = emptyList(),
     val pomodoro: Pomodoro = Pomodoro(),
     val soundOn: Boolean = true,
+    /** Today's mood in the diary, 1…5 (0 = not logged yet). */
+    val moodToday: Int = 0,
     val at: Long = 0,
 )
 
@@ -90,6 +94,7 @@ fun Snapshot.toJson(): String = JSONObject()
         .put("pausedLeft", pomodoro.pausedLeft ?: -1)
         .put("today", pomodoro.today))
     .put("sound", soundOn)
+    .put("mood", moodToday)
     .put("at", at)
     .toString()
 
@@ -111,7 +116,7 @@ fun snapshotOf(raw: String?): Snapshot {
         val phase = runCatching { Phase.valueOf(p?.optString("phase") ?: "IDLE") }.getOrDefault(Phase.IDLE)
         Snapshot(
             tasks = tasks,
-            mochiColor = o.optLong("color", 0xFFA78BFA),
+            mochiColor = o.optLong("color", 0xFFF5F6F8),
             phoneBattery = o.optInt("battery", -1),
             phoneCharging = o.optBoolean("charging"),
             events = events,
@@ -122,6 +127,7 @@ fun snapshotOf(raw: String?): Snapshot {
                 today = p?.optInt("today") ?: 0,
             ),
             soundOn = o.optBoolean("sound", true),
+            moodToday = o.optInt("mood", 0).coerceIn(0, 5),
             at = o.optLong("at"),
         )
     } catch (_: Exception) {

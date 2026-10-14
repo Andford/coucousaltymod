@@ -61,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -94,6 +95,7 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.data.Agenda
 import mx.loperstack.mochi.data.CalEvent
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.TaskSync
 import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.data.isTomorrow
 import mx.loperstack.mochi.data.nextEvent
@@ -101,6 +103,9 @@ import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.mochi.MOCHI_PALETTE
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Mood
+import mx.loperstack.mochi.mochi.rememberMusicPlaying
+import mx.loperstack.mochi.data.GoogleTasks
+import android.app.Activity
 import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.calmDrop
@@ -133,7 +138,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), PC("PC") }
+enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), PC("PC") }
 
 private val ES = Locale("es", "MX")
 
@@ -143,6 +148,8 @@ private val ES = Locale("es", "MX")
 class Actions(private val context: Context) {
     var jump by mutableIntStateOf(0)
     var breathing by mutableStateOf(Breathing())
+    /** Music is playing on the phone: Mochi dances. */
+    var music by mutableStateOf(false)
 
     // The watch's pulse during the session (0 = none yet).
     var hrStart = 0
@@ -150,17 +157,13 @@ class Actions(private val context: Context) {
     var hrLast = 0
 
     fun addTask(text: String): Boolean {
-        val now = System.currentTimeMillis()
-        val before = Store.state.value.tasks
-        val after = addTask(before, text, now, "${now.toString(36)}-${(0..9999).random()}")
-        if (after.size == before.size) return false
-        Store.setTasks(after)
+        if (!TaskSync.add(context, text)) return false
         Sounds.play("pop")
         return true
     }
 
     fun toggle(task: Task) {
-        Store.setTasks(toggleTask(Store.state.value.tasks, task.id))
+        TaskSync.toggle(context, task.id)
         if (!task.done) {
             jump++
             Sounds.play("approve")
@@ -168,12 +171,12 @@ class Actions(private val context: Context) {
     }
 
     fun remove(task: Task) {
-        Store.setTasks(removeTask(Store.state.value.tasks, task.id))
+        TaskSync.remove(context, task.id)
         Sounds.play("blip")
     }
 
     fun clearDone() {
-        Store.setTasks(clearDone(Store.state.value.tasks))
+        TaskSync.clearDone(context)
         Sounds.play("blip")
     }
 
@@ -299,7 +302,11 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
         }
     }
     var showColors by remember { mutableStateOf(false) }
+    var showNewEvent by remember { mutableStateOf(false) }
+    var agendaKey by remember { mutableIntStateOf(0) }
     val now = rememberNow()
+    val music = rememberMusicPlaying()
+    SideEffect { actions.music = music }
 
     // The agenda, with READ_CALENDAR.
     var calendarOk by remember {
@@ -308,7 +315,23 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
     var events by remember { mutableStateOf(emptyList<CalEvent>()) }
     val askCalendar = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { calendarOk = it }
     val minute = now / 60_000
-    LaunchedEffect(calendarOk, minute / 5) { if (calendarOk) events = Agenda.load(context) }
+    LaunchedEffect(calendarOk, minute / 5, agendaKey) { if (calendarOk) events = Agenda.load(context) }
+
+    // New events go to the calendar: READ and WRITE_CALENDAR.
+    val askWrite = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        calendarOk = r[Manifest.permission.READ_CALENDAR] == true || calendarOk
+        if (r[Manifest.permission.WRITE_CALENDAR] == true) showNewEvent = true
+    }
+    val newEvent = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED) showNewEvent = true
+        else askWrite.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
+    }
+
+    // Google Tasks: Google's consent screen comes back here.
+    val googleTasks by GoogleTasks.status.collectAsState()
+    val googleConsent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+        (context as? Activity)?.let { GoogleTasks.onResult(it, r.data) }
+    }
 
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val startPomodoro = {
@@ -330,13 +353,13 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                 containerColor = Ink.Ground,
                 bottomBar = {
                     NavigationBar(containerColor = Ink.CardHigh, tonalElevation = 0.dp) {
-                        val glyphs = mapOf(Tab.HOME to Glyph.Home, Tab.TASKS to Glyph.Tasks, Tab.FOCUS to Glyph.Focus, Tab.BREATHE to Glyph.Breathe, Tab.PC to Glyph.Pc)
+                        val glyphs = mapOf(Tab.HOME to Glyph.Home, Tab.TASKS to Glyph.Tasks, Tab.FOCUS to Glyph.Focus, Tab.BREATHE to Glyph.Breathe, Tab.DIARY to Glyph.Diary, Tab.PC to Glyph.Pc)
                         for (t in Tab.entries) {
                             NavigationBarItem(
                                 selected = tab == t,
                                 onClick = { tab = t },
                                 icon = { Icon(glyphs.getValue(t), contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                label = { Text(t.label, fontSize = 11.sp) },
+                                label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Ink.VioletSoft,
                                     selectedTextColor = Ink.Text,
@@ -356,12 +379,23 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
+                            newEvent = newEvent,
                         )
                         Tab.TASKS -> TasksScreen(data.tasks, actions)
                         Tab.FOCUS -> FocusScreen(data.tasks, data.pomodoro, now, color, actions, startPomodoro)
                         Tab.BREATHE -> BreatheScreen(color, actions, data.sessions)
+                        Tab.DIARY -> DiaryScreen(data.logs, color, actions) { tab = Tab.BREATHE }
                         Tab.PC -> PcScreen(now)
                     }
+                }
+            }
+        }
+        if (showNewEvent) {
+            ModalBottomSheet(onDismissRequest = { showNewEvent = false }, containerColor = Ink.CardHigh) {
+                NewEventSheet(actions) {
+                    showNewEvent = false
+                    calendarOk = true
+                    agendaKey++
                 }
             }
         }
@@ -381,6 +415,9 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                         colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet),
                     )
                 }
+                GoogleTasksRow(googleTasks, connect = {
+                    (context as? Activity)?.let { a -> GoogleTasks.connect(a) { req -> googleConsent.launch(req) } }
+                }, sync = { TaskSync.refresh(context) }, disconnect = { GoogleTasks.disconnect(context) })
             }
         }
     }
@@ -524,7 +561,7 @@ fun untilText(e: CalEvent, now: Long): String {
 fun HomeScreen(
     tasks: List<Task>, pomodoro: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
-    goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit,
+    goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {},
 ) {
     val next = nextEvent(events, now)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -544,7 +581,9 @@ fun HomeScreen(
                 jump = actions.jump,
                 interactive = true,
                 greet = true,
+                dancing = actions.music,
             )
+            if (actions.music) Label("♪ Mochi baila con tu música", Ink.VioletSoft, modifier = Modifier.align(Alignment.CenterHorizontally))
             Spacer(Modifier.height(10.dp))
             when {
                 !calendarOk -> {
@@ -567,6 +606,19 @@ fun HomeScreen(
                 }
                 else -> Text("Nada más en tu agenda hoy", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
+        }
+        if (calendarOk) {
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Agenda", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(
+                    "+ Evento", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Ink.VioletDeep).clickable(onClick = newEvent)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Panel(Modifier.fillMaxWidth(), padding = 8.dp) { AgendaList(events, now, actions, max = 5) }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -678,7 +730,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (mochi) {
-                Mochi(Modifier.width(90.dp).height(72.dp), color = color, mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE)
+                Mochi(Modifier.width(90.dp).height(72.dp), color = color, mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, dancing = actions.music)
             }
             Text(clock(p.left(now)), fontSize = 46.sp, fontWeight = FontWeight.ExtraBold)
         }
@@ -785,7 +837,7 @@ fun DeskScreen(
             Mochi(
                 Modifier.fillMaxWidth().aspectRatio(1.4f), color = color,
                 mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
-                interactive = true, greet = true,
+                interactive = true, greet = true, dancing = actions.music,
             )
             Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
@@ -820,3 +872,41 @@ fun DeskScreen(
     }
 }
 
+
+// ── Google Tasks (in the settings sheet) ──────────────────────────────────────
+
+@Composable
+fun GoogleTasksRow(st: GoogleTasks.Status, connect: () -> Unit, sync: () -> Unit, disconnect: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 36.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Google Tasks", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Label(
+                    when {
+                        st.busy -> "Sincronizando…"
+                        st.connected -> "Conectado · la misma lista que en tu PC"
+                        else -> "Tus tareas, también en Google y en la PC"
+                    },
+                    if (st.connected) Color(0xFF86EFAC) else Ink.Dim2,
+                )
+            }
+            if (st.connected) {
+                OutlinedButton(onClick = sync) { Text("Sincronizar", color = Ink.Text) }
+            } else {
+                PrimaryButton("Conectar", color = Ink.VioletSoft, onClick = connect)
+            }
+        }
+        if (st.error.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Label(st.error, Ink.Red)
+        }
+        if (st.connected) {
+            Text(
+                "Desconectar", color = Ink.Dim2, fontSize = 13.sp,
+                modifier = Modifier.padding(top = 8.dp).clickable(onClick = disconnect),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Label("Los eventos nuevos se guardan en tu Google Calendar de este teléfono, sin conectar nada.", Ink.Dim2, 12.sp)
+    }
+}

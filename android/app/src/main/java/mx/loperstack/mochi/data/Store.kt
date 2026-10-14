@@ -29,6 +29,8 @@ data class AppData(
     /** Breathing sessions from the phone and the watch, newest last (at most 200). */
     val sessions: List<BreathSession> = emptyList(),
     val soundOn: Boolean = true,
+    /** The diary, oldest day first. */
+    val logs: List<DayLog> = emptyList(),
 )
 
 object Store {
@@ -56,6 +58,7 @@ object Store {
             pomodoro = parsePomodoro(prefs.getString("pomodoro", null)),
             sessions = sessionsOf(prefs.getString("sessions", null)),
             soundOn = prefs.getBoolean("soundOn", true),
+            logs = logsOf(prefs.getString("logs", null)),
         )
     }
 
@@ -97,6 +100,14 @@ object Store {
         Widgets.refresh(app)
     }
 
+    fun setLogs(logs: List<DayLog>) {
+        val moodBefore = _state.value.logs.firstOrNull { it.day == dayKey(System.currentTimeMillis()) }?.mood
+        _state.value = _state.value.copy(logs = logs)
+        prefs.edit().putString("logs", logsJson(logs)).apply()
+        // Only today's mood leaves the phone (the watch shows it).
+        if (logs.firstOrNull { it.day == dayKey(System.currentTimeMillis()) }?.mood != moodBefore) changed()
+    }
+
     fun setSound(on: Boolean) {
         _state.value = _state.value.copy(soundOn = on)
         prefs.edit().putBoolean("soundOn", on).apply()
@@ -107,7 +118,7 @@ object Store {
 // ── JSON ──────────────────────────────────────────────────────────────────────
 
 fun tasksJson(tasks: List<Task>): String = JSONArray().apply {
-    for (t in tasks) put(JSONObject().put("id", t.id).put("text", t.text).put("done", t.done).put("createdAt", t.createdAt))
+    for (t in tasks) put(JSONObject().put("id", t.id).put("text", t.text).put("done", t.done).put("createdAt", t.createdAt).put("remote", t.remote))
 }.toString()
 
 /** Only well-formed tasks survive a broken or old store. */
@@ -120,7 +131,7 @@ fun parseTasks(raw: String?): List<Task> {
             val id = o.optString("id", "")
             val text = o.optString("text", "").trim()
             if (id.isEmpty() || text.isEmpty()) null
-            else Task(id, text.take(TASK_MAX_LEN), o.optBoolean("done", false), o.optLong("createdAt", 0))
+            else Task(id, text.take(TASK_MAX_LEN), o.optBoolean("done", false), o.optLong("createdAt", 0), o.optBoolean("remote", false))
         }.takeLast(TASK_LIMIT)
     } catch (_: Exception) {
         emptyList()

@@ -74,7 +74,7 @@ class MochiEngine {
     enum class Eye { PILL, WIDE, DOT, LINE, FLAT, HAPPY, CLOSED, SPIRAL, HEART, STAR, TIRED, WINK }
     enum class Emote { LOVE, SURPRISED, PROUD, WINK, YAWN, HAPPY, ANNOYED }
     private enum class P { YAW, PITCH, ROLL, TILT, OPEN, SX, SY, OY, OX, BLUSH, ES, HANDS }
-    private enum class Kind { HEART, STAR, SPARK, SWEAT, Z }
+    private enum class Kind { HEART, STAR, SPARK, SWEAT, Z, NOTE }
 
     private class Key(val target: Float, val ms: Float, val ease: EaseFn)
     private class Tween(val prop: P, val keys: List<Key>, var index: Int, var from: Float, var start: Double, val done: (() -> Unit)?)
@@ -133,6 +133,12 @@ class MochiEngine {
     private var isBreathing = false
     private var breathFill = 0f
     private var breathLevel = 0f
+    private var face: Eye? = null
+
+    /** Music is playing: he dances (the island's 112-BPM bounce). */
+    private var dancing = false
+    private var danceLevel = 0f
+    private var lastNote = 0.0
 
     /** True for the 3.3 s of a dizzy spell (the app shows the "too many hits" bubble). */
     val dizzy = mutableStateOf(false)
@@ -148,10 +154,12 @@ class MochiEngine {
     // ── What the app sets ─────────────────────────────────────────────────────
 
     /** The body colour and mood, and the breathing session (if any). Cheap to call on every composition. */
-    fun configure(color: Color, mood: Mood, breathing: Breathing?) {
+    fun configure(color: Color, mood: Mood, breathing: Breathing?, dancing: Boolean = false, face: Eye? = null) {
         val s = breathing?.takeIf { it.startedAt != null }
         session = s
-        val changed = !configured || color != userColor || mood != this.mood
+        if (dancing != this.dancing) { this.dancing = dancing; wake() }
+        val changed = !configured || color != userColor || mood != this.mood || face != this.face
+        this.face = face
         userColor = color
         this.mood = mood
         val on = s != null || mood == Mood.BREATHING
@@ -180,6 +188,7 @@ class MochiEngine {
         tintT = if (sleeping) 0.32f else tintFor(userColor)
         permanentEye = when {
             isBreathing || sleeping -> Eye.CLOSED
+            face != null -> face
             mood == Mood.HAPPY -> Eye.HAPPY
             else -> null
         }
@@ -370,6 +379,7 @@ class MochiEngine {
             val n = now()
             return tweens.isNotEmpty() || particles.isNotEmpty() ||
                 isBreathing || breathLevel > 0.001f || dizzy.value || mood == Mood.SLEEPY ||
+                dancing || danceLevel > 0.001f ||
                 (n > waveStart && n < waveUntil) ||
                 !near(tgYaw, this[P.YAW]) || !near(tgPitch, this[P.PITCH]) || !near(tgTilt, this[P.TILT]) ||
                 !near(tgSx, this[P.SX]) || !near(tgSy, this[P.SY]) || !near(tgEs, this[P.ES]) ||
@@ -487,6 +497,16 @@ class MochiEngine {
             particles.removeAll { it.age >= it.life }
         }
 
+        // The dance fades in over 0.3 s and out over 0.5 s; a note now and then.
+        danceLevel = if (dancing) min(1f, danceLevel + dt / 0.3f) else max(0f, danceLevel - dt / 0.5f)
+        if (dancing && n - lastNote > 0.9) {
+            lastNote = n
+            particles += Particle(
+                Kind.NOTE, x = (Random.nextFloat() - 0.5f) * 1.4f, y = -0.6f, vx = (Random.nextFloat() - 0.5f) * 0.3f,
+                vy = -0.5f, age = 0f, life = 1.6f, rot = 0f, size = 0.2f,
+            )
+        }
+
         val s = session
         breathFill = if (s != null) breathFrame(s, System.currentTimeMillis()).fill else 0f
         breathLevel = if (isBreathing) min(1f, breathLevel + dt / 0.6f) else max(0f, breathLevel - dt / 0.8f)
@@ -530,6 +550,12 @@ class MochiEngine {
         textAlign = Paint.Align.CENTER
     }
 
+    private val notePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(196, 181, 253)
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+    }
+
     /** Draws Mochi to fill the scope's width (keep it about 1.2 : 1). */
     fun draw(ds: DrawScope) = with(ds) {
         val w = size.width
@@ -545,8 +571,20 @@ class MochiEngine {
 
         // The breath grows him from his base, up to 16 % wider and 20 % taller.
         val f = (breathFill.coerceIn(0f, 1f) * breathLevel.coerceIn(0f, 1f))
+        val px = cx
+        val py = cy + r * 0.88f
         withTransform({
-            if (f > 0.001f) scale(1f + 0.16f * f, 1f + 0.2f * f, pivot = Offset(cx, cy + r * 0.88f))
+            if (danceLevel > 0.001f) {
+                // danceTransform (core/anim on the PC): sway, hop, tilt and a squash on landing.
+                val beat = (((now() - t0) * 112.0) / 60.0).toFloat()
+                val hop = abs(sin(PI.toFloat() * beat))
+                val land = (1f - hop).pow(6)
+                translate(px + 0.08f * r * sin(PI.toFloat() * beat) * danceLevel, py - 0.2f * r * hop * danceLevel)
+                rotate(deg(0.1f * sin(PI.toFloat() * beat) * danceLevel), pivot = Offset.Zero)
+                scale(1f + 0.045f * land * danceLevel, 1f - 0.06f * land * danceLevel, pivot = Offset.Zero)
+                translate(-px, -py)
+            }
+            if (f > 0.001f) scale(1f + 0.16f * f, 1f + 0.2f * f, pivot = Offset(px, py))
         }) {
             drawHands(r, rx, ry, cx, cy)
             withTransform({
@@ -612,7 +650,8 @@ class MochiEngine {
     }
 
     private fun DrawScope.drawEyes(path: Path, r: Float, rx: Float, ry: Float) {
-        val shape = eyeOverride ?: if (dizzy.value) Eye.SPIRAL else Eye.PILL
+        var shape = eyeOverride ?: if (dizzy.value) Eye.SPIRAL else Eye.PILL
+        if (danceLevel > 0.15f && shape == Eye.PILL && !dizzy.value) shape = Eye.HAPPY
         val es = this@MochiEngine[P.ES]
         val ew = r * EYE_W * es
         val eh = r * EYE_H * es
@@ -786,6 +825,11 @@ class MochiEngine {
                         },
                         Color(0xFF7CC7FF), alpha = a,
                     )
+                    Kind.NOTE -> {
+                        notePaint.textSize = sz * 2.2f
+                        notePaint.alpha = (a * 255).toInt()
+                        drawContext.canvas.nativeCanvas.drawText(if (p.x > 0) "♪" else "♫", 0f, sz * 0.7f, notePaint)
+                    }
                     Kind.Z -> {
                         zPaint.textSize = sz * 1.9f
                         zPaint.alpha = (a * 255).toInt()

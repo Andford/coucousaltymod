@@ -133,6 +133,13 @@ object WatchStore {
 
     fun heartRate(bpm: Int) = send(SyncPaths.HEART_RATE, bpm.toString())
 
+    /** Today's mood for the diary on the phone. */
+    fun mood(value: Int) {
+        _state.value = _state.value.copy(moodToday = value)
+        Sounds.play(if (value >= 4) "love" else "pop")
+        send(SyncPaths.MOOD, value.toString())
+    }
+
     /** The phone asked to breathe together. */
     fun breatheFromPhone(context: Context, b: Breathing) {
         val start = b.startedAt ?: return

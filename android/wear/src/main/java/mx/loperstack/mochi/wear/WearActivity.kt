@@ -91,6 +91,9 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.mochi.mochi.rememberMusicPlaying
+import mx.loperstack.mochi.wellness.MOODS
+import mx.loperstack.mochi.wellness.moodOf
 import mx.loperstack.mochi.wellness.BREATHE_MINUTES
 import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.Breathing
@@ -173,6 +176,7 @@ fun WearApp() {
             composable("tasks") { Tasks(snap) { jump++ } }
             composable("breathe") { Breathe(snap) }
             composable("battery") { Batteries(snap) }
+            composable("mood") { MoodPicker(snap) { nav.popBackStack() } }
         }
     }
 }
@@ -215,6 +219,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     jump = jump,
                     interactive = true,
                     greet = true,
+                    dancing = rememberMusicPlaying(),
                 )
             }
             item { NextEvent(snap) }
@@ -242,6 +247,15 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     onClick = { go("breathe") },
                     label = { Text("Respirar") },
                     secondaryLabel = { Text("Con vibración y pulso") },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Chip(
+                    onClick = { go("mood") },
+                    label = { Text("¿Cómo te sientes?") },
+                    secondaryLabel = { Text(moodOf(snap.moodToday)?.let { "Hoy: ${it.label}" } ?: "Anótalo en tu diario") },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -533,5 +547,27 @@ fun BatteryRing(level: Int?, label: String, color: Color) {
             Text(level?.toString() ?: "–", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Text(label, color = Dim, fontSize = 11.sp)
+    }
+}
+
+// ── Ánimo ─────────────────────────────────────────────────────────────────────
+
+@Composable
+fun MoodPicker(snap: Snapshot, done: () -> Unit) {
+    val listState = rememberScalingLazyListState()
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            item { Text("¿Cómo te sientes?", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            items(MOODS) { m ->
+                Chip(
+                    onClick = { WatchStore.mood(m.value); done() },
+                    label = { Text(m.label, fontWeight = if (snap.moodToday == m.value) FontWeight.Bold else FontWeight.Normal) },
+                    icon = { Mochi(Modifier.width(34.dp).height(28.dp), color = Color(m.color), face = m.face) },
+                    colors = if (snap.moodToday == m.value) ChipDefaults.primaryChipColors(backgroundColor = Color(m.color).copy(alpha = 0.35f))
+                    else ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }

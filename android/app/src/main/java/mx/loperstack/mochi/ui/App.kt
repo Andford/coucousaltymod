@@ -159,7 +159,8 @@ class Actions(private val context: Context) {
     /** Music is playing on the phone: Mochi dances. */
     var music by mutableStateOf(false)
 
-    // The watch's pulse during the session (0 = none yet).
+    // The watch's pulse during the session (0 = none yet), and every reading with its time.
+    private val hrReadings = mutableListOf<Pair<Long, Int>>()
     var hrStart = 0
     var hrMin = 0
     var hrLast = 0
@@ -224,6 +225,7 @@ class Actions(private val context: Context) {
         val b = Breathing(System.currentTimeMillis(), minutes)
         breathing = b
         hrStart = 0; hrMin = 0; hrLast = 0
+        hrReadings.clear()
         Sounds.play("open")
         WearSync.breatheTogether(context, b)
     }
@@ -233,6 +235,17 @@ class Actions(private val context: Context) {
         if (hrStart == 0) hrStart = bpm
         hrMin = if (hrMin == 0) bpm else minOf(hrMin, bpm)
         hrLast = bpm
+        hrReadings += System.currentTimeMillis() to bpm
+    }
+
+    /** The readings as the session's pulse: one value every HR_STEP_S seconds, the latest one known. */
+    private fun hrSeries(start: Long, minutes: Int): List<Int> {
+        if (hrReadings.isEmpty()) return emptyList()
+        val n = minutes * 60 / mx.loperstack.mochi.wellness.HR_STEP_S
+        return List(n) { i ->
+            val t = start + i * mx.loperstack.mochi.wellness.HR_STEP_S * 1000L
+            hrReadings.lastOrNull { it.first <= t + 1500 }?.second ?: 0
+        }
     }
 
     fun stopBreathing(completed: Boolean) {
@@ -244,7 +257,10 @@ class Actions(private val context: Context) {
             Sounds.play("love")
             val withWatch = hrLast > 0
             Store.addSession(
-                BreathSession(start, b.minutes, b.minutes * 6, hrStart, hrLast, hrMin, device = if (withWatch) "watch" else "phone"),
+                BreathSession(
+                    start, b.minutes, b.minutes * 6, hrStart, hrLast, hrMin,
+                    device = if (withWatch) "watch" else "phone", hr = hrSeries(start, b.minutes),
+                ),
             )
             Haptics.stop(context)
             Haptics.success(context)

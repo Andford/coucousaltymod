@@ -61,6 +61,7 @@ object WatchStore {
         _state.value = snapshotOf(prefs.getString("snapshot", null))
         Sounds.enabled = _state.value.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
+        mx.loperstack.mochi.mochi.MochiStyle.flat = _state.value.flat
     }
 
     /** A new state from the phone. */
@@ -70,6 +71,7 @@ object WatchStore {
         _state.value = s
         Sounds.enabled = s.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = s.haptics
+        mx.loperstack.mochi.mochi.MochiStyle.flat = s.flat
         prefs.edit().putString("snapshot", json).apply()
         refreshSurfaces()
     }
@@ -132,7 +134,20 @@ object WatchStore {
         send(SyncPaths.POMODORO, "")
     }
 
-    fun session(s: BreathSession) = send(SyncPaths.SESSION, s.toJson())
+    fun session(s: BreathSession) {
+        // Kept here too, so the report has it before the phone answers.
+        val mine = (mx.loperstack.mochi.wellness.sessionsOf(prefs.getString("sessions", null)).filter { it.at != s.at } + s).sortedBy { it.at }.takeLast(10)
+        prefs.edit().putString("sessions", mx.loperstack.mochi.wellness.sessionsJson(mine)).apply()
+        send(SyncPaths.SESSION, s.toJson())
+    }
+
+    /** The phone's last sessions and the ones made here, newest first; the one with more pulse wins. */
+    fun allSessions(): List<BreathSession> {
+        val mine = mx.loperstack.mochi.wellness.sessionsOf(prefs.getString("sessions", null))
+        return (_state.value.sessions + mine).groupBy { it.at }
+            .map { (_, l) -> l.maxBy { it.hr.size + it.rr.size } }
+            .sortedByDescending { it.at }
+    }
 
     fun heartRate(bpm: Int) = send(SyncPaths.HEART_RATE, bpm.toString())
 

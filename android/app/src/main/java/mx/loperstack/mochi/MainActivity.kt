@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
         Store.onChange = {
             Sounds.enabled = Store.state.value.soundOn
             mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
+        mx.loperstack.mochi.mochi.MochiStyle.flat = Store.state.value.mochiFlat
         }
         mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
         PomodoroScheduler.channels(this)

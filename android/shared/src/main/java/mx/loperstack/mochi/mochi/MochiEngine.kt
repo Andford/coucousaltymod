@@ -11,7 +11,9 @@ package mx.loperstack.mochi.mochi
 
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -69,6 +71,16 @@ private val TWO_PI = (PI * 2).toFloat()
 private const val INF = Double.POSITIVE_INFINITY
 
 private fun deg(rad: Float) = rad * 180f / PI.toFloat()
+
+/**
+ * How Mochi is drawn everywhere (app, watch, widgets, tiles): flat 2D — one
+ * solid colour and a fine outline, like the PC's mini bots — or the PC's
+ * main Mochi with its gradient, shading and highlight. State, so a change
+ * repaints every Mochi on screen.
+ */
+object MochiStyle {
+    var flat by androidx.compose.runtime.mutableStateOf(true)
+}
 
 class MochiEngine {
     enum class Eye { PILL, WIDE, DOT, LINE, FLAT, HAPPY, CLOSED, SPIRAL, HEART, STAR, TIRED, WINK }
@@ -613,7 +625,16 @@ class MochiEngine {
         drawParticles(r, cx, cy)
     }
 
+    /** The flat style's fill: white stays white, a colour fills the body. */
+    private fun flatFill(): Color = lerp(Color(0xFFF2F3F5), col, (tint / 0.72f).coerceIn(0f, 1f))
+
     private fun DrawScope.drawBody(path: Path, r: Float, rx: Float, ry: Float) {
+        if (MochiStyle.flat) {
+            val fill = flatFill()
+            drawPath(path, fill)
+            drawPath(path, lerp(fill, Color.Black, 0.35f).copy(alpha = 0.55f), style = Stroke(width = r * 0.045f))
+            return
+        }
         drawPath(path, Brush.linearGradient(listOf(BASE_TOP, BASE_BOTTOM), Offset(rx * 0.7f, -ry * 0.85f), Offset(-rx * 0.8f, ry * 0.9f)))
         if (tint > 0.01f) {
             drawPath(path, Brush.linearGradient(listOf(col.copy(alpha = 0.72f * tint), col.copy(alpha = 0f)), Offset(0f, ry), Offset(0f, -ry)))
@@ -789,11 +810,17 @@ class MochiEngine {
                 translate(wx, wy)
                 if (rot != 0f) rotate(deg(rot), pivot = Offset.Zero)
             }) {
-                drawOval(
-                    Brush.linearGradient(listOf(BASE_TOP, BASE_BOTTOM), Offset(hew * 0.7f, -heh * 0.85f), Offset(-hew * 0.8f, heh * 0.9f)),
-                    topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2),
-                )
-                drawOval(Color.Black.copy(alpha = 0.08f), topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2), style = Stroke(1f))
+                if (MochiStyle.flat) {
+                    val fill = flatFill()
+                    drawOval(fill, topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2))
+                    drawOval(lerp(fill, Color.Black, 0.35f).copy(alpha = 0.55f), topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2), style = Stroke(r * 0.035f))
+                } else {
+                    drawOval(
+                        Brush.linearGradient(listOf(BASE_TOP, BASE_BOTTOM), Offset(hew * 0.7f, -heh * 0.85f), Offset(-hew * 0.8f, heh * 0.9f)),
+                        topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2),
+                    )
+                    drawOval(Color.Black.copy(alpha = 0.08f), topLeft = Offset(-hew, -heh), size = Size(hew * 2, heh * 2), style = Stroke(1f))
+                }
             }
         }
     }

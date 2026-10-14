@@ -56,6 +56,11 @@ data class Snapshot(
     /** Last night's sleep in minutes (0 = not logged), and its morning, yyyy-MM-dd. */
     val sleepMin: Int = 0,
     val sleepNight: String = "",
+    /** Mochi drawn flat (2D) or with the PC's gradient. */
+    val flat: Boolean = true,
+    /** The last breathing sessions (with their pulse) and nights, for the watch's reports. */
+    val sessions: List<BreathSession> = emptyList(),
+    val nights: List<NightLite> = emptyList(),
     val at: Long = 0,
 )
 
@@ -69,7 +74,17 @@ data class BreathSession(
     val hrEnd: Int = 0,
     val hrMin: Int = 0,
     val device: String = "phone",
+    /** The pulse through the session, one reading every HR_STEP_S seconds (0 = no reading). */
+    val hr: List<Int> = emptyList(),
+    /** Beat-to-beat intervals in ms, when the watch's heartbeat sensor gives them. */
+    val rr: List<Int> = emptyList(),
 )
+
+/** Seconds between the session's pulse readings. */
+const val HR_STEP_S = 2
+
+/** A night for the watch's report. */
+data class NightLite(val night: String, val minutes: Int, val quality: Int, val bed: Long, val wake: Long)
 
 /** How much calmer: the drop from the first to the last beats, as a share. 0 when not measured. */
 fun BreathSession.calmDrop(): Float =
@@ -106,6 +121,11 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("haptics", haptics)
     .put("sleepMin", sleepMin)
     .put("sleepNight", sleepNight)
+    .put("flat", flat)
+    .put("sessions", JSONArray().apply { sessions.forEach { put(it.toJsonObject()) } })
+    .put("nights", JSONArray().apply {
+        nights.forEach { put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)) }
+    })
     .put("at", at)
     .toString()
 
@@ -143,6 +163,14 @@ fun snapshotOf(raw: String?): Snapshot {
             haptics = o.optBoolean("haptics", true),
             sleepMin = o.optInt("sleepMin", 0).coerceIn(0, 24 * 60),
             sleepNight = o.optString("sleepNight", ""),
+            flat = o.optBoolean("flat", true),
+            sessions = o.optJSONArray("sessions")?.let { a -> (0 until a.length()).mapNotNull { sessionOf(a.optJSONObject(it)?.toString()) } } ?: emptyList(),
+            nights = o.optJSONArray("nights")?.let { a ->
+                (0 until a.length()).mapNotNull { i ->
+                    val n = a.optJSONObject(i) ?: return@mapNotNull null
+                    NightLite(n.optString("night"), n.optInt("min"), n.optInt("q"), n.optLong("bed"), n.optLong("wake"))
+                }
+            } ?: emptyList(),
             at = o.optLong("at"),
         )
     } catch (_: Exception) {
@@ -150,22 +178,29 @@ fun snapshotOf(raw: String?): Snapshot {
     }
 }
 
-fun BreathSession.toJson(): String = JSONObject()
+fun BreathSession.toJsonObject(): JSONObject = JSONObject()
     .put("at", at).put("minutes", minutes).put("breaths", breaths)
     .put("hrStart", hrStart).put("hrEnd", hrEnd).put("hrMin", hrMin).put("device", device)
-    .toString()
+    .put("hr", JSONArray(hr)).put("rr", JSONArray(rr))
+
+fun BreathSession.toJson(): String = toJsonObject().toString()
+
+private fun ints(a: JSONArray?, max: Int, range: IntRange): List<Int> =
+    (0 until minOf(a?.length() ?: 0, max)).map { a!!.optInt(it) }.map { if (it in range) it else 0 }
 
 fun sessionOf(raw: String?): BreathSession? = try {
     val o = JSONObject(raw ?: "")
     BreathSession(
         o.getLong("at"), o.optInt("minutes"), o.optInt("breaths"),
         o.optInt("hrStart"), o.optInt("hrEnd"), o.optInt("hrMin"), o.optString("device", "phone"),
+        ints(o.optJSONArray("hr"), 60 * 60 / HR_STEP_S, 0..230),
+        ints(o.optJSONArray("rr"), 5000, 0..2500).filter { it > 0 },
     )
 } catch (_: Exception) {
     null
 }
 
-fun sessionsJson(list: List<BreathSession>): String = JSONArray().apply { list.forEach { put(JSONObject(it.toJson())) } }.toString()
+fun sessionsJson(list: List<BreathSession>): String = JSONArray().apply { list.forEach { put(it.toJsonObject()) } }.toString()
 
 fun sessionsOf(raw: String?): List<BreathSession> = try {
     val a = JSONArray(raw ?: "[]")

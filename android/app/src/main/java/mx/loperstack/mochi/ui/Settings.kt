@@ -206,6 +206,11 @@ fun SettingsSheet(
         Spacer(Modifier.height(18.dp))
         ColorPicker(data.mochiColor, color) { Store.setColor(it) }
         Column(Modifier.padding(horizontal = 24.dp)) {
+            SectionTitle("Estilo de Mochi")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Segment("2D plano", data.mochiFlat) { Store.setMochiFlat(true) }
+                Segment("Como la PC (degradado)", !data.mochiFlat) { Store.setMochiFlat(false) }
+            }
             SectionTitle("Tema")
             ThemeCards(data.theme) { Store.setTheme(it) }
             SectionTitle("Sonidos")

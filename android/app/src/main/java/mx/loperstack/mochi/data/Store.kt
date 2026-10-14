@@ -46,6 +46,8 @@ data class AppData(
     val sleepGoal: SleepGoal = SleepGoal(),
     /** A nudge 30 min before bedtime. */
     val bedReminder: Boolean = false,
+    /** Mochi drawn flat (2D) or with the PC's gradient. */
+    val mochiFlat: Boolean = true,
 )
 
 object Store {
@@ -82,6 +84,7 @@ object Store {
             sleep = sleepOf(prefs.getString("sleep", null)),
             sleepGoal = SleepGoal(prefs.getInt("bedMin", 23 * 60), prefs.getInt("wakeMin", 7 * 60)),
             bedReminder = prefs.getBoolean("bedReminder", false),
+            mochiFlat = prefs.getBoolean("mochiFlat", true),
         )
     }
 
@@ -116,11 +119,12 @@ object Store {
      */
     fun addSession(session: BreathSession) {
         val same = _state.value.sessions.firstOrNull { it.at == session.at }
-        if (same != null && (same.hrEnd > 0 || session.hrEnd <= 0)) return
+        // The one with the most pulse wins (the watch's readings beat the phone's relay).
+        if (same != null && session.hr.size + session.rr.size <= same.hr.size + same.rr.size && (same.hrEnd > 0 || session.hrEnd <= 0)) return
         val list = (_state.value.sessions.filter { it.at != session.at } + session).sortedBy { it.at }.takeLast(200)
         _state.value = _state.value.copy(sessions = list)
         prefs.edit().putString("sessions", sessionsJson(list)).apply()
-        Widgets.refresh(app)
+        changed()
     }
 
     fun setLogs(logs: List<DayLog>) {
@@ -168,6 +172,13 @@ object Store {
     fun setSleepGoal(goal: SleepGoal, reminder: Boolean) {
         _state.value = _state.value.copy(sleepGoal = goal, bedReminder = reminder)
         prefs.edit().putInt("bedMin", goal.bedMin).putInt("wakeMin", goal.wakeMin).putBoolean("bedReminder", reminder).apply()
+    }
+
+    fun setMochiFlat(flat: Boolean) {
+        _state.value = _state.value.copy(mochiFlat = flat)
+        prefs.edit().putBoolean("mochiFlat", flat).apply()
+        mx.loperstack.mochi.mochi.MochiStyle.flat = flat
+        changed()
     }
 
     fun setSound(on: Boolean) {

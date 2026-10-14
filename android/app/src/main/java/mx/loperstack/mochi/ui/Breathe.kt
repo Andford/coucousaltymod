@@ -7,6 +7,7 @@ package mx.loperstack.mochi.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -162,8 +164,13 @@ private fun dayLabel(at: Long, now: Long): String {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun History(sessions: List<BreathSession>) {
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<BreathSession?>(null) }
+    open?.let { s ->
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { open = null }, containerColor = Ink.CardHigh) { SessionDetail(s) }
+    }
     val now = System.currentTimeMillis()
     val start = weekStart(now)
     val perDay = IntArray(7)
@@ -218,7 +225,7 @@ fun History(sessions: List<BreathSession>) {
             lastDay = day
             Text(day.uppercase(MX), color = Ink.Dim2, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 12.dp, bottom = 6.dp))
         }
-        SessionRow(s)
+        SessionRow(s) { open = s }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -279,9 +286,10 @@ private fun PulseChart(list: List<BreathSession>) {
 }
 
 @Composable
-private fun SessionRow(s: BreathSession) {
+private fun SessionRow(s: BreathSession, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -312,6 +320,94 @@ private fun SessionRow(s: BreathSession) {
             Text(
                 if (s.device == "watch") "Reloj" else "Teléfono", fontSize = 12.sp, color = Ink.VioletSoft,
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Ink.VioletDeep).padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+// ── Detalle de una sesión: cardiograma, pulso y variabilidad ──────────────────
+
+@Composable
+fun SessionDetail(s: BreathSession) {
+    val stats = mx.loperstack.mochi.wellness.hrvStats(s)
+    val rows = mx.loperstack.mochi.wellness.minuteTable(s)
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 32.dp)) {
+        Text(
+            SimpleDateFormat("EEEE d 'de' MMMM · HH:mm", MX).format(Date(s.at)).replaceFirstChar { it.uppercase(MX) },
+            fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+        )
+        Label("${s.minutes} min · ${s.breaths} respiraciones · ${if (s.device == "watch") "con el reloj" else "en el teléfono"}", Ink.Dim)
+        Spacer(Modifier.height(14.dp))
+        if (stats == null) {
+            Panel(Modifier.fillMaxWidth()) {
+                Text("Esta sesión no tiene pulso", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Label("Respira con el Pixel Watch puesto (desde el reloj o desde aquí) y verás tu cardiograma y la variabilidad.", Ink.Dim)
+            }
+            return@Column
+        }
+        // The monitor.
+        Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF07110B))) {
+            mx.loperstack.mochi.charts.Cardiogram(mx.loperstack.mochi.charts.beatIntervals(s), Modifier.matchParentSize().padding(vertical = 10.dp))
+            Text(
+                "♥ ${stats.avgBpm} lpm", color = Color(0xFF4ADE80), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            )
+        }
+        Label(
+            if (stats.beatToBeat) "Trazo ilustrativo con tus intervalos latido a latido. No es un electrocardiograma."
+            else "Trazo ilustrativo con tu pulso medido. No es un electrocardiograma.",
+            Ink.Dim2, 11.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+        Label("Pulso durante la sesión", Ink.Dim, weight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        mx.loperstack.mochi.charts.PulseCurve(s, Modifier.fillMaxWidth().height(120.dp), Color(0xFFFF7896), Ink.Track)
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Label("Inicio ${s.hrStart} lpm", Ink.Dim2, 11.sp)
+            Spacer(Modifier.weight(1f))
+            Label("Final ${s.hrEnd} lpm", Ink.Dim2, 11.sp)
+        }
+        Spacer(Modifier.height(16.dp))
+        Label("Variabilidad del pulso", Ink.Dim, weight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatCell("${stats.rmssd} ms", "RMSSD · ${mx.loperstack.mochi.wellness.rmssdLabel(stats.rmssd)}", Modifier.weight(1f))
+            StatCell("${stats.sdnn} ms", "SDNN", Modifier.weight(1f))
+            StatCell("${stats.minBpm}–${stats.maxBpm}", "rango lpm", Modifier.weight(1f))
+        }
+        Label(
+            if (stats.beatToBeat) "Medida latido a latido por el sensor del reloj."
+            else "Estimada a partir de lecturas de pulso cada 2 s: sirve para comparar tus sesiones, no como medida clínica.",
+            Ink.Dim2, 11.sp,
+        )
+        if (rows.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Label("Minuto a minuto", Ink.Dim, weight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Panel(Modifier.fillMaxWidth(), padding = 12.dp) {
+                TableRow("Min", "Prom.", "Mín", "Máx", "Var.", header = true)
+                for (r in rows) TableRow("${r.minute}", "${r.avg}", "${r.min}", "${r.max}", if (r.rmssd > 0) "${r.rmssd} ms" else "–")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCell(value: String, label: String, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp)).padding(12.dp)) {
+        Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
+        Label(label, Ink.Dim2, 11.sp)
+    }
+}
+
+@Composable
+private fun TableRow(vararg cells: String, header: Boolean = false) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        cells.forEachIndexed { i, c ->
+            Text(
+                c, modifier = Modifier.weight(if (i == 0) 0.7f else 1f), fontSize = 13.sp,
+                fontWeight = if (header) FontWeight.Bold else FontWeight.Medium,
+                color = if (header) Ink.Dim2 else if (i == 0) Ink.VioletSoft else Ink.Text,
             )
         }
     }

@@ -23,6 +23,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.wellness.Breathing
 import mx.loperstack.mochi.wellness.EventLite
+import mx.loperstack.mochi.wellness.NightLite
 import mx.loperstack.mochi.wellness.Phase
 import mx.loperstack.mochi.wellness.PomodoroScheduler
 import mx.loperstack.mochi.wellness.Snapshot
@@ -100,6 +101,9 @@ object WearSync {
             haptics = d.haptics,
             sleepMin = d.sleep.lastOrNull()?.minutes ?: 0,
             sleepNight = d.sleep.lastOrNull()?.night ?: "",
+            flat = d.mochiFlat,
+            sessions = d.sessions.takeLast(7),
+            nights = d.sleep.takeLast(7).map { NightLite(it.night, it.minutes, it.quality, it.bed, it.wake) },
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
             at = now,
         )

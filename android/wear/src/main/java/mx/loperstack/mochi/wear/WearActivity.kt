@@ -187,7 +187,10 @@ fun WearApp() {
         SwipeDismissableNavHost(navController = nav, startDestination = "home") {
             composable("home") { Home(snap, jump) { nav.navigate(it) } }
             composable("tasks") { Tasks(snap) { jump++ } }
-            composable("breathe") { Breathe(snap) }
+            composable("breathe") { Breathe(snap) { nav.navigate(it) } }
+            composable("history") { BreathHistory(snap) { nav.navigate("session/$it") } }
+            composable("session/{at}") { entry -> SessionScreen(entry.arguments?.getString("at")?.toLongOrNull() ?: 0L, snap) }
+            composable("sleep") { SleepReport(snap) }
             composable("battery") { Batteries(snap) }
             composable("mood") { MoodPicker(snap) { nav.popBackStack() } }
         }
@@ -272,7 +275,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     val h = snap.sleepMin / 60
                     val m = snap.sleepMin % 60
                     Chip(
-                        onClick = {},
+                        onClick = { go("sleep") },
                         label = { Text("Dormiste $h h ${"%02d".format(m)}") },
                         secondaryLabel = { Text(if (snap.sleepNight == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) "Anoche" else "Última noche registrada") },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -407,7 +410,7 @@ private fun buzz(context: Context, inhale: Boolean) {
 }
 
 @Composable
-fun Breathe(snap: Snapshot) {
+fun Breathe(snap: Snapshot, go: (String) -> Unit = {}) {
     val context = LocalContext.current
     var b by remember { mutableStateOf(Breathing()) }
     var linked by remember { mutableStateOf(false) }
@@ -415,6 +418,7 @@ fun Breathe(snap: Snapshot) {
     val active = b.startedAt != null
     val bpm = rememberHeartRate(active)
     val bpmNow by rememberUpdatedState(bpm)
+    val beats = rememberHeartBeats(active)
     var inhaling by remember { mutableStateOf(true) }
     var left by remember { mutableIntStateOf(0) }
     val askSensors = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -447,6 +451,8 @@ fun Breathe(snap: Snapshot) {
         var hrStart = 0
         var hrMin = 0
         var lastSent = 0L
+        val samples = ArrayList<Int>()
+        var nextSample = start
         var lastInhale: Boolean? = null
         while (true) {
             val now = System.currentTimeMillis()
@@ -462,6 +468,10 @@ fun Breathe(snap: Snapshot) {
             }
             if (f.left != left) left = f.left
             val hr = bpmNow
+            while (now >= nextSample && !f.done) {
+                samples += hr
+                nextSample += mx.loperstack.mochi.wellness.HR_STEP_S * 1000L
+            }
             if (hr > 0) {
                 if (hrStart == 0) hrStart = hr
                 hrMin = if (hrMin == 0) hr else minOf(hrMin, hr)
@@ -469,7 +479,10 @@ fun Breathe(snap: Snapshot) {
             }
             if (f.done) {
                 Haptics.stop(context)
-                val s = BreathSession(start, b.minutes, f.breaths, hrStart, hr, hrMin, device = "watch")
+                val s = BreathSession(
+                    start, b.minutes, f.breaths, hrStart, hr, hrMin, device = "watch",
+                    hr = samples.toList(), rr = synchronized(beats) { beats.toList() },
+                )
                 WatchStore.session(s)
                 summary = s
                 b = Breathing()
@@ -519,8 +532,28 @@ fun Breathe(snap: Snapshot) {
                         Text("Guardado en tu teléfono", color = Dim, fontSize = 11.sp)
                     }
                 }
+                if (s.hr.any { it > 0 }) {
+                    item {
+                        Chip(
+                            onClick = { go("session/${s.at}") },
+                            label = { Text("Ver cardiograma") },
+                            secondaryLabel = { Text("Pulso y variabilidad") },
+                            colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF14361F)),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
             }
             item { Text("Respira con Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item {
+                Chip(
+                    onClick = { go("history") },
+                    label = { Text("Historial") },
+                    secondaryLabel = { Text("Sesiones, pulso y variabilidad") },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             item {
                 var guide by remember { mutableStateOf(WatchStore.breathGuide) }
                 ToggleChip(
@@ -616,6 +649,172 @@ fun MoodPicker(snap: Snapshot, done: () -> Unit) {
                     colors = if (today == m.value) ChipDefaults.primaryChipColors(backgroundColor = Color(m.color).copy(alpha = 0.35f))
                     else ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+// ── Latidos (intervalos RR) ───────────────────────────────────────────────────
+
+/**
+ * Beat-to-beat intervals (ms) from the heartbeat sensor while `active`, when
+ * the watch offers one; empty otherwise (the variability is then estimated).
+ */
+@Composable
+fun rememberHeartBeats(active: Boolean): MutableList<Int> {
+    val context = LocalContext.current
+    val beats = remember { ArrayList<Int>() }
+    DisposableEffect(active) {
+        val sm = context.getSystemService(SensorManager::class.java)
+        val sensor = sm?.getDefaultSensor(Sensor.TYPE_HEART_BEAT)
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
+        var last = 0L
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(e: SensorEvent) {
+                if (e.values.firstOrNull()?.let { it < 0.5f } == true) return // low confidence
+                if (last > 0) {
+                    val rr = ((e.timestamp - last) / 1_000_000L).toInt()
+                    if (rr in 300..2000) synchronized(beats) { beats += rr }
+                }
+                last = e.timestamp
+            }
+            override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
+        }
+        if (active) synchronized(beats) { beats.clear() }
+        if (active && granted && sensor != null) sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_FASTEST)
+        onDispose { sm?.unregisterListener(listener) }
+    }
+    return beats
+}
+
+// ── Historial de respiración ──────────────────────────────────────────────────
+
+private val DayHM = SimpleDateFormat("EEE d · HH:mm", Locale("es", "MX"))
+
+@Composable
+fun BreathHistory(snap: Snapshot, open: (Long) -> Unit) {
+    val listState = rememberScalingLazyListState()
+    val list = remember(snap) { WatchStore.allSessions().take(10) }
+    val weekStart = remember {
+        java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            add(java.util.Calendar.DAY_OF_YEAR, -((get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7))
+        }.timeInMillis
+    }
+    val weekMin = list.filter { it.at >= weekStart }.sumOf { it.minutes }
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            item { Text("Respiración", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item { Text("$weekMin min esta semana", color = VioletSoft, fontSize = 13.sp) }
+            if (list.isEmpty()) item { Text("Aún no hay sesiones", color = Dim, fontSize = 13.sp) }
+            items(list, key = { it.at }) { s ->
+                Chip(
+                    onClick = { open(s.at) },
+                    label = { Text("${s.minutes} min · ${DayHM.format(Date(s.at))}", maxLines = 1) },
+                    secondaryLabel = {
+                        Text(
+                            if (s.hrStart > 0 && s.hrEnd > 0) "♥ ${s.hrStart} → ${s.hrEnd} lpm" else "Sin pulso",
+                            color = if (s.hrEnd > 0) Pink else Dim,
+                        )
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+/** One session: the trace, the pulse curve, the variability and the minutes. */
+@Composable
+fun SessionScreen(at: Long, snap: Snapshot) {
+    val s = remember(at, snap) { WatchStore.allSessions().firstOrNull { it.at == at } }
+    val listState = rememberScalingLazyListState()
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (s == null) {
+                item { Text("Sesión no encontrada", color = Dim) }
+                return@ScalingLazyColumn
+            }
+            val stats = mx.loperstack.mochi.wellness.hrvStats(s)
+            item { Text(DayHM.format(Date(s.at)), fontSize = 13.sp, color = Dim) }
+            if (stats == null) {
+                item { Text("Esta sesión no tiene pulso", fontSize = 14.sp, textAlign = TextAlign.Center) }
+                return@ScalingLazyColumn
+            }
+            item {
+                Box(Modifier.fillMaxWidth().height(70.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(Color(0xFF07110B))) {
+                    mx.loperstack.mochi.charts.Cardiogram(mx.loperstack.mochi.charts.beatIntervals(s), Modifier.fillMaxSize().padding(vertical = 6.dp), windowMs = 3000)
+                }
+            }
+            item { Text("♥ ${stats.avgBpm} lpm · ${stats.minBpm}–${stats.maxBpm}", color = Pink, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+            item {
+                mx.loperstack.mochi.charts.PulseCurve(s, Modifier.fillMaxWidth().height(48.dp), Pink, Color(0x22FFFFFF))
+            }
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Variabilidad", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "RMSSD ${stats.rmssd} ms · ${mx.loperstack.mochi.wellness.rmssdLabel(stats.rmssd)}",
+                        color = VioletSoft, fontSize = 13.sp,
+                    )
+                    Text("SDNN ${stats.sdnn} ms", color = Dim, fontSize = 12.sp)
+                    Text(if (stats.beatToBeat) "Latido a latido" else "Estimada del pulso", color = Dim, fontSize = 10.sp)
+                }
+            }
+            item { Text("Min · prom · mín–máx", color = Dim, fontSize = 11.sp) }
+            items(mx.loperstack.mochi.wellness.minuteTable(s)) { r ->
+                Text("${r.minute}  ·  ${r.avg}  ·  ${r.min}–${r.max}", fontSize = 13.sp)
+            }
+            item { Text("Trazo ilustrativo, no es un electrocardiograma", color = Dim, fontSize = 10.sp, textAlign = TextAlign.Center) }
+        }
+    }
+}
+
+// ── Sueño ─────────────────────────────────────────────────────────────────────
+
+@Composable
+fun SleepReport(snap: Snapshot) {
+    val listState = rememberScalingLazyListState()
+    val nights = snap.nights
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            item { Text("Sueño", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            if (nights.isEmpty()) {
+                item { Text("Registra tus noches en el teléfono", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
+                return@ScalingLazyColumn
+            }
+            val last = nights.last()
+            val avg = nights.map { it.minutes }.average().toInt()
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${last.minutes / 60} h ${"%02d".format(last.minutes % 60)}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("${HM.format(Date(last.bed))} → ${HM.format(Date(last.wake))}", color = VioletSoft, fontSize = 13.sp)
+                    moodOf(last.quality)?.let { Text(it.label, color = Color(it.color), fontSize = 12.sp) }
+                }
+            }
+            item {
+                val maxMin = maxOf(9 * 60, nights.maxOf { it.minutes })
+                Canvas(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
+                    val n = nights.size
+                    val slot = size.width / maxOf(n, 7)
+                    val bw = slot * 0.6f
+                    val goalY = size.height * (1 - 8 * 60f / maxMin)
+                    drawLine(Color(0x55FFFFFF), Offset(0f, goalY), Offset(size.width, goalY), 1.5f)
+                    nights.forEachIndexed { i, e ->
+                        val h = size.height * e.minutes / maxMin
+                        val c = moodOf(e.quality)?.let { Color(it.color) } ?: Violet
+                        val x = slot * (i + (maxOf(n, 7) - n)) + (slot - bw) / 2
+                        drawRoundRect(c, Offset(x, size.height - h), Size(bw, h), androidx.compose.ui.geometry.CornerRadius(bw / 2))
+                    }
+                }
+            }
+            item { Text("Promedio ${avg / 60} h ${"%02d".format(avg % 60)} · ${nights.size} noches", color = Dim, fontSize = 12.sp) }
+            items(nights.reversed()) { e ->
+                Text(
+                    "${e.night.takeLast(5).replace('-', '/')}  ${e.minutes / 60} h ${"%02d".format(e.minutes % 60)}",
+                    fontSize = 13.sp, color = moodOf(e.quality)?.let { Color(it.color) } ?: Color.White,
                 )
             }
         }

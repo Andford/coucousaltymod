@@ -21,6 +21,12 @@ import mx.loperstack.mochi.data.withMood
 import mx.loperstack.mochi.data.withNote
 import mx.loperstack.mochi.data.withoutNote
 import org.json.JSONObject
+import mx.loperstack.mochi.wellness.BreathSession
+import mx.loperstack.mochi.wellness.hrvStats
+import mx.loperstack.mochi.wellness.minuteTable
+import mx.loperstack.mochi.wellness.rmssd
+import mx.loperstack.mochi.wellness.sessionOf
+import mx.loperstack.mochi.wellness.toJson
 import mx.loperstack.mochi.data.SleepGoal
 import mx.loperstack.mochi.data.mergeHealth
 import mx.loperstack.mochi.data.minutes
@@ -225,5 +231,20 @@ class LogicTest {
         assertEquals("bien", merged.note)
         assertEquals(80, merged.deepMin)
         assertEquals("health", merged.source)
+    }
+
+    @Test fun heartRateVariability() {
+        assertEquals(0, rmssd(listOf(800, 800)))
+        assertEquals(20, rmssd(listOf(800, 820, 800, 820, 800)))
+        // Pulse readings only: an estimate, minute by minute.
+        val s = BreathSession(1L, 1, 6, 72, 64, 62, "watch", hr = List(30) { if (it < 15) 72 else 64 })
+        val st = hrvStats(s)!!
+        assertEquals(false, st.beatToBeat)
+        assertEquals(62, st.minBpm.coerceAtMost(62))
+        assertEquals(1, minuteTable(s).size)
+        // Real beats win, and survive the trip to the phone.
+        val withBeats = s.copy(rr = List(40) { if (it % 2 == 0) 800 else 840 })
+        assertEquals(true, hrvStats(withBeats)!!.beatToBeat)
+        assertEquals(withBeats, sessionOf(withBeats.toJson()))
     }
 }

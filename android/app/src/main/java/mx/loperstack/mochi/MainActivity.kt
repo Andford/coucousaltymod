@@ -36,8 +36,13 @@ class MainActivity : ComponentActivity() {
         Sounds.init(this)
         Sounds.enabled = Store.state.value.soundOn
         // Every change already reaches the watch and the widgets (Store).
-        Store.onChange = { Sounds.enabled = Store.state.value.soundOn }
+        Store.onChange = {
+            Sounds.enabled = Store.state.value.soundOn
+            mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
+        }
+        mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
         PomodoroScheduler.channels(this)
+        mx.loperstack.mochi.wellness.BedReminder.sync(this)
         catchUp()
         startTab.value = tabOf(intent)
         breatheNow.value = breatheOf(intent)
@@ -79,6 +84,7 @@ class MainActivity : ComponentActivity() {
         "breathe" -> Tab.BREATHE
         "tasks" -> Tab.TASKS
         "diary" -> Tab.DIARY
+        "sleep" -> Tab.SLEEP
         else -> Tab.HOME
     }
 }

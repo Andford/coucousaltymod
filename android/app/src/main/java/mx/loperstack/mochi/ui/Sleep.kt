@@ -1,0 +1,501 @@
+// Sueño: last night under a starry sky, the numbers that matter (average,
+// regularity, debt, a score), two weeks of nights, tips that fit you and one
+// for today, your bedtime goal with a reminder, and the log itself — typed in
+// or brought from your Pixel Watch through Health Connect.
+
+package mx.loperstack.mochi.ui
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import mx.loperstack.mochi.data.AppData
+import mx.loperstack.mochi.data.HealthSleep
+import mx.loperstack.mochi.data.SLEEP_FACTORS
+import mx.loperstack.mochi.data.SLEEP_QUALITY
+import mx.loperstack.mochi.data.SleepEntry
+import mx.loperstack.mochi.data.SleepGoal
+import mx.loperstack.mochi.data.SleepTip
+import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.dailyTip
+import mx.loperstack.mochi.data.dayKey
+import mx.loperstack.mochi.data.dayStart
+import mx.loperstack.mochi.data.durationText
+import mx.loperstack.mochi.data.goalNight
+import mx.loperstack.mochi.data.hhmm
+import mx.loperstack.mochi.data.mergeHealth
+import mx.loperstack.mochi.data.minutes
+import mx.loperstack.mochi.data.personalTips
+import mx.loperstack.mochi.data.sleepEntry
+import mx.loperstack.mochi.data.sleepStats
+import mx.loperstack.mochi.data.upsertSleep
+import mx.loperstack.mochi.mochi.Haptics
+import mx.loperstack.mochi.mochi.Mochi
+import mx.loperstack.mochi.mochi.Mood
+import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.mochi.wellness.BedReminder
+import mx.loperstack.mochi.wellness.moodOf
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.random.Random
+
+private val MX = Locale("es", "MX")
+private val Night1 = Color(0xFF0D1230)
+private val Night2 = Color(0xFF221647)
+private val Moon = Color(0xFFFDE68A)
+private val Star = Color(0xFFE0E7FF)
+
+private fun timeOf(ms: Long) = SimpleDateFormat("HH:mm", MX).format(Date(ms))
+private fun minuteOfDay(ms: Long) = Calendar.getInstance().apply { timeInMillis = ms }.let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SleepScreen(data: AppData, color: Color, actions: Actions) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var logging by remember { mutableStateOf<SleepEntry?>(null) }
+    var showLog by remember { mutableStateOf(false) }
+    val now = rememberNow(60_000)
+    val goal = data.sleepGoal
+    val last = data.sleep.lastOrNull()
+    val stats = sleepStats(data.sleep, goal)
+
+    suspend fun importHealth() {
+        val nights = runCatching { HealthSleep.nights(context) }.getOrElse {
+            Toast.makeText(context, "Health Connect no respondió", Toast.LENGTH_SHORT).show(); return
+        }
+        Store.setSleep(mergeHealth(Store.state.value.sleep, nights))
+        Toast.makeText(context, if (nights.isEmpty()) "Health Connect no tiene noches recientes" else "${nights.size} noches del reloj", Toast.LENGTH_SHORT).show()
+        if (nights.isNotEmpty()) { Haptics.success(context); Sounds.play("approve") }
+    }
+    val askHealth = rememberLauncherForActivityResult(HealthSleep.permissionContract()) { granted ->
+        if (granted.containsAll(HealthSleep.PERMISSIONS)) scope.launch { importHealth() }
+        else Toast.makeText(context, "Sin permiso de sueño en Health Connect", Toast.LENGTH_SHORT).show()
+    }
+    val fromWatch: () -> Unit = {
+        Haptics.click(context)
+        if (!HealthSleep.available(context)) {
+            Toast.makeText(context, "Health Connect no está disponible en este teléfono", Toast.LENGTH_LONG).show()
+        } else scope.launch { if (HealthSleep.granted(context)) importHealth() else askHealth.launch(HealthSleep.PERMISSIONS) }
+    }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Sueño", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Label("Meta ${durationText(goal.minutes)}", Ink.Dim)
+        }
+        Spacer(Modifier.height(14.dp))
+        NightHero(last, stats?.score, color, now)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton("Registrar noche", Modifier.weight(1f), Ink.VioletSoft, Ink.Ground) {
+                Haptics.click(context)
+                logging = null
+                showLog = true
+            }
+            PrimaryButton("Del reloj", Modifier.weight(1f), Ink.CardHigh, Ink.Text, fromWatch)
+        }
+        if (stats != null) {
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatBox(durationText(stats.avgMin), "promedio · ${stats.nights} noches", Modifier.weight(1f))
+                StatBox("±${stats.spread} min", "constancia al acostarte", Modifier.weight(1f))
+                StatBox(if (stats.debt == 0) "0" else durationText(stats.debt), "deuda de la semana", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(12.dp))
+            Panel(Modifier.fillMaxWidth()) {
+                Label("Últimas noches", Ink.Dim, weight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                NightsChart(data.sleep.takeLast(14), goal)
+            }
+        }
+
+        Text("Consejos para ti", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 22.dp, bottom = 8.dp))
+        for (t in personalTips(data.sleep, goal)) TipCard(t, highlight = true)
+        TipCard(dailyTip(now).let { it.copy(title = "Consejo del día · ${it.title}") }, highlight = false)
+
+        Text("Tu horario", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 22.dp, bottom = 8.dp))
+        GoalPanel(goal, data.bedReminder)
+
+        if (data.sleep.isNotEmpty()) {
+            Text("Registro", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 22.dp, bottom = 8.dp))
+            for (e in data.sleep.sortedByDescending { it.night }.take(30)) {
+                NightRow(e) { logging = e; showLog = true }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showLog) {
+        ModalBottomSheet(onDismissRequest = { showLog = false }, containerColor = Ink.CardHigh) {
+            LogNightSheet(logging, goal) { e ->
+                showLog = false
+                if (e != null) {
+                    Store.setSleep(upsertSleep(Store.state.value.sleep.filter { it.night != logging?.night }, e))
+                    actions.jump++
+                    Haptics.success(context)
+                    Sounds.play("approve")
+                }
+            }
+        }
+    }
+}
+
+/** Last night under the stars: Mochi asleep, the hours, the times, the stages and the score. */
+@Composable
+private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
+    val stars = remember { List(40) { Triple(Random.nextFloat(), Random.nextFloat() * 0.7f, 0.6f + Random.nextFloat() * 1.6f) } }
+    val fresh = last != null && last.night == dayKey(now)
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(Night1, Night2)))) {
+        Canvas(Modifier.matchParentSize()) {
+            for ((x, y, r) in stars) drawCircle(Star.copy(alpha = 0.35f + r / 4f), r * density, Offset(x * size.width, y * size.height))
+            drawCircle(Moon, 18.dp.toPx(), Offset(size.width - 44.dp.toPx(), 40.dp.toPx()))
+            drawCircle(Night1, 15.dp.toPx(), Offset(size.width - 36.dp.toPx(), 34.dp.toPx()))
+        }
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Text(if (fresh) "ANOCHE" else "ÚLTIMA NOCHE REGISTRADA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA5B4FC))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    if (last == null) {
+                        Text("Sin registros aún", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("Anota tu noche o tráela de tu Pixel Watch.", fontSize = 13.sp, color = Color(0xFFC7D2FE))
+                    } else {
+                        Text(durationText(last.minutes), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("${timeOf(last.bed)} → ${timeOf(last.wake)}", fontSize = 15.sp, color = Color(0xFFC7D2FE), fontWeight = FontWeight.SemiBold)
+                        SLEEP_QUALITY.firstOrNull { it.first == last.quality }?.let { (q, label) ->
+                            val c = moodOf(q)?.color?.let { Color(it) } ?: Color.White
+                            Text(
+                                label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c,
+                                modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).background(c.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+                }
+                Mochi(Modifier.width(120.dp).height(100.dp), color = color, mood = Mood.SLEEPY)
+            }
+            if (last != null && (last.deepMin + last.remMin) > 0) {
+                Spacer(Modifier.height(12.dp))
+                Stages(last)
+            }
+            if (score != null) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.matchParentSize()) {
+                            val s = 4.dp.toPx()
+                            drawArc(Color(0x26FFFFFF), -90f, 360f, false, Offset(s / 2, s / 2), Size(size.width - s, size.height - s), style = Stroke(s))
+                            drawArc(Moon, -90f, 3.6f * score, false, Offset(s / 2, s / 2), Size(size.width - s, size.height - s), style = Stroke(s, cap = StrokeCap.Round))
+                        }
+                        Text("$score", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    }
+                    Text(
+                        "  " + when { score >= 85 -> "Puntaje de la semana: excelente"; score >= 70 -> "Puntaje de la semana: bien"; score >= 50 -> "Puntaje de la semana: mejorable"; else -> "Puntaje de la semana: a cuidarte" },
+                        fontSize = 13.sp, color = Color(0xFFC7D2FE),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Deep, REM, light and awake as one bar, from the watch's stages. */
+@Composable
+private fun Stages(e: SleepEntry) {
+    val total = ((e.wake - e.bed) / 60_000L).toInt().coerceAtLeast(1)
+    val light = (total - e.deepMin - e.remMin - e.awakeMin).coerceAtLeast(0)
+    val parts = listOf(
+        Triple("Profundo", e.deepMin, Color(0xFF6366F1)), Triple("REM", e.remMin, Color(0xFF22D3EE)),
+        Triple("Ligero", light, Color(0xFFA5B4FC)), Triple("Despierto", e.awakeMin, Color(0xFFF472B6)),
+    )
+    Canvas(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape)) {
+        var x = 0f
+        for ((_, m, c) in parts) {
+            val w = size.width * m / total
+            drawRect(c, Offset(x, 0f), Size(w, size.height))
+            x += w
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        for ((label, m, c) in parts) {
+            if (m <= 0) continue
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(c))
+                Text(" $label ${durationText(m)}", fontSize = 11.sp, color = Color(0xFFC7D2FE))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatBox(value: String, label: String, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(20.dp)).padding(12.dp)) {
+        Text(value, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
+        Label(label, Ink.Dim2, 11.sp)
+    }
+}
+
+/** Bars per night (height = hours, colour = how rested), and the goal as a dashed line. */
+@Composable
+private fun NightsChart(nights: List<SleepEntry>, goal: SleepGoal) {
+    val maxMin = maxOf(goal.minutes + 60, nights.maxOfOrNull { it.minutes } ?: 0)
+    val dim = Ink.Track
+    val goalColor = Ink.Dim2
+    val accent = Ink.Violet
+    Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+        val n = maxOf(nights.size, 7)
+        val slot = size.width / n
+        val bw = slot * 0.6f
+        val gy = size.height * (1 - goal.minutes.toFloat() / maxMin)
+        drawLine(goalColor, Offset(0f, gy), Offset(size.width, gy), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
+        nights.forEachIndexed { i, e ->
+            val h = size.height * e.minutes / maxMin
+            val c = moodOf(e.quality)?.let { Color(it.color) } ?: accent
+            val x = slot * (i + (n - nights.size)) + (slot - bw) / 2
+            drawRoundRect(dim, Offset(x, 0f), Size(bw, size.height), androidx.compose.ui.geometry.CornerRadius(bw / 2))
+            drawRoundRect(c, Offset(x, size.height - h), Size(bw, h), androidx.compose.ui.geometry.CornerRadius(bw / 2))
+        }
+    }
+    Spacer(Modifier.height(4.dp))
+    Row(Modifier.fillMaxWidth()) {
+        Label(nights.firstOrNull()?.let { SimpleDateFormat("d MMM", MX).format(Date(dayStart(it.night))) } ?: "", Ink.Dim2, 11.sp)
+        Spacer(Modifier.weight(1f))
+        Label("- - meta ${durationText(goal.minutes)}", Ink.Dim2, 11.sp)
+    }
+}
+
+@Composable
+private fun TipCard(t: SleepTip, highlight: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(20.dp))
+            .background(if (highlight) Ink.VioletDeep else Ink.Card).border(1.dp, if (highlight) Ink.VioletLine else Ink.Hairline, RoundedCornerShape(20.dp))
+            .padding(14.dp),
+    ) {
+        Text(t.icon, fontSize = 22.sp)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(t.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink.Text)
+            Spacer(Modifier.height(2.dp))
+            Text(t.text, fontSize = 13.sp, color = Ink.Dim)
+        }
+    }
+}
+
+@Composable
+private fun GoalPanel(goal: SleepGoal, reminder: Boolean) {
+    val context = LocalContext.current
+    fun pick(start: Int, set: (Int) -> Unit) =
+        TimePickerDialog(context, { _, h, m -> set(h * 60 + m) }, start / 60, start % 60, true).show()
+    fun save(g: SleepGoal, r: Boolean) {
+        Store.setSleepGoal(g, r)
+        BedReminder.sync(context)
+        Haptics.click(context)
+    }
+    Panel(Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TimeChip("🌙 Dormir", hhmm(goal.bedMin), Modifier.weight(1f)) { pick(goal.bedMin) { save(goal.copy(bedMin = it), reminder) } }
+            TimeChip("☀️ Despertar", hhmm(goal.wakeMin), Modifier.weight(1f)) { pick(goal.wakeMin) { save(goal.copy(wakeMin = it), reminder) } }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Recordatorio para dormir", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Label("30 min antes, con un consejo y respiración de 5 min", Ink.Dim2, 12.sp)
+            }
+            Switch(checked = reminder, onCheckedChange = { save(goal, it) }, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
+        }
+    }
+}
+
+@Composable
+private fun TimeChip(label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Ink.CardHigh).clickable(onClick = onClick).padding(14.dp)) {
+        Label(label, Ink.Dim, 12.sp)
+        Text(value, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
+    }
+}
+
+@Composable
+private fun NightRow(e: SleepEntry, edit: () -> Unit) {
+    val q = moodOf(e.quality)
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
+            .clickable(onClick = edit).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                SimpleDateFormat("EEE d MMM", MX).format(Date(dayStart(e.night))).replaceFirstChar { it.uppercase(MX) },
+                fontSize = 13.sp, color = Ink.Dim, fontWeight = FontWeight.SemiBold,
+            )
+            Text("${durationText(e.minutes)}  ·  ${timeOf(e.bed)} → ${timeOf(e.wake)}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            if (e.factors.isNotEmpty()) {
+                Text(e.factors.mapNotNull { id -> SLEEP_FACTORS.firstOrNull { it.first == id }?.second?.substringBefore(" ") }.joinToString(" "), fontSize = 13.sp)
+            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            if (q != null) Text(SLEEP_QUALITY.first { it.first == e.quality }.second, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(q.color))
+            Text(if (e.source == "health") "Reloj" else "A mano", fontSize = 11.sp, color = Ink.Dim2)
+        }
+    }
+}
+
+/** Typing a night in (or fixing one): its morning, the times, how it felt, what played a part. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LogNightSheet(editing: SleepEntry?, goal: SleepGoal, done: (SleepEntry?) -> Unit) {
+    val context = LocalContext.current
+    val (gBed, gWake) = remember { goalNight(goal, System.currentTimeMillis()) }
+    var morning by remember { mutableLongStateOf(editing?.wake ?: gWake) }
+    var bedMin by remember { mutableIntStateOf(editing?.let { minuteOfDay(it.bed) } ?: minuteOfDay(gBed)) }
+    var wakeMin by remember { mutableIntStateOf(editing?.let { minuteOfDay(it.wake) } ?: minuteOfDay(gWake)) }
+    var quality by remember { mutableIntStateOf(editing?.quality ?: 0) }
+    var factors by remember { mutableStateOf(editing?.factors?.toSet() ?: emptySet()) }
+    var note by remember { mutableStateOf(editing?.note ?: "") }
+
+    fun times(): Pair<Long, Long> {
+        val day = Calendar.getInstance().apply {
+            timeInMillis = morning
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val wake = day + wakeMin * 60_000L
+        // A bedtime later in the day than the wake-up was the evening before.
+        val bed = day + bedMin * 60_000L - if (bedMin > wakeMin) 24 * 3600_000L else 0L
+        return bed to wake
+    }
+    val (bed, wake) = times()
+
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        Text(if (editing == null) "¿Cómo dormiste?" else "Editar noche", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TimeChip("Mañana del", SimpleDateFormat("EEE d", MX).format(Date(morning)), Modifier.weight(1f)) {
+                val c = Calendar.getInstance().apply { timeInMillis = morning }
+                DatePickerDialog(context, { _, y, m, d ->
+                    morning = Calendar.getInstance().apply { timeInMillis = morning; set(y, m, d) }.timeInMillis
+                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+            }
+            TimeChip("Me dormí", hhmm(bedMin), Modifier.weight(1f)) {
+                TimePickerDialog(context, { _, h, m -> bedMin = h * 60 + m }, bedMin / 60, bedMin % 60, true).show()
+            }
+            TimeChip("Desperté", hhmm(wakeMin), Modifier.weight(1f)) {
+                TimePickerDialog(context, { _, h, m -> wakeMin = h * 60 + m }, wakeMin / 60, wakeMin % 60, true).show()
+            }
+        }
+        Text(
+            "${durationText(((wake - bed) / 60_000L).toInt())} de sueño", color = Ink.VioletSoft, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Label("¿Cómo despertaste?", Ink.Dim, 12.sp, FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth()) {
+            for ((q, label) in SLEEP_QUALITY) {
+                val m = moodOf(q)!!
+                val on = quality == q
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Color(m.color).copy(alpha = 0.16f) else Color.Transparent)
+                        .clickable { quality = if (on) 0 else q; Haptics.click(context) }.padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Mochi(Modifier.width(46.dp).height(38.dp), color = Color(m.color), face = m.face)
+                    Text(label, fontSize = 10.sp, textAlign = TextAlign.Center, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Label("¿Qué influyó?", Ink.Dim, 12.sp, FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((id, label) in SLEEP_FACTORS) {
+                Segment(label, id in factors) {
+                    factors = if (id in factors) factors - id else factors + id
+                    Haptics.tick(context)
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = note, onValueChange = { note = it.take(300) }, modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Una nota (sueños, despertares…)", color = Ink.Dim2) }, shape = RoundedCornerShape(16.dp), maxLines = 3,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
+                focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
+            ),
+        )
+        Spacer(Modifier.height(18.dp))
+        PrimaryButton("Guardar noche", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {
+            if (wake - bed < 30 * 60_000L) {
+                Toast.makeText(context, "Revisa las horas: menos de 30 min", Toast.LENGTH_SHORT).show()
+                return@PrimaryButton
+            }
+            done(
+                sleepEntry(bed, wake, quality, factors.toList(), note, editing?.source ?: "manual")
+                    .copy(deepMin = editing?.deepMin ?: 0, remMin = editing?.remMin ?: 0, awakeMin = editing?.awakeMin ?: 0),
+            )
+        }
+        if (editing != null) {
+            Text(
+                "Borrar esta noche", color = Ink.Red, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 14.dp).clickable {
+                    Store.setSleep(Store.state.value.sleep.filter { it.night != editing.night })
+                    done(null)
+                },
+            )
+        }
+    }
+}

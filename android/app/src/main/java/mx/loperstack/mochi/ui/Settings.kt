@@ -196,6 +196,7 @@ fun SettingsSheet(
     connectGoogle: () -> Unit, syncGoogle: () -> Unit, disconnectGoogle: () -> Unit, replayWelcome: () -> Unit,
 ) {
     var name by remember { mutableStateOf(data.name) }
+    val context = LocalContext.current
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Column(Modifier.padding(horizontal = 24.dp)) {
             Text("Ajustes", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
@@ -218,6 +219,17 @@ fun SettingsSheet(
                     colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet),
                 )
             }
+            SectionTitle("Vibración")
+            ToggleRow("Vibración háptica", "Al tocar a Mochi, los botones y al cambiar de pestaña (también en el reloj)", data.haptics) {
+                Store.setHaptics(it)
+                mx.loperstack.mochi.mochi.Haptics.enabled = it
+                if (it) mx.loperstack.mochi.mochi.Haptics.click(context)
+            }
+            Spacer(Modifier.height(10.dp))
+            ToggleRow("Respirar con vibración", "Pulsos que crecen al inhalar y se apagan al exhalar, en el teléfono", data.breathHaptics) {
+                Store.setBreathHaptics(it)
+                if (it) mx.loperstack.mochi.mochi.Haptics.breath(context, true, 2.0, guide = true)
+            }
             SectionTitle("Tus dispositivos")
             Devices(google)
         }
@@ -227,5 +239,54 @@ fun SettingsSheet(
             "Ver la bienvenida otra vez", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
             modifier = Modifier.padding(horizontal = 28.dp).clickable(onClick = replayWelcome),
         )
+    }
+}
+
+@Composable
+fun ToggleRow(title: String, why: String, on: Boolean, set: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Label(why, Ink.Dim2)
+        }
+        Switch(checked = on, onCheckedChange = set, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
+    }
+}
+
+/** This build's signing fingerprint — what Google Cloud's Android client must have. */
+fun signingSha1(context: Context): String = runCatching {
+    val info = context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+    val cert = info.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray() ?: return "?"
+    java.security.MessageDigest.getInstance("SHA-1").digest(cert).joinToString(":") { "%02X".format(it) }
+}.getOrDefault("?")
+
+/** The two values for the Android OAuth client, with copy buttons. */
+@Composable
+fun GoogleSetupHelp() {
+    val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val sha1 = remember { signingSha1(context) }
+    @Composable
+    fun Value(label: String, value: String) {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Card)
+                .clickable {
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(value))
+                    android.widget.Toast.makeText(context, "$label copiado", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Label(label, Ink.Dim2, 11.sp, FontWeight.Bold)
+                Text(value, fontSize = 13.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = Ink.Text)
+            }
+            Text("Copiar", color = Ink.VioletSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Label("En Google Cloud → Credenciales → ID de cliente OAuth → Android:", Ink.Dim, 12.sp)
+        Value("Nombre del paquete", context.packageName)
+        Value("Huella SHA-1", sha1)
     }
 }

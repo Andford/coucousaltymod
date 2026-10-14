@@ -97,6 +97,9 @@ object WearSync {
             pomodoro = d.pomodoro,
             soundOn = d.soundOn,
             name = d.name,
+            haptics = d.haptics,
+            sleepMin = d.sleep.lastOrNull()?.minutes ?: 0,
+            sleepNight = d.sleep.lastOrNull()?.night ?: "",
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
             at = now,
         )

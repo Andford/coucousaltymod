@@ -91,6 +91,7 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.mochi.mochi.Haptics
 import mx.loperstack.mochi.mochi.rememberMusicPlaying
 import mx.loperstack.mochi.wellness.MOODS
 import mx.loperstack.mochi.wellness.moodOf
@@ -266,6 +267,19 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            if (snap.sleepMin > 0) {
+                item {
+                    val h = snap.sleepMin / 60
+                    val m = snap.sleepMin % 60
+                    Chip(
+                        onClick = {},
+                        label = { Text("Dormiste $h h ${"%02d".format(m)}") },
+                        secondaryLabel = { Text(if (snap.sleepNight == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) "Anoche" else "Última noche registrada") },
+                        colors = ChipDefaults.secondaryChipColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
             item {
                 Chip(
                     onClick = { go("mood") },
@@ -424,7 +438,7 @@ fun Breathe(snap: Snapshot) {
     }
     val stop by WatchStore.stopRequest.collectAsState()
     LaunchedEffect(stop) {
-        if (stop != null && linked && active) { b = Breathing(); linked = false; Sounds.play("close") }
+        if (stop != null && linked && active) { Haptics.stop(context); b = Breathing(); linked = false; Sounds.play("close") }
     }
 
     // The session's clock: buzz on each turn, the pulse to the phone, the end.
@@ -440,7 +454,11 @@ fun Breathe(snap: Snapshot) {
             if (f.inhaling != lastInhale && !f.done) {
                 lastInhale = f.inhaling
                 inhaling = f.inhaling
-                buzz(context, f.inhaling)
+                Haptics.breath(
+                    context, f.inhaling,
+                    if (f.inhaling) mx.loperstack.mochi.wellness.INHALE_S else mx.loperstack.mochi.wellness.EXHALE_S,
+                    guide = WatchStore.breathGuide,
+                )
             }
             if (f.left != left) left = f.left
             val hr = bpmNow
@@ -450,6 +468,7 @@ fun Breathe(snap: Snapshot) {
                 if (now - lastSent >= 3000) { lastSent = now; WatchStore.heartRate(hr) }
             }
             if (f.done) {
+                Haptics.stop(context)
                 val s = BreathSession(start, b.minutes, f.breaths, hrStart, hr, hrMin, device = "watch")
                 WatchStore.session(s)
                 summary = s
@@ -479,7 +498,7 @@ fun Breathe(snap: Snapshot) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Terminar", color = Dim, fontSize = 12.sp,
-                    modifier = Modifier.clip(CircleShape).clickable { b = Breathing(); linked = false; Sounds.play("close") }.padding(8.dp),
+                    modifier = Modifier.clip(CircleShape).clickable { Haptics.stop(context); b = Breathing(); linked = false; Sounds.play("close") }.padding(8.dp),
                 )
             }
         }
@@ -502,6 +521,21 @@ fun Breathe(snap: Snapshot) {
                 }
             }
             item { Text("Respira con Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item {
+                var guide by remember { mutableStateOf(WatchStore.breathGuide) }
+                ToggleChip(
+                    checked = guide,
+                    onCheckedChange = {
+                        guide = it
+                        WatchStore.breathGuide = it
+                        Haptics.breath(context, true, 2.0, guide = it)
+                    },
+                    label = { Text("Vibración guía") },
+                    secondaryLabel = { Text(if (guide) "Pulsos al inhalar y exhalar" else "Solo en cada cambio") },
+                    toggleControl = { Icon(imageVector = ToggleChipDefaults.switchIcon(checked = guide), contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             items(BREATHE_MINUTES) { m ->
                 Chip(
                     onClick = { start(Breathing(System.currentTimeMillis(), m), fromPhone = false) },

@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import mx.loperstack.mochi.data.Store
 import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.wellness.BREATHE_MINUTES
@@ -67,6 +68,17 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
     val now = rememberNow(if (active) 200L else 60_000L)
     val f = breathFrame(b, now)
     LaunchedEffect(f.done) { if (f.done && active) actions.stopBreathing(completed = true) }
+    // The guide in your hand: pulses swell as you breathe in, fade as you breathe out.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val breathHaptics = Store.state.collectAsState().value.breathHaptics
+    LaunchedEffect(f.inhaling, active) {
+        if (active && breathHaptics && !f.done) {
+            mx.loperstack.mochi.mochi.Haptics.breath(
+                context, f.inhaling,
+                if (f.inhaling) mx.loperstack.mochi.wellness.INHALE_S else mx.loperstack.mochi.wellness.EXHALE_S, guide = true,
+            )
+        }
+    }
     val hr by WearSync.heartRate.collectAsState()
     val liveBpm = if (active && hr.at >= (b.startedAt ?: Long.MAX_VALUE) && now - hr.at < 15_000) hr.bpm else 0
     LaunchedEffect(hr) { if (active && hr.at >= (b.startedAt ?: Long.MAX_VALUE)) actions.heartRate(hr.bpm) }

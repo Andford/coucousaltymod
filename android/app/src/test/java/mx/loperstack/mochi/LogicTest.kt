@@ -21,6 +21,14 @@ import mx.loperstack.mochi.data.withMood
 import mx.loperstack.mochi.data.withNote
 import mx.loperstack.mochi.data.withoutNote
 import org.json.JSONObject
+import mx.loperstack.mochi.data.SleepGoal
+import mx.loperstack.mochi.data.mergeHealth
+import mx.loperstack.mochi.data.minutes
+import mx.loperstack.mochi.data.personalTips
+import mx.loperstack.mochi.data.sleepEntry
+import mx.loperstack.mochi.data.sleepJson
+import mx.loperstack.mochi.data.sleepOf
+import mx.loperstack.mochi.data.sleepStats
 import mx.loperstack.mochi.wellness.breathingOf
 import mx.loperstack.mochi.wellness.toWire
 import mx.loperstack.mochi.wellness.Phase
@@ -191,5 +199,31 @@ class LogicTest {
         assertEquals(listOf("Llamar", "Comprar pan"), tasks.map { it.text })
         assertEquals(true, tasks.all { it.remote })
         assertEquals(true, tasks[0].done)
+    }
+
+    private fun at(day: Int, h: Int, m: Int = 0) = java.util.Calendar.getInstance().apply { set(2026, 9, day, h, m, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+
+    @Test fun sleepNightsAndNumbers() {
+        val a = sleepEntry(at(12, 23, 30), at(13, 7, 0), quality = 4)
+        assertEquals("2026-10-13", a.night)
+        assertEquals(450, a.minutes)
+        val list = listOf(sleepEntry(at(10, 23, 0), at(11, 6, 0), 2, listOf("cafe")), sleepEntry(at(11, 22, 50), at(12, 6, 10), 2, listOf("cafe")), a)
+        assertEquals(list, sleepOf(sleepJson(list)))
+        val s = sleepStats(list, SleepGoal(23 * 60, 7 * 60))!!
+        assertEquals(3, s.nights)
+        assertEquals(true, s.debt > 0)
+        assertEquals(true, s.score in 0..100)
+        // Short nights: the first tip is about sleeping longer.
+        assertEquals("⏰", personalTips(list, SleepGoal(22 * 60, 7 * 60)).first().icon)
+    }
+
+    @Test fun watchNightsKeepYourRating() {
+        val mine = sleepEntry(at(12, 23, 0), at(13, 7, 0), quality = 5, note = "bien")
+        val watch = sleepEntry(at(12, 23, 20), at(13, 6, 40), source = "health").copy(deepMin = 80)
+        val merged = mergeHealth(listOf(mine), listOf(watch)).single()
+        assertEquals(5, merged.quality)
+        assertEquals("bien", merged.note)
+        assertEquals(80, merged.deepMin)
+        assertEquals("health", merged.source)
     }
 }

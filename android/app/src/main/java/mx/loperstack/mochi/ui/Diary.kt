@@ -272,6 +272,7 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
                         .clickable {
                             Store.setLogs(withMood(Store.state.value.logs, log.day, if (on) 0 else m.value))
                             if (!on) { Sounds.play(moodSound(m.value)); if (m.value >= 4) actions.jump++ }
+                            mx.loperstack.mochi.mochi.Haptics.click(context)
                         }
                         .padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

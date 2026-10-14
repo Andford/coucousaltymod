@@ -121,6 +121,7 @@ fun Mochi(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     val touch = if (interactive) {
         Modifier.pointerInput(engine) {
             fun toLook(o: Offset) = Offset(
@@ -133,10 +134,15 @@ fun Mochi(
                     tryAwaitRelease()
                     engine.lookAt(null)
                 },
-                onTap = { engine.slap() },
+                onTap = {
+                    val wasDizzy = engine.dizzy.value
+                    engine.slap()
+                    if (!wasDizzy) { if (engine.dizzy.value) Haptics.spin(context) else Haptics.thud(context) }
+                },
                 onLongPress = {
                     engine.triggerEmote(MochiEngine.Emote.LOVE)
                     Sounds.play("love")
+                    Haptics.success(context)
                 },
             )
         }

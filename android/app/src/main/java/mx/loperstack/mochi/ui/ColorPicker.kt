@@ -151,10 +151,11 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
 
 @Composable
 fun Segment(text: String, on: Boolean, onClick: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val bg by animateColorAsState(if (on) Ink.VioletSoft else Ink.Card, label = "seg")
     Text(
         text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) Ink.Ground else Ink.Text,
         modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(bg).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp),
+            .clickable { mx.loperstack.mochi.mochi.Haptics.tick(context); onClick() }.padding(horizontal = 14.dp, vertical = 9.dp),
     )
 }

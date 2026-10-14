@@ -37,6 +37,15 @@ data class AppData(
     val theme: String = "pixel",
     /** The welcome has been through once. */
     val onboarded: Boolean = false,
+    /** Vibration on taps and navigation (phone and watch). */
+    val haptics: Boolean = true,
+    /** The breathing guide also vibrates on the phone. */
+    val breathHaptics: Boolean = true,
+    /** Nights, oldest first. */
+    val sleep: List<SleepEntry> = emptyList(),
+    val sleepGoal: SleepGoal = SleepGoal(),
+    /** A nudge 30 min before bedtime. */
+    val bedReminder: Boolean = false,
 )
 
 object Store {
@@ -68,6 +77,11 @@ object Store {
             name = prefs.getString("name", "") ?: "",
             theme = prefs.getString("theme", "pixel") ?: "pixel",
             onboarded = prefs.getBoolean("onboarded", false),
+            haptics = prefs.getBoolean("haptics", true),
+            breathHaptics = prefs.getBoolean("breathHaptics", true),
+            sleep = sleepOf(prefs.getString("sleep", null)),
+            sleepGoal = SleepGoal(prefs.getInt("bedMin", 23 * 60), prefs.getInt("wakeMin", 7 * 60)),
+            bedReminder = prefs.getBoolean("bedReminder", false),
         )
     }
 
@@ -132,6 +146,28 @@ object Store {
     fun setOnboarded(done: Boolean) {
         _state.value = _state.value.copy(onboarded = done)
         prefs.edit().putBoolean("onboarded", done).apply()
+    }
+
+    fun setHaptics(on: Boolean) {
+        _state.value = _state.value.copy(haptics = on)
+        prefs.edit().putBoolean("haptics", on).apply()
+        changed()
+    }
+
+    fun setBreathHaptics(on: Boolean) {
+        _state.value = _state.value.copy(breathHaptics = on)
+        prefs.edit().putBoolean("breathHaptics", on).apply()
+    }
+
+    fun setSleep(list: List<SleepEntry>) {
+        _state.value = _state.value.copy(sleep = list)
+        prefs.edit().putString("sleep", sleepJson(list)).apply()
+        changed()
+    }
+
+    fun setSleepGoal(goal: SleepGoal, reminder: Boolean) {
+        _state.value = _state.value.copy(sleepGoal = goal, bedReminder = reminder)
+        prefs.edit().putInt("bedMin", goal.bedMin).putInt("wakeMin", goal.wakeMin).putBoolean("bedReminder", reminder).apply()
     }
 
     fun setSound(on: Boolean) {

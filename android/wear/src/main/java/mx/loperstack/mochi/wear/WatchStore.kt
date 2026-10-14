@@ -60,6 +60,7 @@ object WatchStore {
         prefs = app.getSharedPreferences("mochi-watch", Context.MODE_PRIVATE)
         _state.value = snapshotOf(prefs.getString("snapshot", null))
         Sounds.enabled = _state.value.soundOn
+        mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
     }
 
     /** A new state from the phone. */
@@ -68,6 +69,7 @@ object WatchStore {
         if (s.at < _state.value.at) return
         _state.value = s
         Sounds.enabled = s.soundOn
+        mx.loperstack.mochi.mochi.Haptics.enabled = s.haptics
         prefs.edit().putString("snapshot", json).apply()
         refreshSurfaces()
     }
@@ -150,6 +152,11 @@ object WatchStore {
         val fmt = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
         return if (fmt.format(java.util.Date(s.at)) == fmt.format(java.util.Date())) s.moodToday else 0
     }
+
+    /** Breathing: pulses through each phase (true) or a buzz on each turn. */
+    var breathGuide: Boolean
+        get() = prefs.getBoolean("breathGuide", true)
+        set(v) { prefs.edit().putBoolean("breathGuide", v).apply() }
 
     /** A screen to open (the mood complication asks for "mood"). */
     val openScreen = MutableStateFlow<String?>(null)

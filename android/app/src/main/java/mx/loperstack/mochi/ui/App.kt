@@ -110,6 +110,7 @@ import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.mochi.MOCHI_PALETTE
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Mood
+import mx.loperstack.mochi.mochi.Haptics
 import mx.loperstack.mochi.mochi.rememberMusicPlaying
 import mx.loperstack.mochi.data.GoogleTasks
 import android.app.Activity
@@ -145,7 +146,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), PC("PC") }
+enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño") }
 
 private val ES = Locale("es", "MX")
 
@@ -174,7 +175,11 @@ class Actions(private val context: Context) {
         if (!task.done) {
             jump++
             Sounds.play("approve")
-        } else Sounds.play("blip")
+            Haptics.success(context)
+        } else {
+            Sounds.play("blip")
+            Haptics.click(context)
+        }
     }
 
     fun remove(task: Task) {
@@ -241,8 +246,11 @@ class Actions(private val context: Context) {
             Store.addSession(
                 BreathSession(start, b.minutes, b.minutes * 6, hrStart, hrLast, hrMin, device = if (withWatch) "watch" else "phone"),
             )
+            Haptics.stop(context)
+            Haptics.success(context)
         } else {
             Sounds.play("close")
+            Haptics.stop(context)
             WearSync.stopTogether(context)
         }
     }
@@ -370,11 +378,11 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                 containerColor = Ink.Ground,
                 bottomBar = {
                     NavigationBar(containerColor = Ink.CardHigh, tonalElevation = 0.dp) {
-                        val glyphs = mapOf(Tab.HOME to Glyph.Home, Tab.TASKS to Glyph.Tasks, Tab.FOCUS to Glyph.Focus, Tab.BREATHE to Glyph.Breathe, Tab.DIARY to Glyph.Diary, Tab.PC to Glyph.Pc)
+                        val glyphs = mapOf(Tab.HOME to Glyph.Home, Tab.TASKS to Glyph.Tasks, Tab.FOCUS to Glyph.Focus, Tab.BREATHE to Glyph.Breathe, Tab.DIARY to Glyph.Diary, Tab.SLEEP to Glyph.Moon)
                         for (t in Tab.entries) {
                             NavigationBarItem(
                                 selected = tab == t,
-                                onClick = { tab = t },
+                                onClick = { if (tab != t) Haptics.tick(context); tab = t },
                                 icon = { Icon(glyphs.getValue(t), contentDescription = null, modifier = Modifier.size(20.dp)) },
                                 label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
                                 colors = NavigationBarItemDefaults.colors(
@@ -410,7 +418,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                         Tab.FOCUS -> FocusScreen(data.tasks, data.pomodoro, now, color, actions, startPomodoro)
                         Tab.BREATHE -> BreatheScreen(color, actions, data.sessions)
                         Tab.DIARY -> DiaryScreen(data.logs, color, actions) { tab = Tab.BREATHE }
-                        Tab.PC -> PcScreen(now)
+                        Tab.SLEEP -> SleepScreen(data, color, actions)
                     }
                 }
             }
@@ -456,8 +464,9 @@ fun Label(text: String, color: Color = Ink.Dim, size: TextUnit = 13.sp, weight: 
 
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = Ink.Text, textColor: Color = Ink.Ground, onClick: () -> Unit) {
+    val context = LocalContext.current
     Button(
-        onClick = onClick, modifier = modifier.heightIn(min = 48.dp),
+        onClick = { Haptics.click(context); onClick() }, modifier = modifier.heightIn(min = 48.dp),
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = textColor),
         contentPadding = PaddingValues(horizontal = 24.dp),
     ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
@@ -465,7 +474,8 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = In
 
 @Composable
 fun RoundIcon(glyph: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(52.dp).clip(CircleShape).background(Ink.CardHigh)) {
+    val context = LocalContext.current
+    IconButton(onClick = { Haptics.click(context); onClick() }, modifier = Modifier.size(52.dp).clip(CircleShape).background(Ink.CardHigh)) {
         Icon(glyph, contentDescription = description, tint = Ink.Dim, modifier = Modifier.size(20.dp))
     }
 }
@@ -893,6 +903,7 @@ fun GoogleTasksRow(st: GoogleTasks.Status, connect: () -> Unit, sync: () -> Unit
             Spacer(Modifier.height(6.dp))
             Label(st.error, Ink.Red)
         }
+        if (!st.connected) GoogleSetupHelp()
         if (st.connected) {
             Text(
                 "Desconectar", color = Ink.Dim2, fontSize = 13.sp,

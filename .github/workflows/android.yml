@@ -75,6 +75,13 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "out/Mochi-${GITHUB_SHA::7}.apk"
           cp android/wear/build/outputs/apk/release/wear-release.apk "out/Mochi-Watch-${GITHUB_SHA::7}.apk"
 
+      # The SHA-1 Google Cloud's Android OAuth client needs (Google Tasks), as an annotation.
+      - name: Signing fingerprint
+        run: |
+          signer=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          sha=$("$signer" verify --print-certs out/Mochi-*.apk 2>/dev/null | grep -m1 'SHA-1 digest' | awk '{print $NF}' | sed 's/../&:/g;s/:$//' | tr a-f A-F)
+          echo "::notice::Paquete mx.loperstack.mochi · SHA-1 $sha"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Mochi-Android

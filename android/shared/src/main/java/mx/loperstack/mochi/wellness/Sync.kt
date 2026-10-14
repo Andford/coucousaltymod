@@ -51,6 +51,11 @@ data class Snapshot(
     val moodToday: Int = 0,
     /** Your name, for Mochi's hello. */
     val name: String = "",
+    /** Taps and navigation vibrate (Ajustes on the phone). */
+    val haptics: Boolean = true,
+    /** Last night's sleep in minutes (0 = not logged), and its morning, yyyy-MM-dd. */
+    val sleepMin: Int = 0,
+    val sleepNight: String = "",
     val at: Long = 0,
 )
 
@@ -98,6 +103,9 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("sound", soundOn)
     .put("mood", moodToday)
     .put("name", name)
+    .put("haptics", haptics)
+    .put("sleepMin", sleepMin)
+    .put("sleepNight", sleepNight)
     .put("at", at)
     .toString()
 
@@ -132,6 +140,9 @@ fun snapshotOf(raw: String?): Snapshot {
             soundOn = o.optBoolean("sound", true),
             moodToday = o.optInt("mood", 0).coerceIn(0, 5),
             name = o.optString("name", "").take(30),
+            haptics = o.optBoolean("haptics", true),
+            sleepMin = o.optInt("sleepMin", 0).coerceIn(0, 24 * 60),
+            sleepNight = o.optString("sleepNight", ""),
             at = o.optLong("at"),
         )
     } catch (_: Exception) {

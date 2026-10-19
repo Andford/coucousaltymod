@@ -21,6 +21,10 @@ import mx.loperstack.mochi.data.withMood
 import mx.loperstack.mochi.data.withNote
 import mx.loperstack.mochi.data.withoutNote
 import org.json.JSONObject
+import mx.loperstack.mochi.data.addMood
+import mx.loperstack.mochi.data.averageMood
+import mx.loperstack.mochi.data.removeMood
+import mx.loperstack.mochi.mochi.Outfit
 import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.hrvStats
 import mx.loperstack.mochi.wellness.minuteTable
@@ -246,5 +250,27 @@ class LogicTest {
         val withBeats = s.copy(rr = List(40) { if (it % 2 == 0) 800 else 840 })
         assertEquals(true, hrvStats(withBeats)!!.beatToBeat)
         assertEquals(withBeats, sessionOf(withBeats.toJson()))
+    }
+
+    @Test fun moodsThroughTheDay() {
+        var logs = addMood(emptyList(), "2026-10-19", 8 * 3600_000L, 5)
+        logs = addMood(logs, "2026-10-19", 18 * 3600_000L, 2)
+        val d = logs.single()
+        assertEquals(2, d.mood)
+        assertEquals(listOf(5, 2), d.moods.map { it.value })
+        assertEquals(4, d.averageMood)
+        assertEquals(logs, logsOf(logsJson(logs)))
+        assertEquals(5, removeMood(logs, "2026-10-19", 18 * 3600_000L).single().mood)
+    }
+
+    @Test fun seasonalHats() {
+        fun on(m: Int, d: Int) = Outfit.seasonal(java.util.Calendar.getInstance().apply { clear(); set(2026, m - 1, d) })
+        assertEquals(Outfit.WITCH, on(10, 19))
+        assertEquals(Outfit.FLOWERS, on(11, 2))
+        assertEquals(Outfit.SANTA, on(12, 20))
+        assertEquals(Outfit.PARTY, on(1, 1))
+        assertEquals(Outfit.BUNNY, on(4, 5)) // Easter 2026
+        assertEquals(Outfit.NONE, on(3, 10))
+        assertEquals(Outfit.CROWN, Outfit.resolve("CROWN"))
     }
 }

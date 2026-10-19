@@ -80,7 +80,59 @@ private fun deg(rad: Float) = rad * 180f / PI.toFloat()
  */
 object MochiStyle {
     var flat by androidx.compose.runtime.mutableStateOf(true)
+    /** What he wears today (the season's hat, or the one you picked). */
+    var outfit by androidx.compose.runtime.mutableStateOf(Outfit.NONE)
+    /** How you slept last night: he shows it. */
+    var rest by androidx.compose.runtime.mutableStateOf(Rest.UNKNOWN)
 }
+
+/** Mochi's wardrobe, drawn flat (2D). The names are stored in the preferences. */
+enum class Outfit(val label: String) {
+    NONE("Ninguno"), WITCH("Sombrero de bruja"), FLOWERS("Corona de cempasúchil"), SANTA("Gorro navideño"),
+    PARTY("Gorrito de fiesta"), BUNNY("Orejas de conejo"), SUNGLASSES("Lentes de sol"), BEANIE("Gorro de lana"),
+    CROWN("Corona"), BOW("Moño");
+
+    companion object {
+        fun of(name: String?): Outfit? = entries.firstOrNull { it.name == name }
+
+        /**
+         * The season's outfit (the PC's wardrobe "auto", plus Día de Muertos):
+         * party hat Dec 31–Jan 2, Santa Dec 1–26, cempasúchil Nov 1–2, witch hat in
+         * October, bunny ears around Easter, sunglasses Jun 21–Aug 31.
+         */
+        fun seasonal(cal: java.util.Calendar): Outfit {
+            val d = cal.get(java.util.Calendar.DAY_OF_MONTH)
+            val m = cal.get(java.util.Calendar.MONTH) + 1
+            val y = cal.get(java.util.Calendar.YEAR)
+            if ((m == 12 && d == 31) || (m == 1 && d <= 2)) return PARTY
+            if (m == 12 && d <= 26) return SANTA
+            if (m == 11 && d <= 2) return FLOWERS
+            if (m == 10) return WITCH
+            val (em, ed) = easter(y)
+            val easter = java.util.Calendar.getInstance().apply { clear(); set(y, em - 1, ed) }
+            val today = java.util.Calendar.getInstance().apply { clear(); set(y, m - 1, d) }
+            val delta = ((today.timeInMillis - easter.timeInMillis) / 86_400_000.0).let { kotlin.math.round(it).toInt() }
+            if (delta in -2..1) return BUNNY
+            if ((m == 6 && d >= 21) || m == 7 || m == 8) return SUNGLASSES
+            return NONE
+        }
+
+        /** "auto" → the season's; a name → that one; else none. */
+        fun resolve(selection: String, cal: java.util.Calendar = java.util.Calendar.getInstance()): Outfit =
+            if (selection == "auto") seasonal(cal) else of(selection) ?: NONE
+
+        /** Easter Sunday (Meeus/Jones/Butcher), month 1–12 and day. */
+        fun easter(year: Int): Pair<Int, Int> {
+            val a = year % 19; val b = year / 100; val c = year % 100; val d = b / 4; val e = b % 4
+            val f = (b + 8) / 25; val g = (b - f + 1) / 3; val h = (19 * a + b - d - g + 15) % 30
+            val i = c / 4; val k = c % 4; val l = (32 + 2 * e + 2 * i - h - k) % 7; val m = (a + 11 * h + 22 * l) / 451
+            return ((h + l - 7 * m + 114) / 31) to ((h + l - 7 * m + 114) % 31 + 1)
+        }
+    }
+}
+
+/** Last night, as Mochi wears it: bags under his eyes, or bouncing with joy. */
+enum class Rest { UNKNOWN, TIRED, OK, GREAT }
 
 class MochiEngine {
     enum class Eye { PILL, WIDE, DOT, LINE, FLAT, HAPPY, CLOSED, SPIRAL, HEART, STAR, TIRED, WINK }
@@ -146,6 +198,9 @@ class MochiEngine {
     private var breathFill = 0f
     private var breathLevel = 0f
     private var face: Eye? = null
+    /** Wears MochiStyle.outfit (off for the diary's little faces). */
+    private var wear = true
+    private var nextRestBeat = now() + 4.0
 
     /** Music is playing: he dances (the island's 112-BPM bounce). */
     private var dancing = false
@@ -166,7 +221,8 @@ class MochiEngine {
     // ── What the app sets ─────────────────────────────────────────────────────
 
     /** The body colour and mood, and the breathing session (if any). Cheap to call on every composition. */
-    fun configure(color: Color, mood: Mood, breathing: Breathing?, dancing: Boolean = false, face: Eye? = null) {
+    fun configure(color: Color, mood: Mood, breathing: Breathing?, dancing: Boolean = false, face: Eye? = null, wear: Boolean = true) {
+        this.wear = wear
         val s = breathing?.takeIf { it.startedAt != null }
         session = s
         if (dancing != this.dancing) { this.dancing = dancing; wake() }
@@ -256,6 +312,98 @@ class MochiEngine {
             after(60) { Sounds.play("annoyed") }
         }
         wake()
+    }
+
+    // ── Mimos: the stress-relief pet ──────────────────────────────────────────
+
+    private var lastHeart = 0.0
+
+    /** A stroke across him: blush, happy eyes, a heart now and then. */
+    fun stroke() {
+        if (dizzy.value) return
+        val n = now()
+        if (P.BLUSH !in locks) anim(P.BLUSH, listOf(k(1f, 250, Ease.out), k(1f, 600, Ease.lin), k(0f, 700, Ease.inOut)))
+        eyeOverride = Eye.HAPPY
+        eyeOverrideUntil = n + 0.8
+        if (n - lastHeart > 1.1) { lastHeart = n; emit(Kind.HEART, 1) }
+        wake()
+    }
+
+    /** Back-and-forth rubbing: he laughs and wiggles. */
+    fun tickle() {
+        if (dizzy.value) return
+        eyeOverride = Eye.HAPPY
+        eyeOverrideUntil = now() + 1.6
+        anim(P.TILT, listOf(k(0.12f, 70, Ease.out), k(-0.12f, 110, Ease.inOut), k(0.09f, 110, Ease.inOut), k(-0.06f, 110, Ease.inOut), k(0f, 120, Ease.out)))
+        anim(P.SY, listOf(k(0.94f, 80, Ease.out), k(1.04f, 120, Ease.out), k(0.97f, 120, Ease.out), k(1f, 140, Ease.back)))
+        emit(Kind.SPARK, 3)
+        Sounds.play("wink")
+        wake()
+    }
+
+    /** A hug while held: heart eyes; let go and he smiles. */
+    fun hug(on: Boolean) {
+        if (dizzy.value) return
+        if (on) {
+            eyeOverride = Eye.HEART
+            eyeOverrideUntil = INF
+            anim(P.SY, listOf(k(0.9f, 180, Ease.out)))
+            anim(P.SX, listOf(k(1.08f, 180, Ease.out)))
+            anim(P.BLUSH, listOf(k(1f, 300, Ease.out)))
+            emit(Kind.HEART, 3)
+            Sounds.play("love")
+        } else {
+            eyeOverride = Eye.HAPPY
+            eyeOverrideUntil = now() + 1.2
+            anim(P.SY, listOf(k(1.08f, 120, Ease.out), k(1f, 260, Ease.back)))
+            anim(P.SX, listOf(k(0.95f, 120, Ease.out), k(1f, 260, Ease.back)))
+            anim(P.BLUSH, listOf(k(0f, 900, Ease.inOut)))
+        }
+        wake()
+    }
+
+    /** Double tap: a jump with a flip. */
+    fun flip() {
+        if (dizzy.value) return
+        anim(P.OY, listOf(k(-0.55f, 220, Ease.out), k(0f, 360, Ease.back)))
+        doRoll(600, 1)
+        eyeOverride = Eye.STAR
+        eyeOverrideUntil = now() + 1.0
+        emit(Kind.STAR, 3)
+        Sounds.play("proud")
+        wake()
+    }
+
+    /** Squeezed between two fingers: `amount` > 1 stretches him, < 1 squashes. */
+    fun squeeze(amount: Float) {
+        val a = amount.coerceIn(0.6f, 1.6f)
+        tweens.remove(P.SX); tweens.remove(P.SY)
+        locks += P.SX; locks += P.SY
+        this[P.SX] = 1f / kotlin.math.sqrt(a)
+        this[P.SY] = a
+        eyeOverride = if (a < 0.85f) Eye.LINE else if (a > 1.2f) Eye.DOT else eyeOverride
+        eyeOverrideUntil = now() + 0.4
+        wake()
+    }
+
+    /** Let go: he wobbles back to shape. */
+    fun unsqueeze() {
+        anim(P.SY, listOf(k(0.9f, 90, Ease.out), k(1.06f, 140, Ease.out), k(1f, 220, Ease.back)))
+        anim(P.SX, listOf(k(1.08f, 90, Ease.out), k(0.96f, 140, Ease.out), k(1f, 220, Ease.back)))
+        wake()
+    }
+
+    /** Thrown against a wall: a squash and a surprised face. */
+    fun bump() {
+        squash()
+        eyeOverride = Eye.DOT
+        eyeOverrideUntil = now() + 0.5
+        wake()
+    }
+
+    /** The phone shaken: straight to dizzy. */
+    fun shake() {
+        if (!dizzy.value) { goDizzy(); wake() }
     }
 
     /** handleDizzy on the PC: pink, spiral eyes, two rolls, 3.3 s, then a happy blink. */
@@ -400,8 +548,12 @@ class MochiEngine {
         }
 
     /** How long the loop may sleep: until the next blink, glance or timer (at most a second). */
+    /** Last night's rest, when it applies: plain moods only, no fixed face. */
+    private val rest: Rest
+        get() = if (face == null && !isBreathing && (mood == Mood.IDLE || mood == Mood.FOCUS)) MochiStyle.rest else Rest.UNKNOWN
+
     fun idleWaitMs(): Long {
-        var next = min(nextBlink, nextWander)
+        var next = min(min(nextBlink, nextWander), if (rest == Rest.TIRED || rest == Rest.GREAT) nextRestBeat else Double.MAX_VALUE)
         for ((at, _) in timers) next = min(next, at)
         return ((next - now()) * 1000).toLong().coerceIn(16, 1000)
     }
@@ -502,6 +654,25 @@ class MochiEngine {
         if (n - lastAmbient > 1.3) {
             lastAmbient = n
             if (sleeping) emit(Kind.Z, 1)
+        }
+
+        // Rested: a happy little hop now and then. Short night: a yawn.
+        if (n > nextRestBeat && !dizzy.value && tweens.isEmpty()) {
+            when (rest) {
+                Rest.GREAT -> {
+                    eyeOverride = Eye.HAPPY
+                    eyeOverrideUntil = n + 1.2
+                    anim(P.OY, listOf(k(-0.16f, 140, Ease.out), k(0f, 260, Ease.back)))
+                    anim(P.SY, listOf(k(0.92f, 80, Ease.out), k(1.06f, 140, Ease.out), k(1f, 200, Ease.back)))
+                    if (Random.nextFloat() < 0.5f) emit(Kind.SPARK, 2)
+                    nextRestBeat = n + 6.0 + Random.nextDouble() * 6.0
+                }
+                Rest.TIRED -> {
+                    triggerEmote(Emote.YAWN, 2.2f)
+                    nextRestBeat = n + 14.0 + Random.nextDouble() * 12.0
+                }
+                else -> nextRestBeat = n + 10.0
+            }
         }
 
         if (particles.isNotEmpty()) {
@@ -606,7 +777,7 @@ class MochiEngine {
             }) {
                 val path = body(rx, ry)
                 drawBody(path, r, rx, ry)
-                val blush = max(this@MochiEngine[P.BLUSH], tint * 0.5f)
+                val blush = max(max(this@MochiEngine[P.BLUSH], tint * 0.5f), if (rest == Rest.GREAT) 0.55f else 0f)
                 if (blush > 0.01f) {
                     clipPath(path) {
                         val yo = sin(this@MochiEngine[P.YAW]) * rx * 0.8f
@@ -620,6 +791,7 @@ class MochiEngine {
                     }
                 }
                 drawEyes(path, r, rx, ry)
+                if (wear) drawOutfit(MochiStyle.outfit, r, rx, ry)
             }
         }
         drawParticles(r, cx, cy)
@@ -673,6 +845,8 @@ class MochiEngine {
     private fun DrawScope.drawEyes(path: Path, r: Float, rx: Float, ry: Float) {
         var shape = eyeOverride ?: if (dizzy.value) Eye.SPIRAL else Eye.PILL
         if (danceLevel > 0.15f && shape == Eye.PILL && !dizzy.value) shape = Eye.HAPPY
+        val tired = rest == Rest.TIRED && !dizzy.value
+        if (tired && shape == Eye.PILL) shape = Eye.TIRED
         val es = this@MochiEngine[P.ES]
         val ew = r * EYE_W * es
         val eh = r * EYE_H * es
@@ -682,9 +856,20 @@ class MochiEngine {
                 withTransform({
                     translate(e.x, e.y)
                     scale(e.fx, e.fy, pivot = Offset.Zero)
-                }) { drawEyeShape(shape, ew, eh, e.side) }
+                }) {
+                    drawEyeShape(shape, ew, eh, e.side)
+                    // Bags under the eyes after a short night.
+                    if (tired) {
+                        drawArc(
+                            Color(0x665B4B8A), startAngle = 20f, sweepAngle = 140f, useCenter = false,
+                            topLeft = Offset(-ew * 0.7f, eh * 0.05f), size = Size(ew * 1.4f, eh * 0.75f),
+                            style = Stroke(width = ew * 0.2f, cap = StrokeCap.Round),
+                        )
+                    }
+                }
             }
-            if (mood == Mood.FOCUS && !isBreathing && !dizzy.value) drawGlasses(list, r, rx)
+            if (mood == Mood.FOCUS && !isBreathing && !dizzy.value && !(wear && MochiStyle.outfit == Outfit.SUNGLASSES)) drawGlasses(list, r, rx)
+            if (wear && MochiStyle.outfit == Outfit.SUNGLASSES) drawSunglasses(list, ew, eh)
         }
     }
 
@@ -864,6 +1049,136 @@ class MochiEngine {
                     }
                 }
             }
+        }
+    }
+
+    // ── The wardrobe, flat ────────────────────────────────────────────────────
+
+    private fun DrawScope.drawSunglasses(list: List<EyePos>, ew: Float, eh: Float) {
+        val lens = Color(0xFF111318)
+        for (e in list) {
+            withTransform({ translate(e.x, e.y); scale(e.fx, e.fy, pivot = Offset.Zero) }) {
+                drawRoundRect(lens, Offset(-ew * 0.95f, -eh * 0.55f), Size(ew * 1.9f, eh * 1.15f), CornerRadius(ew * 0.5f))
+                drawLine(Color.White.copy(alpha = 0.55f), Offset(-ew * 0.55f, -eh * 0.3f), Offset(-ew * 0.15f, -eh * 0.3f), ew * 0.14f, StrokeCap.Round)
+            }
+        }
+        if (list.size == 2) drawLine(lens, Offset(list[0].x + ew * 0.8f, list[0].y - eh * 0.25f), Offset(list[1].x - ew * 0.8f, list[1].y - eh * 0.25f), ew * 0.22f, StrokeCap.Round)
+    }
+
+    private fun DrawScope.outlined(path: Path, fill: Color, r: Float) {
+        drawPath(path, fill)
+        drawPath(path, lerp(fill, Color.Black, 0.45f).copy(alpha = 0.6f), style = Stroke(r * 0.035f, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+
+    private fun DrawScope.pom(x: Float, y: Float, rad: Float, fill: Color, r: Float) {
+        drawCircle(fill, rad, Offset(x, y))
+        drawCircle(lerp(fill, Color.Black, 0.35f).copy(alpha = 0.5f), rad, Offset(x, y), style = Stroke(r * 0.03f))
+    }
+
+    /** Hats and the rest, in the body's own space (they tilt and squash with him). */
+    private fun DrawScope.drawOutfit(o: Outfit, r: Float, rx: Float, ry: Float) {
+        if (o == Outfit.NONE || o == Outfit.SUNGLASSES) return
+        val hx = sin(this@MochiEngine[P.YAW]) * rx * 0.25f
+        val top = -ry
+        when (o) {
+            Outfit.WITCH -> {
+                val cone = Path().apply {
+                    moveTo(-rx * 0.5f + hx, top + ry * 0.1f)
+                    quadraticTo(-rx * 0.15f + hx, top - r * 0.55f, rx * 0.42f + hx, top - r * 1.15f)
+                    quadraticTo(rx * 0.12f + hx, top - r * 0.5f, rx * 0.5f + hx, top + ry * 0.1f)
+                    close()
+                }
+                outlined(cone, Color(0xFF4C2C7A), r)
+                drawRect(Color(0xFFF59E0B), Offset(-rx * 0.47f + hx, top - r * 0.08f), Size(rx * 0.94f, r * 0.13f))
+                drawRect(Color(0xFFFDE68A), Offset(-rx * 0.08f + hx, top - r * 0.1f), Size(r * 0.17f, r * 0.17f), style = Stroke(r * 0.035f))
+                outlined(Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(-rx * 1.0f + hx, top + ry * 0.02f), Size(rx * 2.0f, r * 0.24f))) }, Color(0xFF3B2160), r)
+            }
+            Outfit.SANTA -> {
+                val cone = Path().apply {
+                    moveTo(-rx * 0.62f + hx, top + ry * 0.16f)
+                    cubicTo(-rx * 0.5f + hx, top - r * 0.5f, rx * 0.4f + hx, top - r * 0.75f, rx * 0.95f + hx, top - r * 0.2f)
+                    quadraticTo(rx * 0.45f + hx, top - r * 0.2f, rx * 0.62f + hx, top + ry * 0.16f)
+                    close()
+                }
+                outlined(cone, Color(0xFFE03131), r)
+                outlined(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.72f + hx, top + ry * 0.02f, rx * 0.72f + hx, top + ry * 0.02f + r * 0.28f, r * 0.14f, r * 0.14f)) }, Color.White, r)
+                pom(rx * 0.97f + hx, top - r * 0.18f, r * 0.16f, Color.White, r)
+            }
+            Outfit.PARTY -> {
+                withTransform({ rotate(-12f, pivot = Offset(hx, top)) }) {
+                    val cone = Path().apply {
+                        moveTo(-rx * 0.36f + hx, top + ry * 0.12f); lineTo(hx + rx * 0.05f, top - r * 0.95f); lineTo(rx * 0.36f + hx, top + ry * 0.12f); close()
+                    }
+                    outlined(cone, Color(0xFFF472B6), r)
+                    clipPath(cone) {
+                        for (k in 0..3) {
+                            val y0 = top - r * 0.15f - k * r * 0.25f
+                            drawLine(Color(0xFFFDE047), Offset(hx - rx * 0.5f, y0 + r * 0.1f), Offset(hx + rx * 0.5f, y0 - r * 0.1f), r * 0.08f)
+                        }
+                    }
+                    pom(hx + rx * 0.05f, top - r * 0.98f, r * 0.12f, Color(0xFF60A5FA), r)
+                }
+            }
+            Outfit.BUNNY -> {
+                val fill = if (MochiStyle.flat) flatFill() else BASE_TOP
+                for (sd in SIDES) {
+                    withTransform({ rotate(sd * 12f, pivot = Offset(sd * rx * 0.32f + hx, top + ry * 0.1f)) }) {
+                        val ear = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(sd * rx * 0.32f + hx - r * 0.18f, top - r * 0.95f), Size(r * 0.36f, r * 1.1f))) }
+                        outlined(ear, fill, r)
+                        drawOval(Color(0xFFF9A8D4), Offset(sd * rx * 0.32f + hx - r * 0.09f, top - r * 0.78f), Size(r * 0.18f, r * 0.75f))
+                    }
+                }
+            }
+            Outfit.BEANIE -> {
+                val dome = Path().apply {
+                    moveTo(-rx * 0.86f + hx, top + ry * 0.48f)
+                    cubicTo(-rx * 0.9f + hx, top - r * 0.45f, rx * 0.9f + hx, top - r * 0.45f, rx * 0.86f + hx, top + ry * 0.48f)
+                    close()
+                }
+                outlined(dome, Color(0xFF38BDF8), r)
+                outlined(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.92f + hx, top + ry * 0.32f, rx * 0.92f + hx, top + ry * 0.32f + r * 0.24f, r * 0.12f, r * 0.12f)) }, Color(0xFF0284C7), r)
+                pom(hx, top - r * 0.22f, r * 0.15f, Color(0xFFF0F9FF), r)
+            }
+            Outfit.CROWN -> {
+                val y0 = top + ry * 0.12f
+                val crown = Path().apply {
+                    moveTo(-rx * 0.48f + hx, y0); lineTo(-rx * 0.52f + hx, y0 - r * 0.42f); lineTo(-rx * 0.24f + hx, y0 - r * 0.22f)
+                    lineTo(hx, y0 - r * 0.5f); lineTo(rx * 0.24f + hx, y0 - r * 0.22f); lineTo(rx * 0.52f + hx, y0 - r * 0.42f); lineTo(rx * 0.48f + hx, y0); close()
+                }
+                outlined(crown, Color(0xFFFACC15), r)
+                drawCircle(Color(0xFFEF4444), r * 0.06f, Offset(hx, y0 - r * 0.14f))
+                drawCircle(Color(0xFF3B82F6), r * 0.05f, Offset(hx - rx * 0.28f, y0 - r * 0.1f))
+                drawCircle(Color(0xFF22C55E), r * 0.05f, Offset(hx + rx * 0.28f, y0 - r * 0.1f))
+            }
+            Outfit.BOW -> {
+                val bx = rx * 0.48f + hx
+                val by = top + ry * 0.12f
+                for (sd in SIDES) {
+                    val wing = Path().apply { moveTo(bx, by); lineTo(bx + sd * r * 0.32f, by - r * 0.2f); lineTo(bx + sd * r * 0.32f, by + r * 0.2f); close() }
+                    outlined(wing, Color(0xFFF472B6), r)
+                }
+                pom(bx, by, r * 0.09f, Color(0xFFEC4899), r)
+            }
+            Outfit.FLOWERS -> {
+                // Cempasúchil across the top, with small magenta flowers in between.
+                val angles = listOf(-62f, -31f, 0f, 31f, 62f)
+                for ((i, a) in angles.withIndex()) {
+                    val t = Math.toRadians(a.toDouble()).toFloat()
+                    val x = sin(t) * rx * 0.82f + hx
+                    val y = -cos(t) * ry * 0.95f
+                    if (i < angles.size - 1) {
+                        val t2 = Math.toRadians((a + 15.5f).toDouble()).toFloat()
+                        drawCircle(Color(0xFFC026D3), r * 0.07f, Offset(sin(t2) * rx * 0.86f + hx, -cos(t2) * ry * 1.0f))
+                    }
+                    for (p in 0 until 8) {
+                        val pa = p * (PI.toFloat() / 4)
+                        drawCircle(Color(0xFFFB923C), r * 0.075f, Offset(x + cos(pa) * r * 0.1f, y + sin(pa) * r * 0.1f))
+                    }
+                    drawCircle(Color(0xFFF97316), r * 0.1f, Offset(x, y))
+                    drawCircle(Color(0xFFB45309), r * 0.04f, Offset(x, y))
+                }
+            }
+            else -> Unit
         }
     }
 

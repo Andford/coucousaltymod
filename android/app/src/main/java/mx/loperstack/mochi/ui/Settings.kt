@@ -211,6 +211,14 @@ fun SettingsSheet(
                 Segment("2D plano", data.mochiFlat) { Store.setMochiFlat(true) }
                 Segment("Como la PC (degradado)", !data.mochiFlat) { Store.setMochiFlat(false) }
             }
+            SectionTitle("Gorritos y accesorios")
+            val season = remember { mx.loperstack.mochi.mochi.Outfit.seasonal(java.util.Calendar.getInstance()) }
+            Label(
+                if (data.outfit == "auto") "Según la temporada · hoy: ${season.label}" else "Siempre: ${mx.loperstack.mochi.mochi.Outfit.resolve(data.outfit).label}",
+                Ink.Dim2, 12.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutfitChips(data.outfit)
             SectionTitle("Tema")
             ThemeCards(data.theme) { Store.setTheme(it) }
             SectionTitle("Sonidos")
@@ -293,5 +301,32 @@ fun GoogleSetupHelp() {
         Label("En Google Cloud → Credenciales → ID de cliente OAuth → Android:", Ink.Dim, 12.sp)
         Value("Nombre del paquete", context.packageName)
         Value("Huella SHA-1", sha1)
+    }
+}
+
+
+/** Auto (the season's, like Coucou on Windows) or any one of the wardrobe. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun OutfitChips(current: String) {
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Segment("🗓️ Temporada", current == "auto") { Store.setOutfit("auto") }
+        for (o in mx.loperstack.mochi.mochi.Outfit.entries) {
+            val icon = when (o) {
+                mx.loperstack.mochi.mochi.Outfit.NONE -> "🚫"
+                mx.loperstack.mochi.mochi.Outfit.WITCH -> "🧙"
+                mx.loperstack.mochi.mochi.Outfit.FLOWERS -> "🌼"
+                mx.loperstack.mochi.mochi.Outfit.SANTA -> "🎅"
+                mx.loperstack.mochi.mochi.Outfit.PARTY -> "🥳"
+                mx.loperstack.mochi.mochi.Outfit.BUNNY -> "🐰"
+                mx.loperstack.mochi.mochi.Outfit.SUNGLASSES -> "😎"
+                mx.loperstack.mochi.mochi.Outfit.BEANIE -> "🧢"
+                mx.loperstack.mochi.mochi.Outfit.CROWN -> "👑"
+                mx.loperstack.mochi.mochi.Outfit.BOW -> "🎀"
+            }
+            Segment("$icon ${o.label}", current == o.name) { Store.setOutfit(o.name) }
+        }
     }
 }

@@ -58,6 +58,8 @@ data class Snapshot(
     val sleepNight: String = "",
     /** Mochi drawn flat (2D) or with the PC's gradient. */
     val flat: Boolean = true,
+    /** Today's outfit (an Outfit name, already resolved for the season). */
+    val outfit: String = "NONE",
     /** The last breathing sessions (with their pulse) and nights, for the watch's reports. */
     val sessions: List<BreathSession> = emptyList(),
     val nights: List<NightLite> = emptyList(),
@@ -122,6 +124,7 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("sleepMin", sleepMin)
     .put("sleepNight", sleepNight)
     .put("flat", flat)
+    .put("outfit", outfit)
     .put("sessions", JSONArray().apply { sessions.forEach { put(it.toJsonObject()) } })
     .put("nights", JSONArray().apply {
         nights.forEach { put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)) }
@@ -164,6 +167,7 @@ fun snapshotOf(raw: String?): Snapshot {
             sleepMin = o.optInt("sleepMin", 0).coerceIn(0, 24 * 60),
             sleepNight = o.optString("sleepNight", ""),
             flat = o.optBoolean("flat", true),
+            outfit = o.optString("outfit", "NONE"),
             sessions = o.optJSONArray("sessions")?.let { a -> (0 until a.length()).mapNotNull { sessionOf(a.optJSONObject(it)?.toString()) } } ?: emptyList(),
             nights = o.optJSONArray("nights")?.let { a ->
                 (0 until a.length()).mapNotNull { i ->

@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         Store.onChange = {
             Sounds.enabled = Store.state.value.soundOn
             mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
-        mx.loperstack.mochi.mochi.MochiStyle.flat = Store.state.value.mochiFlat
+        Store.applyLook()
         }
         mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
         PomodoroScheduler.channels(this)
@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         catchUp()
+        Store.applyLook()
         WearSync.push(this)
         // Tasks changed on the PC or in Google: bring them in.
         if (GoogleTasks.connected) TaskSync.refresh(this)

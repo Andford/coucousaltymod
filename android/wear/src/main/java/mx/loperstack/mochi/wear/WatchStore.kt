@@ -62,6 +62,7 @@ object WatchStore {
         Sounds.enabled = _state.value.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
         mx.loperstack.mochi.mochi.MochiStyle.flat = _state.value.flat
+        applyLook()
     }
 
     /** A new state from the phone. */
@@ -72,6 +73,7 @@ object WatchStore {
         Sounds.enabled = s.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = s.haptics
         mx.loperstack.mochi.mochi.MochiStyle.flat = s.flat
+        applyLook()
         prefs.edit().putString("snapshot", json).apply()
         refreshSurfaces()
     }
@@ -159,6 +161,19 @@ object WatchStore {
         if (sound) Sounds.play(if (value >= 4) "love" else "pop")
         send(SyncPaths.MOOD, value.toString())
         refreshSurfaces()
+    }
+
+    /** Today's hat and last night's rest, as the phone says. */
+    fun applyLook() {
+        val s = _state.value
+        mx.loperstack.mochi.mochi.MochiStyle.outfit = mx.loperstack.mochi.mochi.Outfit.of(s.outfit) ?: mx.loperstack.mochi.mochi.Outfit.NONE
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        mx.loperstack.mochi.mochi.MochiStyle.rest = when {
+            s.sleepNight != today || s.sleepMin <= 0 -> mx.loperstack.mochi.mochi.Rest.UNKNOWN
+            s.sleepMin < 360 -> mx.loperstack.mochi.mochi.Rest.TIRED
+            s.sleepMin >= 420 -> mx.loperstack.mochi.mochi.Rest.GREAT
+            else -> mx.loperstack.mochi.mochi.Rest.OK
+        }
     }
 
     /** Today's mood, 0 if the last word from the phone is from another day. */

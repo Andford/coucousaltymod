@@ -124,7 +124,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Respira con Mochi", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp))
+        Text("Respira con Mochi", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp))
         Spacer(Modifier.height(12.dp))
         Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true)
         Spacer(Modifier.height(10.dp))
@@ -235,7 +235,7 @@ private fun Stat(value: String, label: String, color: Color, modifier: Modifier)
     Column(
         modifier.clip(RoundedCornerShape(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(20.dp)).padding(14.dp),
     ) {
-        Text(value, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = color)
+        Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = color)
         Label(label, Ink.Dim2, 12.sp)
     }
 }

@@ -89,5 +89,40 @@ object Haptics {
         }
     }
 
+    /** A soft purr while you stroke him: a low tick, rate-limited by the caller. */
+    fun purr(context: Context, level: Float = 0.5f) =
+        play(context, VibrationEffect.Composition.PRIMITIVE_LOW_TICK, level.coerceIn(0.1f, 1f), VibrationEffect.EFFECT_TICK)
+
+    /** A hug: two soft heartbeats. */
+    fun heartbeat(context: Context) {
+        if (!enabled) return
+        val v = vibrator(context) ?: return
+        runCatching {
+            val t = VibrationEffect.Composition.PRIMITIVE_THUD
+            v.vibrate(
+                if (v.areAllPrimitivesSupported(t)) {
+                    VibrationEffect.startComposition().addPrimitive(t, 0.6f).addPrimitive(t, 0.35f, 140).compose()
+                } else VibrationEffect.createWaveform(longArrayOf(0, 40, 120, 30), intArrayOf(0, 160, 0, 90), -1),
+            )
+        }
+    }
+
+    /** Laughing at a tickle: quick light taps. */
+    fun giggle(context: Context) {
+        if (!enabled) return
+        val v = vibrator(context) ?: return
+        runCatching {
+            val c = VibrationEffect.Composition.PRIMITIVE_TICK
+            v.vibrate(
+                if (v.areAllPrimitivesSupported(c)) {
+                    VibrationEffect.startComposition().addPrimitive(c, 0.7f).addPrimitive(c, 0.5f, 60).addPrimitive(c, 0.8f, 60).addPrimitive(c, 0.4f, 60).compose()
+                } else VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK),
+            )
+        }
+    }
+
+    /** A jump: a quick rise. */
+    fun rise(context: Context) = play(context, VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, 0.8f, VibrationEffect.EFFECT_CLICK)
+
     fun stop(context: Context) { runCatching { vibrator(context)?.cancel() } }
 }

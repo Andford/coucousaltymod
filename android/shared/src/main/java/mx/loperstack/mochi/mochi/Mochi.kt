@@ -96,15 +96,19 @@ fun Mochi(
     greet: Boolean = false,
     dancing: Boolean = false,
     face: MochiEngine.Eye? = null,
+    wear: Boolean = face == null,
+    /** Your own engine, to drive him from outside (the Mimos screen). */
+    engine: MochiEngine? = null,
 ) {
-    val engine = remember { MochiEngine() }
+    val own = remember { MochiEngine() }
+    val engine = engine ?: own
     var frame by remember { mutableLongStateOf(0L) }
-    SideEffect { engine.configure(color, mood, breathing, dancing, face) }
+    SideEffect { engine.configure(color, mood, breathing, dancing, face, wear) }
 
     LaunchedEffect(jump) { if (jump > 0) engine.cheer() }
 
     LaunchedEffect(engine) {
-        engine.configure(color, mood, breathing, dancing, face)
+        engine.configure(color, mood, breathing, dancing, face, wear)
         if (greet) engine.greet()
         var last = System.nanoTime()
         while (true) {
@@ -215,7 +219,7 @@ fun rememberMusicPlaying(): Boolean {
 fun mochiBitmap(widthPx: Int, heightPx: Int, color: Color, mood: Mood = Mood.IDLE, face: MochiEngine.Eye? = null): Bitmap {
     val image = ImageBitmap(widthPx, heightPx)
     val engine = MochiEngine().apply {
-        configure(color, mood, null, false, face)
+        configure(color, mood, null, false, face, face == null)
         settle()
     }
     CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(widthPx.toFloat(), heightPx.toFloat())) {

@@ -81,6 +81,7 @@ import mx.loperstack.mochi.data.DayLog
 import mx.loperstack.mochi.data.DiaryExport
 import mx.loperstack.mochi.data.DiaryImages
 import mx.loperstack.mochi.data.LogNote
+import mx.loperstack.mochi.data.averageMood
 import mx.loperstack.mochi.data.Store
 import mx.loperstack.mochi.data.dayKey
 import mx.loperstack.mochi.data.dayNumber
@@ -177,9 +178,11 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, goBreathe: (
         }
     }
 
+    var compose by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Diario", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("Diario", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             if (run > 0) {
                 Text(
                     "🔥 $run", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316),
@@ -207,7 +210,21 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, goBreathe: (
         MonthGrid(logs, month, selected, today, onSelect = { selected = it }, onMonth = { delta ->
             month = Calendar.getInstance().apply { timeInMillis = month; add(Calendar.MONTH, delta) }.timeInMillis
         })
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(96.dp))
+    }
+    androidx.compose.material3.ExtendedFloatingActionButton(
+        onClick = { mx.loperstack.mochi.mochi.Haptics.click(context); compose = true },
+        icon = { Icon(Glyph.Plus, contentDescription = null) },
+        text = { Text("Escribir", fontWeight = FontWeight.Bold) },
+        containerColor = Ink.VioletDeep, contentColor = Ink.Text,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+    )
+    }
+    if (compose) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { compose = false }, containerColor = Ink.CardHigh) {
+            Composer(today, actions) { compose = false }
+        }
     }
 
     if (card) DayCardDialog(log, dayNumber(logs, selected), color, data.name) { card = false }
@@ -263,15 +280,21 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
         Spacer(Modifier.height(4.dp))
         Text(longDay(log.day), fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(14.dp))
+        Text(
+            if (isToday) "¿Cómo te sientes ahora?" else "¿Cómo te sentiste?", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             for (m in MOODS) {
                 val on = log.mood == m.value
                 Column(
-                    Modifier.weight(1f).alpha(if (log.mood == 0 || on) 1f else 0.4f).clip(RoundedCornerShape(14.dp))
-                        .background(if (on) Color(m.color).copy(alpha = 0.16f) else Color.Transparent)
+                    Modifier.weight(1f).alpha(if (log.mood == 0 || on) 1f else 0.55f).clip(RoundedCornerShape(18.dp))
+                        .background(if (on) Color(m.color).copy(alpha = 0.18f) else Color.Transparent)
                         .clickable {
-                            Store.setLogs(withMood(Store.state.value.logs, log.day, if (on) 0 else m.value))
-                            if (!on) { Sounds.play(moodSound(m.value)); if (m.value >= 4) actions.jump++ }
+                            // Each tap is a moment of the day: 08:10 Genial, 18:05 Bajón…
+                            val at = if (isToday) System.currentTimeMillis() else dayStart(log.day) + 12 * 3600_000L + log.moods.size * 60_000L
+                            Store.setLogs(mx.loperstack.mochi.data.addMood(Store.state.value.logs, log.day, at, m.value))
+                            Sounds.play(moodSound(m.value)); if (m.value >= 4) actions.jump++
                             mx.loperstack.mochi.mochi.Haptics.click(context)
                         }
                         .padding(vertical = 6.dp),
@@ -281,6 +304,10 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
                     Text(m.label, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Color(m.color) else Ink.Dim)
                 }
             }
+        }
+        if (log.moods.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            MoodTimeline(log)
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -476,7 +503,7 @@ private fun MonthGrid(logs: List<DayLog>, month: Long, selected: String, today: 
     val lead = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday first
     val prefix = SimpleDateFormat("yyyy-MM-", Locale.US).format(Date(month))
     val counts = IntArray(6)
-    for (d in 1..daysInMonth) byDay["$prefix%02d".format(d)]?.let { counts[it.mood]++ }
+    for (d in 1..daysInMonth) byDay["$prefix%02d".format(d)]?.let { counts[it.averageMood]++ }
 
     Panel(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -505,7 +532,7 @@ private fun MonthGrid(logs: List<DayLog>, month: Long, selected: String, today: 
                     }
                     val key = "$prefix%02d".format(d)
                     val entry = byDay[key]
-                    val mood = moodOf(entry?.mood ?: 0)
+                    val mood = moodOf(entry?.averageMood ?: 0)
                     val future = key > today
                     val hasPhoto = entry?.notes?.any { it.image != null } == true
                     Box(
@@ -539,6 +566,121 @@ private fun MonthGrid(logs: List<DayLog>, month: Long, selected: String, today: 
                     Box(Modifier.size(10.dp).clip(CircleShape).background(Color(m.color)))
                     Text(" ${counts[m.value]}", fontSize = 13.sp, color = Ink.Dim, fontWeight = FontWeight.SemiBold)
                 }
+            }
+        }
+    }
+}
+
+
+/** The day's moods in order: a small curve and one chip per moment (tap × to remove it). */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun MoodTimeline(log: DayLog) {
+    val context = LocalContext.current
+    if (log.moods.size >= 2) {
+        val pts = log.moods
+        val line = Ink.Violet
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(56.dp)) {
+            val t0 = pts.first().at
+            val span = (pts.last().at - t0).coerceAtLeast(1L).toFloat()
+            fun x(at: Long) = 8f + (size.width - 16f) * ((at - t0) / span)
+            fun y(v: Int) = size.height - 6f - (size.height - 12f) * ((v - 1) / 4f)
+            for (v in 1..5) drawLine(Ink.Track, Offset(0f, y(v)), Offset(size.width, y(v)), 1f)
+            val path = androidx.compose.ui.graphics.Path()
+            pts.forEachIndexed { i, e -> if (i == 0) path.moveTo(x(e.at), y(e.value)) else path.lineTo(x(e.at), y(e.value)) }
+            drawPath(path, line, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+            for (e in pts) {
+                val c = moodOf(e.value)?.let { Color(it.color) } ?: line
+                drawCircle(c, 9f, Offset(x(e.at), y(e.value)))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (e in log.moods) {
+            val m = moodOf(e.value) ?: continue
+            Row(
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(m.color).copy(alpha = 0.16f)).padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(SimpleDateFormat("HH:mm", MX).format(Date(e.at)), fontFamily = Mono, fontSize = 12.sp, color = Ink.Dim, fontWeight = FontWeight.Bold)
+                Text("  ${m.label}", fontSize = 13.sp, color = Color(m.color), fontWeight = FontWeight.Bold)
+                Text(
+                    "×", fontSize = 15.sp, color = Ink.Dim2,
+                    modifier = Modifier.clip(CircleShape).clickable {
+                        Store.setLogs(mx.loperstack.mochi.data.removeMood(Store.state.value.logs, log.day, e.at))
+                        mx.loperstack.mochi.mochi.Haptics.tick(context)
+                    }.padding(horizontal = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+
+/** Write the moment, Journal-style: how you feel, what happened, photos. Goes to today. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun Composer(day: String, actions: Actions, done: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var mood by remember { mutableStateOf(0) }
+    var photos by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(6)) { photos = (photos + it).take(6) }
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+        Text("Nueva entrada", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text(SimpleDateFormat("EEEE d 'de' MMMM · HH:mm", MX).format(Date()).replaceFirstChar { it.uppercase(MX) }, color = Ink.Dim, fontSize = 14.sp)
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth()) {
+            for (m in MOODS) {
+                val on = mood == m.value
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (on) Color(m.color).copy(alpha = 0.18f) else Color.Transparent)
+                        .clickable { mood = if (on) 0 else m.value; mx.loperstack.mochi.mochi.Haptics.tick(context) }.padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Mochi(Modifier.width(48.dp).height(40.dp), color = Color(m.color), face = m.face)
+                    Text(m.label, fontSize = 11.sp, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = text, onValueChange = { text = it.take(500) }, modifier = Modifier.fillMaxWidth().height(170.dp),
+            placeholder = { Text("¿Qué pasó? ¿Qué sientes?", color = Ink.Dim2) }, shape = RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
+                focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
+            ),
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "📷  Fotos${if (photos.isEmpty()) "" else " · ${photos.size}"}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
+                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card)
+                    .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
+        Spacer(Modifier.height(18.dp))
+        PrimaryButton("Guardar", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {
+            if (text.isBlank() && mood == 0 && photos.isEmpty()) { done(); return@PrimaryButton }
+            val now = System.currentTimeMillis()
+            val caption = text
+            val chosenMood = mood
+            val chosen = photos
+            scope.launch {
+                val names = withContext(Dispatchers.IO) { chosen.mapNotNull { DiaryImages.import(context, it) } }
+                var logs = Store.state.value.logs
+                if (chosenMood > 0) logs = mx.loperstack.mochi.data.addMood(logs, day, now, chosenMood)
+                if (names.isEmpty()) logs = withNote(logs, day, now, caption)
+                names.forEachIndexed { i, n -> logs = withNote(logs, day, now + i, if (i == 0) caption else "", n) }
+                Store.setLogs(logs)
+                actions.jump++
+                Sounds.play("pop")
+                mx.loperstack.mochi.mochi.Haptics.success(context)
+                done()
             }
         }
     }

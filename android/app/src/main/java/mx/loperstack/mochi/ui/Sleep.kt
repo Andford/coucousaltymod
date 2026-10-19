@@ -135,7 +135,7 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Sueño", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("Sueño", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Label("Meta ${durationText(goal.minutes)}", Ink.Dim)
         }
         Spacer(Modifier.height(14.dp))
@@ -212,7 +212,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     if (last == null) {
-                        Text("Sin registros aún", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("Sin registros aún", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text("Anota tu noche o tráela de tu Pixel Watch.", fontSize = 13.sp, color = Color(0xFFC7D2FE))
                     } else {
                         Text(durationText(last.minutes), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)

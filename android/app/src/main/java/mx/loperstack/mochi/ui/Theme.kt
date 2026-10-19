@@ -87,6 +87,46 @@ private val ClassicScheme = darkColorScheme(
 )
 
 /**
+ * Google Sans, the Pixel's own typeface (the Diario/Journal look), when the
+ * phone has it — every Pixel does; elsewhere the system font.
+ */
+private fun pixelFont(weight: Int): android.graphics.Typeface {
+    for (family in listOf("google-sans-flex", "google-sans", "google-sans-text")) {
+        val base = android.graphics.Typeface.create(family, android.graphics.Typeface.NORMAL)
+        if (base != android.graphics.Typeface.DEFAULT) return android.graphics.Typeface.create(base, weight, false)
+    }
+    return android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, weight, false)
+}
+
+private val PixelSans = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(pixelFont(400), androidx.compose.ui.text.font.FontWeight.Normal),
+    androidx.compose.ui.text.font.Font(pixelFont(500), androidx.compose.ui.text.font.FontWeight.Medium),
+    androidx.compose.ui.text.font.Font(pixelFont(600), androidx.compose.ui.text.font.FontWeight.SemiBold),
+    androidx.compose.ui.text.font.Font(pixelFont(700), androidx.compose.ui.text.font.FontWeight.Bold),
+    androidx.compose.ui.text.font.Font(pixelFont(800), androidx.compose.ui.text.font.FontWeight.ExtraBold),
+)
+
+private val MochiType = androidx.compose.material3.Typography().let { t ->
+    fun androidx.compose.ui.text.TextStyle.p() = copy(fontFamily = PixelSans)
+    t.copy(
+        displayLarge = t.displayLarge.p(), displayMedium = t.displayMedium.p(), displaySmall = t.displaySmall.p(),
+        headlineLarge = t.headlineLarge.p(), headlineMedium = t.headlineMedium.p(), headlineSmall = t.headlineSmall.p(),
+        titleLarge = t.titleLarge.p(), titleMedium = t.titleMedium.p(), titleSmall = t.titleSmall.p(),
+        bodyLarge = t.bodyLarge.p(), bodyMedium = t.bodyMedium.p(), bodySmall = t.bodySmall.p(),
+        labelLarge = t.labelLarge.p(), labelMedium = t.labelMedium.p(), labelSmall = t.labelSmall.p(),
+    )
+}
+
+/** Material 3 Expressive: generous, friendly corners. */
+private val MochiShapes = androidx.compose.material3.Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(36.dp),
+)
+
+/**
  * @param theme "pixel" (wallpaper colours, follows the phone's light/dark),
  *   "pixelDark" (wallpaper colours, always dark) or "mochi" (the island's).
  */
@@ -112,7 +152,7 @@ fun MochiTheme(theme: String = "pixel", content: @Composable () -> Unit) {
             bars.isAppearanceLightNavigationBars = !dark
         }
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme, typography = MochiType, shapes = MochiShapes, content = content)
 }
 
 /** Stroke icons from the mockup, on a 24×24 grid. */
@@ -137,6 +177,7 @@ object Glyph {
     val Focus = stroke("focus", "M12 5a8 8 0 1 0 0.01 0z", "M12 9v4l2 2", "M9 2h6")
     val Breathe = stroke("breathe", "M12 4a8 8 0 1 0 0.01 0z", "M12 8.5a3.5 3.5 0 1 0 0.01 0z")
     val Diary = stroke("diary", "M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z", "M6 17a2 2 0 0 1 2-2h11", "M10 7h5M10 10h3")
+    val Heart = stroke("heart", "M12 20s-7-4.5-9.3-9A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 9.3 5c-2.3 4.5-9.3 9-9.3 9z")
     val Moon = stroke("moon", "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z")
     val Pc = stroke("pc", "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 20h8", "M12 16v4")
     val Gear = stroke("gear", "M12 9a3 3 0 1 0 0.01 0z", "M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1")

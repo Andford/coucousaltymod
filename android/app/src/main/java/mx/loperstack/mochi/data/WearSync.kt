@@ -102,6 +102,7 @@ object WearSync {
             sleepMin = d.sleep.lastOrNull()?.minutes ?: 0,
             sleepNight = d.sleep.lastOrNull()?.night ?: "",
             flat = d.mochiFlat,
+            outfit = mx.loperstack.mochi.mochi.Outfit.resolve(d.outfit).name,
             sessions = d.sessions.takeLast(7),
             nights = d.sleep.takeLast(7).map { NightLite(it.night, it.minutes, it.quality, it.bed, it.wake) },
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
@@ -142,7 +143,8 @@ object WearSync {
             SyncPaths.TOGGLE_TASK -> TaskSync.toggle(context, text)
             SyncPaths.ADD_TASK -> TaskSync.add(context, text, "-w")
             SyncPaths.MOOD -> text.trim().toIntOrNull()?.takeIf { it in 1..5 }?.let {
-                Store.setLogs(withMood(Store.state.value.logs, dayKey(System.currentTimeMillis()), it))
+                val now = System.currentTimeMillis()
+                Store.setLogs(addMood(Store.state.value.logs, dayKey(now), now, it))
             }
             SyncPaths.SESSION -> sessionOf(text)?.let { Store.addSession(it) }
             SyncPaths.POMODORO -> {

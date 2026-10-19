@@ -15,7 +15,30 @@ import java.util.Locale
 /** A line of the day; `image` is a photo's file name in the diary's folder (DiaryImages). */
 data class LogNote(val at: Long, val text: String, val image: String? = null)
 
-data class DayLog(val day: String, val mood: Int = 0, val notes: List<LogNote> = emptyList())
+/** One "how do I feel" through the day: 08:10 Genial, 18:05 Bajón… */
+data class MoodEntry(val at: Long, val value: Int)
+
+/** `mood` is the latest of `moods` (or a day's single mood from before the timeline). */
+data class DayLog(val day: String, val mood: Int = 0, val notes: List<LogNote> = emptyList(), val moods: List<MoodEntry> = emptyList())
+
+/** The day's average mood, rounded (for the month's colours); 0 if none. */
+val DayLog.averageMood: Int
+    get() = if (moods.isEmpty()) mood else kotlin.math.round(moods.map { it.value }.average()).toInt().coerceIn(1, 5)
+
+/** Logs a mood at `at`; the day's mood becomes the latest one. */
+fun addMood(logs: List<DayLog>, day: String, at: Long, value: Int): List<DayLog> {
+    if (value !in 1..5) return logs
+    return upsert(logs, day) { d ->
+        val list = (d.moods.filter { it.at != at } + MoodEntry(at, value)).sortedBy { it.at }.takeLast(48)
+        d.copy(moods = list, mood = list.last().value)
+    }
+}
+
+fun removeMood(logs: List<DayLog>, day: String, at: Long): List<DayLog> =
+    upsert(logs, day) { d ->
+        val list = d.moods.filter { it.at != at }
+        d.copy(moods = list, mood = list.lastOrNull()?.value ?: 0)
+    }.filter { it.mood > 0 || it.notes.isNotEmpty() || it.moods.isNotEmpty() }
 
 const val NOTE_MAX_LEN = 500
 
@@ -78,6 +101,7 @@ private fun upsert(logs: List<DayLog>, day: String, f: (DayLog) -> DayLog): List
 fun logsJson(logs: List<DayLog>): String = JSONArray().apply {
     for (l in logs) put(
         JSONObject().put("day", l.day).put("mood", l.mood)
+            .put("moods", JSONArray().apply { l.moods.forEach { put(JSONObject().put("at", it.at).put("v", it.value)) } })
             .put("notes", JSONArray().apply { l.notes.forEach { n ->
                 put(JSONObject().put("at", n.at).put("text", n.text).apply { n.image?.let { put("image", it) } })
             } }),
@@ -100,7 +124,14 @@ fun logsOf(raw: String?): List<DayLog> {
                     if (t.isEmpty() && img == null) null else LogNote(x.optLong("at"), t.take(NOTE_MAX_LEN), img)
                 }
             } ?: emptyList()
-            DayLog(day, o.optInt("mood", 0).coerceIn(0, 5), notes)
+            val moods = o.optJSONArray("moods")?.let { m ->
+                (0 until m.length()).mapNotNull { j ->
+                    val x = m.optJSONObject(j) ?: return@mapNotNull null
+                    val v = x.optInt("v")
+                    if (v in 1..5) MoodEntry(x.optLong("at"), v) else null
+                }
+            } ?: emptyList()
+            DayLog(day, o.optInt("mood", 0).coerceIn(0, 5), notes, moods)
         }.sortedBy { it.day }
     } catch (_: Exception) {
         emptyList()

@@ -146,7 +146,20 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño") }
+enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño"), PET("Mimos") }
+
+/** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
+enum class Group(val label: String, val tabs: List<Tab>) {
+    HOME("Inicio", listOf(Tab.HOME)),
+    TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS)),
+    DIARY("Diario", listOf(Tab.DIARY)),
+    CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
+    PET("Mochi", listOf(Tab.PET));
+
+    companion object {
+        fun of(tab: Tab) = entries.first { tab in it.tabs }
+    }
+}
 
 private val ES = Locale("es", "MX")
 
@@ -323,6 +336,9 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
     val data by Store.state.collectAsState()
     val actions = remember { Actions(context) }
     var tab by remember { mutableStateOf(startTab) }
+    // Each place remembers its last screen (Tareas ↔ Enfoque, Respirar ↔ Sueño).
+    val lastIn = remember { mutableMapOf<Group, Tab>() }
+    SideEffect { lastIn[Group.of(tab)] = tab }
     LaunchedEffect(startTab) { tab = startTab }
     // The Respirar widget's 1 · 5 · 10 buttons.
     LaunchedEffect(breatheNow) {
@@ -393,14 +409,18 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
             Scaffold(
                 containerColor = Ink.Ground,
                 bottomBar = {
-                    NavigationBar(containerColor = Ink.CardHigh, tonalElevation = 0.dp) {
-                        val glyphs = mapOf(Tab.HOME to Glyph.Home, Tab.TASKS to Glyph.Tasks, Tab.FOCUS to Glyph.Focus, Tab.BREATHE to Glyph.Breathe, Tab.DIARY to Glyph.Diary, Tab.SLEEP to Glyph.Moon)
-                        for (t in Tab.entries) {
+                    NavigationBar(containerColor = Ink.Card, tonalElevation = 0.dp) {
+                        val glyphs = mapOf(Group.HOME to Glyph.Home, Group.TASKS to Glyph.Tasks, Group.DIARY to Glyph.Diary, Group.CALM to Glyph.Breathe, Group.PET to Glyph.Heart)
+                        val current = Group.of(tab)
+                        for (g in Group.entries) {
                             NavigationBarItem(
-                                selected = tab == t,
-                                onClick = { if (tab != t) Haptics.tick(context); tab = t },
-                                icon = { Icon(glyphs.getValue(t), contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
+                                selected = current == g,
+                                onClick = {
+                                    if (current != g) Haptics.tick(context)
+                                    tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
+                                },
+                                icon = { Icon(glyphs.getValue(g), contentDescription = null, modifier = Modifier.size(22.dp)) },
+                                label = { Text(g.label, fontSize = 12.sp, fontWeight = if (current == g) FontWeight.Bold else FontWeight.Medium, maxLines = 1) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Ink.VioletSoft,
                                     selectedTextColor = Ink.Text,
@@ -413,8 +433,13 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                     }
                 },
             ) { pad ->
+              Column(Modifier.padding(pad).fillMaxSize()) {
+                val group = Group.of(tab)
+                if (group.tabs.size > 1) {
+                    SubTabs(group.tabs, tab) { Haptics.tick(context); tab = it }
+                }
                 AnimatedContent(
-                    targetState = tab, modifier = Modifier.padding(pad).fillMaxSize(),
+                    targetState = tab, modifier = Modifier.weight(1f).fillMaxWidth(),
                     transitionSpec = {
                         val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
                         (fadeIn(tween(240)) + slideInHorizontally(tween(320)) { it / 8 * dir }) togetherWith
@@ -435,8 +460,10 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                         Tab.BREATHE -> BreatheScreen(color, actions, data.sessions)
                         Tab.DIARY -> DiaryScreen(data.logs, color, actions) { tab = Tab.BREATHE }
                         Tab.SLEEP -> SleepScreen(data, color, actions)
+                        Tab.PET -> PetScreen(color, actions)
                     }
                 }
+              }
             }
         }
         if (showNewEvent) {
@@ -466,9 +493,8 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
 fun Panel(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
-            .clip(RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(Ink.Card)
-            .border(1.dp, Ink.Hairline, RoundedCornerShape(26.dp))
             .padding(padding),
         content = content,
     )
@@ -608,7 +634,7 @@ fun HomeScreen(
             Column(Modifier.weight(1f)) {
                 Label(longDate(now))
                 val who = Store.state.value.name
-                Text(if (who.isBlank()) greeting(now) else "${greeting(now)}, $who", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
+                Text(if (who.isBlank()) greeting(now) else "${greeting(now)}, $who", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink.Text)
             }
             RoundIcon(Glyph.Gear, "Color de Mochi", openColors)
         }
@@ -627,6 +653,11 @@ fun HomeScreen(
                 dancing = actions.music,
             )
             if (actions.music) Label("♪ Mochi baila con tu música", Ink.VioletSoft, modifier = Modifier.align(Alignment.CenterHorizontally))
+            when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
+                mx.loperstack.mochi.mochi.Rest.TIRED -> Label("😴 Dormiste poco: Mochi anda con ojeras", Ink.Dim, modifier = Modifier.align(Alignment.CenterHorizontally))
+                mx.loperstack.mochi.mochi.Rest.GREAT -> Label("✨ Descansaste: Mochi está de muy buen humor", Ink.GreenSoft, modifier = Modifier.align(Alignment.CenterHorizontally))
+                else -> Unit
+            }
             Spacer(Modifier.height(10.dp))
             when {
                 !calendarOk -> {
@@ -706,7 +737,7 @@ fun Tile(title: String, value: String, bg: Color, line: Color, accent: Color, mo
 fun TasksScreen(tasks: List<Task>, actions: Actions) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Bottom) {
-            Text("Tareas", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("Tareas", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             val pending = pendingCount(tasks)
             Label(if (tasks.isEmpty()) "" else if (pending == 0) "¡Todo listo!" else "$pending pendientes")
         }
@@ -734,7 +765,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
             Label("Pomodoro · ${p.today} hoy")
-            Text(PomodoroScheduler.phaseTitle(p.phase), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Text(PomodoroScheduler.phaseTitle(p.phase), fontSize = 32.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(18.dp))
         FocusRing(p, now, color, Modifier.size(260.dp), dancing = actions.music)
@@ -798,7 +829,7 @@ fun PcScreen(now: Long) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Column(Modifier.padding(top = 18.dp, start = 6.dp)) {
             Label("Fase 2 · próximamente")
-            Text("Conexión con la PC", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Conexión con la PC", fontSize = 32.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(16.dp))
         Panel(Modifier.fillMaxWidth()) {
@@ -928,5 +959,28 @@ fun GoogleTasksRow(st: GoogleTasks.Status, connect: () -> Unit, sync: () -> Unit
         }
         Spacer(Modifier.height(10.dp))
         Label("Los eventos nuevos se guardan en tu Google Calendar de este teléfono, sin conectar nada.", Ink.Dim2, 12.sp)
+    }
+}
+
+
+/** Material 3 segmented buttons for a place with two screens. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubTabs(tabs: List<Tab>, current: Tab, pick: (Tab) -> Unit) {
+    androidx.compose.material3.SingleChoiceSegmentedButtonRow(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp),
+    ) {
+        tabs.forEachIndexed { i, t ->
+            androidx.compose.material3.SegmentedButton(
+                selected = t == current,
+                onClick = { pick(t) },
+                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, tabs.size),
+                colors = androidx.compose.material3.SegmentedButtonDefaults.colors(
+                    activeContainerColor = Ink.VioletDeep, activeContentColor = Ink.Text,
+                    inactiveContainerColor = Color.Transparent, inactiveContentColor = Ink.Dim,
+                    activeBorderColor = Ink.Hairline, inactiveBorderColor = Ink.Hairline,
+                ),
+            ) { Text(t.label, fontWeight = FontWeight.SemiBold) }
+        }
     }
 }

@@ -48,6 +48,8 @@ data class AppData(
     val bedReminder: Boolean = false,
     /** Mochi drawn flat (2D) or with the PC's gradient. */
     val mochiFlat: Boolean = true,
+    /** "auto" (the season's hat), "NONE", or an Outfit name. */
+    val outfit: String = "auto",
 )
 
 object Store {
@@ -85,6 +87,7 @@ object Store {
             sleepGoal = SleepGoal(prefs.getInt("bedMin", 23 * 60), prefs.getInt("wakeMin", 7 * 60)),
             bedReminder = prefs.getBoolean("bedReminder", false),
             mochiFlat = prefs.getBoolean("mochiFlat", true),
+            outfit = prefs.getString("outfit", "auto") ?: "auto",
         )
     }
 
@@ -166,12 +169,37 @@ object Store {
     fun setSleep(list: List<SleepEntry>) {
         _state.value = _state.value.copy(sleep = list)
         prefs.edit().putString("sleep", sleepJson(list)).apply()
+        applyLook()
         changed()
     }
 
     fun setSleepGoal(goal: SleepGoal, reminder: Boolean) {
         _state.value = _state.value.copy(sleepGoal = goal, bedReminder = reminder)
         prefs.edit().putInt("bedMin", goal.bedMin).putInt("wakeMin", goal.wakeMin).putBoolean("bedReminder", reminder).apply()
+    }
+
+    /** Mimos given today (the pet screen's counter). */
+    fun petsToday(): Int = if (prefs.getString("petDay", "") == dayKey(System.currentTimeMillis())) prefs.getInt("petCount", 0) else 0
+
+    fun addPet(): Int {
+        val n = petsToday() + 1
+        prefs.edit().putString("petDay", dayKey(System.currentTimeMillis())).putInt("petCount", n).apply()
+        return n
+    }
+
+    fun setOutfit(selection: String) {
+        _state.value = _state.value.copy(outfit = selection)
+        prefs.edit().putString("outfit", selection).apply()
+        applyLook()
+        changed()
+    }
+
+    /** Mochi's look everywhere: flat or not, today's outfit, last night's rest. */
+    fun applyLook() {
+        val d = _state.value
+        mx.loperstack.mochi.mochi.MochiStyle.flat = d.mochiFlat
+        mx.loperstack.mochi.mochi.MochiStyle.outfit = mx.loperstack.mochi.mochi.Outfit.resolve(d.outfit)
+        mx.loperstack.mochi.mochi.MochiStyle.rest = restLevel(d.sleep, System.currentTimeMillis())
     }
 
     fun setMochiFlat(flat: Boolean) {

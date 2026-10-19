@@ -53,6 +53,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -971,7 +972,7 @@ fun SubTabs(tabs: List<Tab>, current: Tab, pick: (Tab) -> Unit) {
         Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp),
     ) {
         tabs.forEachIndexed { i, t ->
-            androidx.compose.material3.SegmentedButton(
+            SegmentedButton(
                 selected = t == current,
                 onClick = { pick(t) },
                 shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, tabs.size),

@@ -136,6 +136,7 @@ fun rememberDiaryImage(name: String?, maxPx: Int): Bitmap? {
     return state.value
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, goBreathe: () -> Unit = {}) {
     val context = LocalContext.current

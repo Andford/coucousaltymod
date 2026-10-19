@@ -98,13 +98,7 @@ private fun pixelFont(weight: Int): android.graphics.Typeface {
     return android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, weight, false)
 }
 
-private val PixelSans = androidx.compose.ui.text.font.FontFamily(
-    androidx.compose.ui.text.font.Font(pixelFont(400), androidx.compose.ui.text.font.FontWeight.Normal),
-    androidx.compose.ui.text.font.Font(pixelFont(500), androidx.compose.ui.text.font.FontWeight.Medium),
-    androidx.compose.ui.text.font.Font(pixelFont(600), androidx.compose.ui.text.font.FontWeight.SemiBold),
-    androidx.compose.ui.text.font.Font(pixelFont(700), androidx.compose.ui.text.font.FontWeight.Bold),
-    androidx.compose.ui.text.font.Font(pixelFont(800), androidx.compose.ui.text.font.FontWeight.ExtraBold),
-)
+private val PixelSans = androidx.compose.ui.text.font.FontFamily(pixelFont(400))
 
 private val MochiType = androidx.compose.material3.Typography().let { t ->
     fun androidx.compose.ui.text.TextStyle.p() = copy(fontFamily = PixelSans)

@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Mochi"
-include(":app", ":shared", ":wear")
+include(":app", ":shared", ":wear", ":watchface")

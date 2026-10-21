@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_face_name">Mochi</string>
+    <string name="theme_label">Color</string>
+    <string name="mochi_label">Mochi</string>
+    <string name="lavanda">Lavanda</string>
+    <string name="rosa">Rosa</string>
+    <string name="menta">Menta</string>
+    <string name="cielo">Cielo</string>
+    <string name="durazno">Durazno</string>
+    <string name="blanco">Blanco</string>
+    <string name="lila">Lila</string>
+    <string name="left_label">Izquierda</string>
+    <string name="right_label">Derecha</string>
+</resources>

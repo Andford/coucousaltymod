@@ -199,7 +199,7 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
                 Spacer(Modifier.width(6.dp))
             }
             Text(
-                "Imagen", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink.VioletSoft,
+                "Imagen", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink.OnVioletDeep,
                 modifier = Modifier.clip(Squircle(12.dp)).background(Ink.VioletDeep).clickable { card = true }
                     .padding(horizontal = 10.dp, vertical = 5.dp),
             )
@@ -669,7 +669,7 @@ private fun Composer(day: String, actions: Actions, done: () -> Unit) {
             }
         }
         Spacer(Modifier.height(18.dp))
-        PrimaryButton("Guardar", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {
+        PrimaryButton("Guardar", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
             if (text.isBlank() && mood == 0 && photos.isEmpty()) { done(); return@PrimaryButton }
             val now = System.currentTimeMillis()
             val caption = text

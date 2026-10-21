@@ -129,7 +129,7 @@ fun NowPlayingCard(track: NowPlaying.Track?) {
         CircleButton(Icons.Rounded.SkipPrevious, "Anterior", size = 38.dp, container = Color.Transparent) { NowPlaying.previous() }
         ExpressiveButton(
             "", icon = if (track.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            modifier = Modifier.padding(horizontal = 2.dp), container = Ink.VioletSoft, content = Ink.Ground,
+            modifier = Modifier.padding(horizontal = 2.dp), container = Ink.VioletSoft, content = Ink.OnViolet,
         ) { NowPlaying.playPause() }
         CircleButton(Icons.Rounded.SkipNext, "Siguiente", size = 38.dp, container = Color.Transparent) { NowPlaying.next() }
     }

@@ -142,7 +142,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                             if (google.connected) {
                                 IconLabel(Icons.Rounded.CheckCircle, "Google Tasks conectado", Ink.GreenSoft, size = 14.sp)
                             } else {
-                                PrimaryButton("Conectar Google Tasks", color = Ink.VioletSoft, textColor = Ink.Ground, onClick = connectGoogle)
+                                PrimaryButton("Conectar Google Tasks", color = Ink.VioletSoft, textColor = Ink.OnViolet, onClick = connectGoogle)
                                 if (google.error.isNotEmpty()) Label(google.error, Ink.Red)
                                 Label("Opcional · necesita el paso de android/GOOGLE.md", Ink.Dim2, 12.sp)
                             }
@@ -168,7 +168,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                 Spacer(Modifier.weight(1f))
                 PrimaryButton(
                     when (step) { 0 -> "Empezar"; STEPS -> "Entrar"; 1 -> if (name.isBlank()) "Omitir" else "Seguir"; else -> "Seguir" },
-                    color = Ink.VioletSoft, textColor = Ink.Ground,
+                    color = Ink.VioletSoft, textColor = Ink.OnViolet,
                 ) {
                     if (step == 1) Store.setName(name)
                     if (step == STEPS - 1) actions.jump++

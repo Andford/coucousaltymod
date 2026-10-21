@@ -191,7 +191,7 @@ private fun HabitCard(h: Habit, now: Long, edit: () -> Unit, tick: () -> Unit) {
                     .border(2.dp, ring, CircleShape).clickable(enabled = scheduled, onClick = tick),
                 contentAlignment = Alignment.Center,
             ) {
-                if (done) Icon(Icons.Rounded.Check, "Hecho", tint = Ink.Ground, modifier = Modifier.size(26.dp))
+                if (done) Icon(Icons.Rounded.Check, "Hecho", tint = Color(0xFF1F1A2E), modifier = Modifier.size(26.dp))
                 else if (!scheduled) Icon(Icons.Rounded.Remove, "Hoy no toca", tint = Ink.Dim2, modifier = Modifier.size(20.dp))
             }
         }
@@ -277,7 +277,7 @@ private fun HabitEditor(start: Habit, isNew: Boolean, close: () -> Unit) {
                             h = h.copy(days = if (next.size == 7 || next.isEmpty()) emptySet() else next)
                         },
                     contentAlignment = Alignment.Center,
-                ) { Text(letter, fontWeight = FontWeight.Bold, color = if (on) Ink.Ground else Ink.Dim) }
+                ) { Text(letter, fontWeight = FontWeight.Bold, color = if (on) Color(0xFF1F1A2E) else Ink.Dim) }
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -309,7 +309,7 @@ private fun HabitEditor(start: Habit, isNew: Boolean, close: () -> Unit) {
             ToggleRow("Recordatorio", "Mochi te avisa a esa hora con ánimo, si aún no lo marcas", h.remind) { h = h.copy(remind = it) }
         }
         Spacer(Modifier.height(22.dp))
-        PrimaryButton(if (isNew) "Crear racha" else "Guardar", Modifier.fillMaxWidth(), Color(h.color), Ink.Ground) {
+        PrimaryButton(if (isNew) "Crear racha" else "Guardar", Modifier.fillMaxWidth(), Color(h.color), Color(0xFF1F1A2E)) {
             if (h.name.isBlank()) return@PrimaryButton
             val list = Store.state.value.habits
             Store.setHabits(if (isNew) list + h.copy(name = h.name.trim()) else list.map { if (it.id == h.id) h.copy(name = h.name.trim()) else it })

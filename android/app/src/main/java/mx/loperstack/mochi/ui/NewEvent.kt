@@ -158,7 +158,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
             Label(error, Ink.Red)
         }
         Spacer(Modifier.height(18.dp))
-        PrimaryButton("Guardar en el calendario", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {
+        PrimaryButton("Guardar en el calendario", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
             val c = cal ?: return@PrimaryButton
             if (title.isBlank()) { error = "Ponle un nombre."; return@PrimaryButton }
             val id = CalendarWrite.insert(context, c.id, title, begin, begin + minutes * 60_000L, allDay, reminder)

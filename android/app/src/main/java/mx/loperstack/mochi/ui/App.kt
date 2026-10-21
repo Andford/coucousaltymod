@@ -643,10 +643,12 @@ fun HomeScreen(
         Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
           Box {
             Aurora(color, Modifier.matchParentSize())
-            MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.align(Alignment.TopCenter).padding(top = 6.dp).size(196.dp))
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            // The cookie sits right behind his body (his centre is a bit below the canvas's).
+            Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
+            MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.padding(top = 18.dp).size(150.dp))
             Mochi(
-                Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp),
+                Modifier.width(170.dp).height(140.dp),
                 color = color,
                 mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
                 jump = actions.jump,
@@ -654,6 +656,7 @@ fun HomeScreen(
                 greet = true,
                 dancing = actions.music,
             )
+            }
             if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Mochi baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
             when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
                 mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Mochi anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
@@ -696,7 +699,7 @@ fun HomeScreen(
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "%d:00".format(mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin) else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.VioletSoft, Modifier.weight(1f), goFocus, icon = Icons.Rounded.Timer, shape = MShapes.Cookie9)
+            Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "%d:00".format(mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin) else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.OnVioletDeep, Modifier.weight(1f), goFocus, icon = Icons.Rounded.Timer, shape = MShapes.Cookie9)
             Tile("Respirar", "Toma un respiro", Ink.Green.copy(alpha = 0.12f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true, icon = Icons.Rounded.Air, shape = MShapes.Clover4)
         }
         Spacer(Modifier.height(20.dp))
@@ -730,7 +733,7 @@ fun Tile(
         if (icon != null) ShapeIcon(icon, shape = shape, container = accent.copy(alpha = 0.22f), tint = accent, size = 42.dp)
         Column {
             Text(title, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(value, fontSize = if (small) 16.sp else 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text, maxLines = 1)
+            Text(value, fontSize = if (small) 16.sp else 28.sp, fontWeight = FontWeight.ExtraBold, color = if (accent == Ink.OnVioletDeep) accent else Ink.Text, maxLines = 1)
         }
     }
 }
@@ -796,7 +799,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
         if (current != null && p.phase == Phase.FOCUS) {
             Spacer(Modifier.height(14.dp))
             IconLabel(
-                Icons.Rounded.TaskAlt, current.text, Ink.VioletSoft,
+                Icons.Rounded.TaskAlt, current.text, Ink.OnVioletDeep,
                 Modifier.clip(CircleShape).background(Ink.VioletDeep).padding(horizontal = 14.dp, vertical = 9.dp), 14.sp,
             )
         }

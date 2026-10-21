@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
+import androidx.glance.GlanceTheme
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
@@ -97,12 +98,13 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val Chip = Color(0x33FFFFFF)
-private val White = ColorProvider(Color(0xFFF5F6F8))
-private val Dim = ColorProvider(Color(0xCCE4E0F5))
-private val Violet = ColorProvider(Color(0xFFDDD6FE))
-private val GreenText = ColorProvider(Color(0xFF86EFAC))
-private val Amber = ColorProvider(Color(0xFFFDBA74))
+// Solid Material You colours that follow the phone's light or dark mode.
+private val White: ColorProvider @Composable get() = GlanceTheme.colors.onSurface
+private val Dim: ColorProvider @Composable get() = GlanceTheme.colors.onSurfaceVariant
+private val Violet: ColorProvider @Composable get() = GlanceTheme.colors.primary
+private val GreenText: ColorProvider @Composable get() = GlanceTheme.colors.tertiary
+private val Amber: ColorProvider @Composable get() = GlanceTheme.colors.secondary
+private val Chip: ColorProvider @Composable get() = GlanceTheme.colors.secondaryContainer
 
 /** Redraws every widget, at most every half second. */
 object Widgets {
@@ -121,6 +123,7 @@ object Widgets {
             runCatching { SleepWidget().updateAll(app) }
             runCatching { MoodWidget().updateAll(app) }
             runCatching { StreaksWidget().updateAll(app) }
+            runCatching { CompanionWidget().updateAll(app) }
         }
     }
 }
@@ -177,7 +180,16 @@ private fun bg(m: Mood2): ImageProvider = bgCache.getOrPut(m) {
     ImageProvider(bmp)
 }
 
-private fun card(m: Mood2) = GlanceModifier.fillMaxSize().background(bg(m)).cornerRadius(26.dp)
+@Composable
+private fun card(m: Mood2) = GlanceModifier.fillMaxSize().cornerRadius(26.dp).background(
+    when (m) {
+        Mood2.MOCHI, Mood2.FEEL -> GlanceTheme.colors.widgetBackground
+        Mood2.BREATHE -> GlanceTheme.colors.tertiaryContainer
+        Mood2.FOCUS -> GlanceTheme.colors.primaryContainer
+        Mood2.STREAK -> GlanceTheme.colors.secondaryContainer
+        else -> GlanceTheme.colors.surface
+    },
+)
 
 // ── Mochi, moving ─────────────────────────────────────────────────────────────
 
@@ -224,7 +236,7 @@ class MochiWidget : GlanceAppWidget() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }.let { if (data.name.isBlank()) it else "$it, ${data.name}" }
         val pending = pendingCount(data.tasks)
-        provideContent {
+        provideContent { GlanceTheme {
             Column(
                 card(Mood2.MOCHI).padding(12.dp).clickable(openApp(context, "home")),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically,
@@ -241,7 +253,7 @@ class MochiWidget : GlanceAppWidget() {
                     style = TextStyle(color = if (pending == 0) GreenText else Dim, fontSize = 12.sp),
                 )
             }
-        }
+        } }
     }
 }
 
@@ -263,7 +275,7 @@ class BreatheWidget : GlanceAppWidget() {
             add(Calendar.DAY_OF_YEAR, -((get(Calendar.DAY_OF_WEEK) + 5) % 7))
         }.timeInMillis
         val minutes = Store.state.value.sessions.filter { it.at >= week }.sumOf { it.minutes }
-        provideContent {
+        provideContent { GlanceTheme {
             Column(card(Mood2.BREATHE).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.clickable(openApp(context, "breathe"))) {
                     AndroidRemoteViews(image, GlanceModifier.size(72.dp, 66.dp))
@@ -280,11 +292,11 @@ class BreatheWidget : GlanceAppWidget() {
                         Box(
                             GlanceModifier.width(58.dp).height(40.dp).background(Chip).cornerRadius(20.dp).clickable(openApp(context, "breathe", m)),
                             contentAlignment = Alignment.Center,
-                        ) { Text("$m min", style = TextStyle(color = ColorProvider(Color(0xFF99F6E4)), fontSize = 14.sp, fontWeight = FontWeight.Bold)) }
+                        ) { Text("$m min", style = TextStyle(color = GlanceTheme.colors.onTertiaryContainer, fontSize = 14.sp, fontWeight = FontWeight.Bold)) }
                     }
                 }
             }
-        }
+        } }
     }
 }
 
@@ -307,7 +319,7 @@ class PomodoroWidget : GlanceAppWidget() {
             setChronometer(R.id.chrono, base, null, true)
             setChronometerCountDown(R.id.chrono, true)
         }
-        provideContent {
+        provideContent { GlanceTheme {
             Row(card(Mood2.FOCUS).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(GlanceModifier.size(72.dp, 66.dp).clickable(openApp(context, "focus"))) { AndroidRemoteViews(image, GlanceModifier.fillMaxSize()) }
                 Spacer(GlanceModifier.width(8.dp))
@@ -325,7 +337,7 @@ class PomodoroWidget : GlanceAppWidget() {
                     contentAlignment = Alignment.Center,
                 ) { Text(if (running) "❚❚" else "▶", style = TextStyle(color = Violet, fontSize = 18.sp, fontWeight = FontWeight.Bold)) }
             }
-        }
+        } }
     }
 }
 
@@ -360,7 +372,7 @@ class TasksWidget : GlanceAppWidget() {
         val tasks = orderedTasks(Store.state.value.tasks).filter { !it.done }.take(20)
         Store.applyLook()
         val image = mochi(context, Mood.IDLE, 120, 100)
-        provideContent { TasksContent(context, tasks.map { it.id to it.text }, image) }
+        provideContent { GlanceTheme { TasksContent(context, tasks.map { it.id to it.text }, image) } }
     }
 }
 
@@ -435,7 +447,7 @@ class SleepWidget : GlanceAppWidget() {
             lastToday != null && lastToday.minutes < 360 -> "Hoy ve con calma"
             else -> "Toca para registrar tu noche"
         }
-        provideContent {
+        provideContent { GlanceTheme {
             Row(card(Mood2.SLEEP).padding(12.dp).clickable(openApp(context, "sleep")), verticalAlignment = Alignment.CenterVertically) {
                 AndroidRemoteViews(image, GlanceModifier.size(92.dp, 84.dp))
                 Spacer(GlanceModifier.width(10.dp))
@@ -445,7 +457,7 @@ class SleepWidget : GlanceAppWidget() {
                     Text(sub, style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 2)
                 }
             }
-        }
+        } }
     }
 }
 
@@ -468,7 +480,7 @@ class MoodWidget : GlanceAppWidget() {
         val faces = MOODS.reversed().map { m -> m to ImageProvider(mochiBitmap(96, 80, col, Mood.IDLE, m.face, wear = false)) }
         val label = latest?.let { v -> MOODS.firstOrNull { it.value == v }?.label }
         val count = today?.moods?.size ?: 0
-        provideContent {
+        provideContent { GlanceTheme {
             Column(card(Mood2.FEEL).padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (label == null) "¿Cómo estás?" else "Ahora: $label · $count hoy",
@@ -480,7 +492,7 @@ class MoodWidget : GlanceAppWidget() {
                     for ((m, img) in faces) {
                         Box(
                             GlanceModifier.defaultWeight().height(48.dp).cornerRadius(16.dp)
-                                .background(if (m.value == latest) Color(0x44FFFFFF) else Color(0x14FFFFFF))
+                                .background(if (m.value == latest) GlanceTheme.colors.primaryContainer else GlanceTheme.colors.surfaceVariant)
                                 .clickable(actionRunCallback<MoodLog>(actionParametersOf(MoodValue to m.value))),
                             contentAlignment = Alignment.Center,
                         ) { Image(img, contentDescription = m.label, modifier = GlanceModifier.size(44.dp, 37.dp)) }
@@ -488,7 +500,7 @@ class MoodWidget : GlanceAppWidget() {
                     }
                 }
             }
-        }
+        } }
     }
 }
 
@@ -521,7 +533,7 @@ class StreaksWidget : GlanceAppWidget() {
             .map { Triple(it.id, it.name, it.streak(now)) to it.doneOn(now) }
         val left = today.count { !it.second }
         val image = moving(context, if (today.isNotEmpty() && left == 0) Motion.HOP else Motion.BOB, Mood.IDLE, 110, 100)
-        provideContent {
+        provideContent { GlanceTheme {
             Column(card(Mood2.STREAK).padding(12.dp)) {
                 Row(GlanceModifier.fillMaxWidth().clickable(openApp(context, "streaks")), verticalAlignment = Alignment.CenterVertically) {
                     AndroidRemoteViews(image, GlanceModifier.size(42.dp, 38.dp))
@@ -557,7 +569,7 @@ class StreaksWidget : GlanceAppWidget() {
                     }
                 }
             }
-        }
+        } }
     }
 }
 
@@ -574,4 +586,102 @@ class HabitToggle : ActionCallback {
         Store.setHabits(Store.state.value.habits.map { if (it.id == hid) it.toggle(now) else it })
         mx.loperstack.mochi.mochi.Haptics.success(context)
     }
+}
+
+// ── Compañero: everything at hand, changing through the day ───────────────────
+
+class CompanionWidget : GlanceAppWidget() {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        Store.init(context)
+        Store.applyLook()
+        val d = Store.state.value
+        val now = System.currentTimeMillis()
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val next = if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
+            runCatching { nextEvent(Agenda.load(context, now), now) }.getOrNull()
+        } else null
+        val p = d.pomodoro
+        val focusing = p.phase != Phase.IDLE && !p.isPaused() && p.endsAt != null
+        val tasks = orderedTasks(d.tasks).filter { !it.done }
+        val habits = d.habits.filter { it.scheduledOn(cal) }
+        val habitsLeft = habits.count { !it.doneOn(now) }
+        val today = d.logs.firstOrNull { it.day == dayKey(now) }
+        val mood = (today?.moods?.lastOrNull()?.value ?: today?.mood?.takeIf { it > 0 })?.let { v -> MOODS.firstOrNull { it.value == v } }
+        val lastNight = d.sleep.maxByOrNull { it.wake }?.takeIf { it.night == dayKey(now) }
+        val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }.let { if (d.name.isBlank()) it else "$it, ${d.name}" }
+        val allDone = tasks.isEmpty() && habitsLeft == 0
+        val image = moving(
+            context, if (allDone) Motion.HOP else if (focusing) Motion.SNOOZE else Motion.BOB,
+            if (focusing) Mood.FOCUS else if (hour >= 22 || hour < 6) Mood.SLEEPY else Mood.IDLE, 200, 182, alt = MochiEngine.Eye.HAPPY,
+        )
+        val countdown = RemoteViews(context.packageName, R.layout.widget_chrono).apply {
+            setChronometer(R.id.chrono, SystemClock.elapsedRealtime() + ((p.endsAt ?: now) - now), null, true)
+            setChronometerCountDown(R.id.chrono, true)
+        }
+        // The one thing that matters most right now.
+        val (nowLabel, nowText) = when {
+            focusing -> PomodoroScheduler.phaseTitle(p.phase) to null
+            next != null && next.begin - now < 3 * 3_600_000L -> {
+                val min = ((next.begin - now) / 60_000).toInt()
+                (if (min <= 0) "Ahora" else if (min < 60) "En $min min" else "A las ${SimpleDateFormat("HH:mm", Locale("es", "MX")).format(Date(next.begin))}") to next.title
+            }
+            hour in 5..11 && lastNight != null -> "Anoche" to "Dormiste ${lastNight.minutes / 60} h ${"%02d".format(lastNight.minutes % 60)}"
+            hour >= 20 -> "Antes de dormir" to "¿Qué fue lo mejor de tu día?"
+            allDone -> "Hoy" to "¡Todo listo! Mochi está orgulloso"
+            else -> "Hoy" to "Un paso a la vez"
+        }
+        provideContent {
+            GlanceTheme {
+                Column(GlanceModifier.fillMaxSize().cornerRadius(28.dp).background(GlanceTheme.colors.widgetBackground).padding(14.dp)) {
+                    Row(GlanceModifier.fillMaxWidth().clickable(openApp(context, "home")), verticalAlignment = Alignment.CenterVertically) {
+                        AndroidRemoteViews(image, GlanceModifier.size(78.dp, 72.dp))
+                        Spacer(GlanceModifier.width(10.dp))
+                        Column(GlanceModifier.defaultWeight()) {
+                            Text(hello, style = TextStyle(color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            Text(nowLabel, style = TextStyle(color = Violet, fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            if (focusing) AndroidRemoteViews(countdown)
+                            else if (nowText != null) Text(nowText, style = TextStyle(color = White, fontSize = 15.sp), maxLines = 2)
+                        }
+                    }
+                    Spacer(GlanceModifier.height(10.dp))
+                    // Three little cards: tasks, streaks, mood.
+                    Row(GlanceModifier.fillMaxWidth()) {
+                        @Composable
+                        fun Mini(title: String, value: String, tab: String, last: Boolean = false) {
+                            Column(
+                                GlanceModifier.defaultWeight().height(62.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer)
+                                    .clickable(openApp(context, tab)).padding(horizontal = 10.dp, vertical = 8.dp),
+                            ) {
+                                Text(title, style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                Text(value, style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            }
+                            if (!last) Spacer(GlanceModifier.width(6.dp))
+                        }
+                        Mini("Tareas", if (tasks.isEmpty()) "Al día" else "${tasks.size} · ${tasks.first().text}", "tasks")
+                        Mini("Rachas", if (habits.isEmpty()) "Crear" else if (habitsLeft == 0) "Listas" else "Faltan $habitsLeft", "streaks")
+                        Mini("Ánimo", mood?.label ?: "¿Cómo vas?", "diary", last = true)
+                    }
+                    Spacer(GlanceModifier.height(8.dp))
+                    // Quick actions.
+                    Row(GlanceModifier.fillMaxWidth()) {
+                        @Composable
+                        fun Action(text: String, modifier: GlanceModifier, last: Boolean = false) {
+                            Box(modifier.defaultWeight().height(40.dp).cornerRadius(20.dp).background(GlanceTheme.colors.primary), contentAlignment = Alignment.Center) {
+                                Text(text, style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            }
+                            if (!last) Spacer(GlanceModifier.width(6.dp))
+                        }
+                        Action("Respirar", GlanceModifier.clickable(openApp(context, "breathe", 5)))
+                        Action(if (focusing) "Pausa" else "Enfoque", GlanceModifier.clickable(actionRunCallback<PomodoroToggle>()))
+                        Action("Diario", GlanceModifier.clickable(openApp(context, "diary")), last = true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+class CompanionWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = CompanionWidget()
 }

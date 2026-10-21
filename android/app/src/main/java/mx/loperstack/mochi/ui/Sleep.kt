@@ -148,7 +148,7 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
         NightHero(last, stats?.score, color, now)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton("Registrar noche", Modifier.weight(1f), Ink.VioletSoft, Ink.Ground) {
+            PrimaryButton("Registrar noche", Modifier.weight(1f), Ink.VioletSoft, Ink.OnViolet) {
                 Haptics.click(context)
                 logging = null
                 showLog = true
@@ -507,7 +507,7 @@ private fun LogNightSheet(editing: SleepEntry?, goal: SleepGoal, done: (SleepEnt
             ),
         )
         Spacer(Modifier.height(18.dp))
-        PrimaryButton("Guardar noche", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {
+        PrimaryButton("Guardar noche", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
             if (wake - bed < 30 * 60_000L) {
                 Toast.makeText(context, "Revisa las horas: menos de 30 min", Toast.LENGTH_SHORT).show()
                 return@PrimaryButton

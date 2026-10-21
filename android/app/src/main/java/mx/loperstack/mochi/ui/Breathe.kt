@@ -137,7 +137,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ScreenTitle("Respira con Mochi", Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), size = 36.sp)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(36.dp))
         Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true, sigh = true)
         Spacer(Modifier.height(10.dp))
         BreathPicker(actions)
@@ -446,7 +446,7 @@ private fun BreathPicker(actions: Actions) {
             for (m in listOf(1, 3, 5, 10, 15, 20)) Segment("$m min", data.breathMinutes == m) { Store.setBreath(data.breathPattern, data.breathCustom, m) }
         }
         Spacer(Modifier.height(16.dp))
-        PrimaryButton("Empezar · ${data.breathMinutes} min", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) { actions.startBreathing(data.breathMinutes) }
+        PrimaryButton("Empezar · ${data.breathMinutes} min", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) { actions.startBreathing(data.breathMinutes) }
         Spacer(Modifier.height(8.dp))
         Label("Mochi crece al inhalar y se encoge al exhalar. Con el reloj puesto mide tu pulso y vibra en cada fase.", Ink.Dim2, 12.sp)
     }

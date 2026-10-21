@@ -108,7 +108,7 @@ val DisplayFont: FontFamily by lazy {
 fun ScreenTitle(text: String, modifier: Modifier = Modifier, size: TextUnit = 40.sp, color: Color = Ink.Text) {
     Text(
         text, modifier = modifier, color = color,
-        style = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.ExtraBold, fontSize = size, lineHeight = size * 1.02f),
+        style = androidx.compose.material3.MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight(800), fontSize = size, lineHeight = size * 1.05f, letterSpacing = (-0.5).sp),
     )
 }
 
@@ -160,7 +160,7 @@ object MIcon {
 @Composable
 fun ShapeIcon(
     icon: ImageVector, modifier: Modifier = Modifier, shape: RoundedPolygon = MShapes.Cookie9,
-    container: Color = Ink.VioletDeep, tint: Color = Ink.VioletSoft, size: Dp = 44.dp, iconSize: Dp = size * 0.5f,
+    container: Color = Ink.VioletDeep, tint: Color = Ink.OnVioletDeep, size: Dp = 44.dp, iconSize: Dp = size * 0.5f,
     spin: Boolean = false,
 ) {
     val angle = if (spin) {
@@ -180,7 +180,7 @@ fun ShapeIcon(
 fun Pill(text: String, on: Boolean, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val context = LocalContext.current
     val bg by animateColorAsState(if (on) Ink.VioletSoft else Ink.CardHigh, label = "pill")
-    val fg by animateColorAsState(if (on) Ink.Ground else Ink.Text, label = "pillFg")
+    val fg by animateColorAsState(if (on) Ink.OnViolet else Ink.Text, label = "pillFg")
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val squish by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium), label = "sq")
@@ -223,7 +223,7 @@ fun CircleButton(icon: ImageVector, description: String, modifier: Modifier = Mo
 @Composable
 fun ExpressiveButton(
     text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, container: Color = Ink.VioletSoft,
-    content: Color = Ink.Ground, big: Boolean = false, onClick: () -> Unit,
+    content: Color = Ink.OnViolet, big: Boolean = false, onClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val source = remember { MutableInteractionSource() }
@@ -264,7 +264,7 @@ fun FloatingNavBar(items: List<NavItem>, selected: Int, onSelect: (Int) -> Unit)
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.width(pillW).height(34.dp).clip(CircleShape).background(pillBg), contentAlignment = Alignment.Center) {
-                    Icon(if (on) item.iconOn else item.icon, contentDescription = item.label, tint = if (on) Ink.VioletSoft else Ink.Dim, modifier = Modifier.size(24.dp))
+                    Icon(if (on) item.iconOn else item.icon, contentDescription = item.label, tint = if (on) Ink.OnVioletDeep else Ink.Dim, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(item.label, fontSize = 12.sp, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold, color = if (on) Ink.Text else Ink.Dim, maxLines = 1)

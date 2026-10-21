@@ -44,6 +44,9 @@ object Ink {
     var Violet by mutableStateOf(Color(0xFFA78BFA))
     var VioletSoft by mutableStateOf(Color(0xFFC4B5FD))
     var VioletDeep by mutableStateOf(Color(0xFF1A1726))
+    /** Text and icons on VioletDeep / on VioletSoft (Material's on-colours, always readable). */
+    var OnVioletDeep by mutableStateOf(Color(0xFFC4B5FD))
+    var OnViolet by mutableStateOf(Color(0xFF14102A))
     var VioletLine by mutableStateOf(Color(0xFF2A2440))
     var Green by mutableStateOf(Color(0xFF4ADE80))
     var GreenSoft by mutableStateOf(Color(0xFF86EFAC))
@@ -57,7 +60,7 @@ object Ink {
     internal fun classic() {
         Ground = Color(0xFF0B0C0E); Card = Color(0xFF141518); CardHigh = Color(0xFF17181C); Hairline = Color(0xFF1D1F24)
         Text = Color(0xFFF5F6F8); Dim = Color(0xFF8E939C); Dim2 = Color(0xFF6B7079)
-        Violet = Color(0xFFA78BFA); VioletSoft = Color(0xFFC4B5FD); VioletDeep = Color(0xFF1A1726); VioletLine = Color(0xFF2A2440)
+        Violet = Color(0xFFA78BFA); VioletSoft = Color(0xFFC4B5FD); VioletDeep = Color(0xFF1A1726); OnVioletDeep = Color(0xFFC4B5FD); OnViolet = Color(0xFF14102A); VioletLine = Color(0xFF2A2440)
         Green = Color(0xFF4ADE80); GreenSoft = Color(0xFF86EFAC); GreenDeep = Color(0xFF06260F); Red = Color(0xFFF4505E)
         Track = Color(0x14FFFFFF); Dark = true
     }
@@ -65,7 +68,7 @@ object Ink {
     internal fun from(cs: ColorScheme, dark: Boolean) {
         Ground = cs.surface; Card = cs.surfaceContainer; CardHigh = cs.surfaceContainerHigh; Hairline = cs.outlineVariant
         Text = cs.onSurface; Dim = cs.onSurfaceVariant; Dim2 = cs.outline
-        Violet = cs.primary; VioletSoft = cs.primary; VioletDeep = cs.primaryContainer; VioletLine = cs.primaryContainer
+        Violet = cs.primary; VioletSoft = cs.primary; VioletDeep = cs.primaryContainer; OnVioletDeep = cs.onPrimaryContainer; OnViolet = cs.onPrimary; VioletLine = cs.primaryContainer
         Green = if (dark) Color(0xFF4ADE80) else Color(0xFF16A34A)
         GreenSoft = if (dark) Color(0xFF86EFAC) else Color(0xFF15803D)
         GreenDeep = if (dark) Color(0xFF06260F) else Color.White

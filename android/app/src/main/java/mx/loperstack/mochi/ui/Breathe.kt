@@ -47,11 +47,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.breathing
 import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.wellness.BREATHE_MINUTES
 import mx.loperstack.mochi.wellness.BreathSession
 import mx.loperstack.mochi.wellness.breathFrame
+import mx.loperstack.mochi.wellness.cue
+import mx.loperstack.mochi.wellness.rhythm
 import mx.loperstack.mochi.wellness.calmDrop
 import mx.loperstack.mochi.wellness.clock
 import java.text.SimpleDateFormat
@@ -73,12 +76,13 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
     // The guide in your hand: pulses swell as you breathe in, fade as you breathe out.
     val context = androidx.compose.ui.platform.LocalContext.current
     val breathHaptics = Store.state.collectAsState().value.breathHaptics
-    LaunchedEffect(f.inhaling, active) {
+    LaunchedEffect(f.phase, active) {
         if (active && breathHaptics && !f.done) {
-            mx.loperstack.mochi.mochi.Haptics.breath(
-                context, f.inhaling,
-                if (f.inhaling) mx.loperstack.mochi.wellness.INHALE_S else mx.loperstack.mochi.wellness.EXHALE_S, guide = true,
-            )
+            when (f.phase) {
+                mx.loperstack.mochi.wellness.BreathPhase.IN -> mx.loperstack.mochi.mochi.Haptics.breath(context, true, b.inhale, guide = true)
+                mx.loperstack.mochi.wellness.BreathPhase.OUT -> mx.loperstack.mochi.mochi.Haptics.breath(context, false, b.exhale, guide = true)
+                else -> { mx.loperstack.mochi.mochi.Haptics.stop(context); mx.loperstack.mochi.mochi.Haptics.tick(context) }
+            }
         }
     }
     val hr by WearSync.heartRate.collectAsState()
@@ -98,8 +102,8 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
                 Spacer(Modifier.weight(0.6f))
                 Mochi(Modifier.width(230.dp).height(190.dp), color = color, breathing = b, jump = actions.jump)
                 Spacer(Modifier.height(40.dp))
-                Text(if (f.inhaling) "Inhala…" else "Exhala…", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
-                Label("4 s inhalar · 6 s exhalar")
+                Text(f.phase.cue(), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
+                Label(b.rhythm())
                 Spacer(Modifier.height(14.dp))
                 when {
                     liveBpm > 0 -> Text("♥ $liveBpm lpm · tu reloj", color = Pink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -126,18 +130,9 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
     ) {
         Text("Respira con Mochi", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp))
         Spacer(Modifier.height(12.dp))
-        Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true)
+        Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true, sigh = true)
         Spacer(Modifier.height(10.dp))
-        Label("Inhala cuando Mochi crece, exhala cuando se encoge.", Ink.Dim)
-        Label("Con el reloj puesto, mide tu pulso y vibra en cada cambio.", Ink.Dim2)
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            for (m in BREATHE_MINUTES) {
-                OutlinedButton(onClick = { actions.startBreathing(m) }, modifier = Modifier.heightIn(min = 56.dp).width(96.dp)) {
-                    Text("$m min", color = Ink.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
+        BreathPicker(actions)
         Spacer(Modifier.height(26.dp))
         History(sessions)
         Spacer(Modifier.height(24.dp))
@@ -256,7 +251,7 @@ private fun WeekBars(perDay: IntArray, now: Long, start: Long) {
                         .background(if (perDay[i] > 0) Ink.Violet else Ink.Track),
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(days[i], fontSize = 12.sp, fontWeight = if (i == today) FontWeight.ExtraBold else FontWeight.Medium, color = if (i == today) Ink.Text else Ink.Dim2)
+                Text(days[i], fontSize = 12.sp, fontWeight = if (i == today) FontWeight.ExtraBold else FontWeight.SemiBold, color = if (i == today) Ink.Text else Ink.Dim2)
             }
         }
     }
@@ -406,9 +401,91 @@ private fun TableRow(vararg cells: String, header: Boolean = false) {
         cells.forEachIndexed { i, c ->
             Text(
                 c, modifier = Modifier.weight(if (i == 0) 0.7f else 1f), fontSize = 13.sp,
-                fontWeight = if (header) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = if (header) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (header) Ink.Dim2 else if (i == 0) Ink.VioletSoft else Ink.Text,
             )
         }
+    }
+}
+
+
+// ── Tu respiración: ritmo y duración ──────────────────────────────────────────
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BreathPicker(actions: Actions) {
+    val data by Store.state.collectAsState()
+    var custom by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val preview = data.breathing(null, data.breathMinutes)
+    val pattern = mx.loperstack.mochi.wellness.BREATH_PATTERNS.firstOrNull { it.id == data.breathPattern }
+    Panel(Modifier.fillMaxWidth()) {
+        Label("Ritmo", Ink.Dim, 12.sp, FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (p in mx.loperstack.mochi.wellness.BREATH_PATTERNS) {
+                Segment(p.name, data.breathPattern == p.id) { Store.setBreath(p.id, data.breathCustom, data.breathMinutes) }
+            }
+            Segment("✏️ A tu medida", data.breathPattern == "custom") { Store.setBreath("custom", data.breathCustom, data.breathMinutes); custom = true }
+        }
+        Spacer(Modifier.height(10.dp))
+        RhythmBar(preview)
+        Spacer(Modifier.height(6.dp))
+        Label(pattern?.note ?: preview.rhythm(), Ink.Dim2, 12.sp)
+        Spacer(Modifier.height(14.dp))
+        Label("Duración", Ink.Dim, 12.sp, FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (m in listOf(1, 3, 5, 10, 15, 20)) Segment("$m min", data.breathMinutes == m) { Store.setBreath(data.breathPattern, data.breathCustom, m) }
+        }
+        Spacer(Modifier.height(16.dp))
+        PrimaryButton("Empezar · ${data.breathMinutes} min", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) { actions.startBreathing(data.breathMinutes) }
+        Spacer(Modifier.height(8.dp))
+        Label("Mochi crece al inhalar y se encoge al exhalar. Con el reloj puesto mide tu pulso y vibra en cada fase.", Ink.Dim2, 12.sp)
+    }
+    if (custom) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { custom = false }, containerColor = Ink.CardHigh) {
+            CustomRhythm(data.breathCustom) { Store.setBreath("custom", it, data.breathMinutes) }
+        }
+    }
+}
+
+/** The cycle drawn to scale: in, hold, out, pause. */
+@Composable
+private fun RhythmBar(b: mx.loperstack.mochi.wellness.Breathing) {
+    val parts = listOf(b.inhale to Ink.Violet, b.holdIn to Ink.VioletSoft.copy(alpha = 0.55f), b.exhale to Ink.Green, b.holdOut to Ink.Dim2.copy(alpha = 0.5f))
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(14.dp).clip(CircleShape)) {
+        var x = 0f
+        val total = b.cycle.toFloat()
+        for ((sec, c) in parts) {
+            if (sec <= 0) continue
+            val w = size.width * sec.toFloat() / total
+            drawRect(c, Offset(x, 0f), Size(w - 3f, size.height))
+            x += w
+        }
+    }
+}
+
+@Composable
+private fun CustomRhythm(start: List<Double>, save: (List<Double>) -> Unit) {
+    var v by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(start) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        Text("Tu ritmo", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        val rows = listOf(Triple("Inhala", 1f, 10f), Triple("Sostén", 0f, 10f), Triple("Exhala", 1f, 12f), Triple("Pausa", 0f, 10f))
+        rows.forEachIndexed { i, (label, lo, hi) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(80.dp))
+                androidx.compose.material3.Slider(
+                    value = v[i].toFloat(), onValueChange = { nv -> v = v.toMutableList().also { it[i] = kotlin.math.round(nv * 2) / 2.0 } },
+                    valueRange = lo..hi, modifier = Modifier.weight(1f),
+                    onValueChangeFinished = { save(v) },
+                )
+                Text("${v[i]} s", fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(56.dp))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        RhythmBar(mx.loperstack.mochi.wellness.Breathing(null, 1, v[0], v[1], v[2], v[3]))
+        Spacer(Modifier.height(8.dp))
+        Label("${"%.1f".format(60.0 / (v.sum().coerceAtLeast(1.0)))} respiraciones por minuto", Ink.Dim)
     }
 }

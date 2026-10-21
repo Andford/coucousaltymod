@@ -199,11 +199,33 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
 /** Last night under the stars: Mochi asleep, the hours, the times, the stages and the score. */
 @Composable
 private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
-    val stars = remember { List(40) { Triple(Random.nextFloat(), Random.nextFloat() * 0.7f, 0.6f + Random.nextFloat() * 1.6f) } }
+    val stars = remember { List(46) { floatArrayOf(Random.nextFloat(), Random.nextFloat() * 0.75f, 0.6f + Random.nextFloat() * 1.6f, Random.nextFloat() * 6.28f, 0.6f + Random.nextFloat() * 1.6f) } }
+    // The sky's clock: stars twinkle, a shooting star crosses now and then.
+    var t by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val t0 = androidx.compose.runtime.withFrameMillis { it }
+        while (true) androidx.compose.runtime.withFrameMillis { t = (it - t0) / 1000f }
+    }
     val fresh = last != null && last.night == dayKey(now)
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(Night1, Night2)))) {
         Canvas(Modifier.matchParentSize()) {
-            for ((x, y, r) in stars) drawCircle(Star.copy(alpha = 0.35f + r / 4f), r * density, Offset(x * size.width, y * size.height))
+            for (st in stars) {
+                val tw = 0.5f + 0.5f * kotlin.math.sin(t * st[4] + st[3])
+                val a = (0.15f + 0.75f * tw) * (0.5f + st[2] / 4f)
+                drawCircle(Star.copy(alpha = a.coerceIn(0f, 1f)), st[2] * density * (0.8f + 0.4f * tw), Offset(st[0] * size.width, st[1] * size.height))
+            }
+            // A shooting star every 7 s, for one second.
+            val cycle = t % 7f
+            if (cycle < 1f) {
+                val k = cycle
+                val sx = size.width * (0.15f + 0.5f * k)
+                val sy = size.height * (0.12f + 0.25f * k)
+                drawLine(
+                    androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.Transparent, Star.copy(alpha = 0.9f * (1 - k))), Offset(sx - 60f, sy - 30f), Offset(sx, sy)),
+                    Offset(sx - 60f, sy - 30f), Offset(sx, sy), strokeWidth = 3f, cap = StrokeCap.Round,
+                )
+                drawCircle(Star.copy(alpha = 1 - k), 2.5f * density, Offset(sx, sy))
+            }
             drawCircle(Moon, 18.dp.toPx(), Offset(size.width - 44.dp.toPx(), 40.dp.toPx()))
             drawCircle(Night1, 15.dp.toPx(), Offset(size.width - 36.dp.toPx(), 34.dp.toPx()))
         }
@@ -226,7 +248,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
                         }
                     }
                 }
-                Mochi(Modifier.width(120.dp).height(100.dp), color = color, mood = Mood.SLEEPY)
+                Mochi(Modifier.width(120.dp).height(100.dp), color = color, mood = if (last == null) Mood.SLEEPY else Mood.IDLE, greet = true)
             }
             if (last != null && (last.deepMin + last.remMin) > 0) {
                 Spacer(Modifier.height(12.dp))
@@ -453,7 +475,7 @@ private fun LogNightSheet(editing: SleepEntry?, goal: SleepGoal, done: (SleepEnt
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Mochi(Modifier.width(46.dp).height(38.dp), color = Color(m.color), face = m.face)
-                    Text(label, fontSize = 10.sp, textAlign = TextAlign.Center, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
+                    Text(label, fontSize = 10.sp, textAlign = TextAlign.Center, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold)
                 }
             }
         }

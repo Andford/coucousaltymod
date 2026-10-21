@@ -103,6 +103,7 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.data.Agenda
 import mx.loperstack.mochi.data.CalEvent
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.breathing
 import mx.loperstack.mochi.data.TaskSync
 import mx.loperstack.mochi.data.WearSync
 import mx.loperstack.mochi.data.isTomorrow
@@ -147,12 +148,12 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño"), PET("Mimos") }
+enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), STREAKS("Rachas"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño"), PET("Mimos") }
 
 /** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
 enum class Group(val label: String, val tabs: List<Tab>) {
     HOME("Inicio", listOf(Tab.HOME)),
-    TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS)),
+    TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
     DIARY("Diario", listOf(Tab.DIARY)),
     CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
     PET("Mochi", listOf(Tab.PET));
@@ -236,7 +237,7 @@ class Actions(private val context: Context) {
     }
 
     fun startBreathing(minutes: Int) {
-        val b = Breathing(System.currentTimeMillis(), minutes)
+        val b = Store.state.value.breathing(System.currentTimeMillis(), minutes)
         breathing = b
         hrStart = 0; hrMin = 0; hrLast = 0
         hrReadings.clear()
@@ -332,7 +333,7 @@ fun longDate(now: Long): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
+fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, composeNow: Long = 0L) {
     val context = LocalContext.current
     val data by Store.state.collectAsState()
     val actions = remember { Actions(context) }
@@ -421,7 +422,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                                     tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
                                 },
                                 icon = { Icon(glyphs.getValue(g), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                                label = { Text(g.label, fontSize = 12.sp, fontWeight = if (current == g) FontWeight.Bold else FontWeight.Medium, maxLines = 1) },
+                                label = { Text(g.label, fontSize = 12.sp, fontWeight = if (current == g) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Ink.VioletSoft,
                                     selectedTextColor = Ink.Text,
@@ -459,9 +460,10 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L) {
                         Tab.TASKS -> TasksScreen(data.tasks, actions)
                         Tab.FOCUS -> FocusScreen(data.tasks, data.pomodoro, now, color, actions, startPomodoro)
                         Tab.BREATHE -> BreatheScreen(color, actions, data.sessions)
-                        Tab.DIARY -> DiaryScreen(data.logs, color, actions) { tab = Tab.BREATHE }
+                        Tab.DIARY -> DiaryScreen(data.logs, color, actions, composeNow) { tab = Tab.BREATHE }
                         Tab.SLEEP -> SleepScreen(data, color, actions)
                         Tab.PET -> PetScreen(color, actions)
+                        Tab.STREAKS -> StreaksScreen(data.habits, color, actions)
                     }
                 }
               }
@@ -502,7 +504,7 @@ fun Panel(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composab
 }
 
 @Composable
-fun Label(text: String, color: Color = Ink.Dim, size: TextUnit = 13.sp, weight: FontWeight = FontWeight.Medium) =
+fun Label(text: String, color: Color = Ink.Dim, size: TextUnit = 13.sp, weight: FontWeight = FontWeight.SemiBold) =
     Text(text, color = color, fontSize = size, fontWeight = weight)
 
 @Composable
@@ -718,7 +720,7 @@ fun HomeScreen(
 
 @Composable
 fun Label(text: String, color: Color = Ink.Dim, modifier: Modifier) =
-    Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = modifier)
+    Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
 
 @Composable
 fun Tile(title: String, value: String, bg: Color, line: Color, accent: Color, modifier: Modifier, onClick: () -> Unit, small: Boolean = false) {
@@ -761,8 +763,17 @@ fun TasksScreen(tasks: List<Task>, actions: Actions) {
 
 // ── Enfoque ───────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, actions: Actions, start: () -> Unit) {
+    val track = rememberNowPlaying()
+    var aod by remember { mutableStateOf(false) }
+    var tune by remember { mutableStateOf(false) }
+    val cfg = Store.state.collectAsState().value.pomodoroConfig
+    if (aod) FocusAod(p, color, track) { aod = false }
+    if (tune) {
+        ModalBottomSheet(onDismissRequest = { tune = false }, containerColor = Ink.CardHigh) { PomodoroSettings(cfg) }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
             Label("Pomodoro · ${p.today} hoy")
@@ -787,8 +798,16 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
                 RoundIcon(Glyph.Reset, "Reiniciar") { actions.resetPomodoro() }
             }
         }
-        Spacer(Modifier.height(18.dp))
-        Label("25 min de enfoque · 5 de descanso · uno largo de 15 cada 4 bloques. Te avisa aunque la app esté cerrada.", Ink.Dim2)
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Segment("⚙️ Personalizar", false) { tune = true }
+            Segment("🌙 Modo AOD", false) { aod = true }
+        }
+        Spacer(Modifier.height(16.dp))
+        NowPlayingCard(track)
+        Spacer(Modifier.height(14.dp))
+        Label("${cfg.focusMin} min de enfoque · ${cfg.breakMin} de descanso · uno largo de ${cfg.longBreakMin} cada ${cfg.cyclesBeforeLong} bloques. Te avisa aunque la app esté cerrada.", Ink.Dim2)
+        Spacer(Modifier.height(20.dp))
     }
 }
 

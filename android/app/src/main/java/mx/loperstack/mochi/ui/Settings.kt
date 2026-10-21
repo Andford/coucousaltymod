@@ -133,7 +133,7 @@ fun ThemeCards(current: String, onPick: (String) -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) { Box(Modifier.size(22.dp).clip(CircleShape).background(colors[1])) }
                 Spacer(Modifier.height(8.dp))
-                Text(label, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Ink.Text else Ink.Dim)
+                Text(label, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold, color = if (on) Ink.Text else Ink.Dim)
             }
         }
     }
@@ -243,6 +243,8 @@ fun SettingsSheet(
                 Store.setBreathHaptics(it)
                 if (it) mx.loperstack.mochi.mochi.Haptics.breath(context, true, 2.0, guide = true)
             }
+            SectionTitle("Notificaciones")
+            NotificationSettings(data.notify)
             SectionTitle("Tus dispositivos")
             Devices(google)
         }

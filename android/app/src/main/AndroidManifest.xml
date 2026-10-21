@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Mochi's notifications are planned again after a restart. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Today's agenda from the calendars synced on this device (Google Calendar included). -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Events made in Mochi go into your Google calendar on this phone. -->
@@ -63,6 +65,26 @@
             android:name=".wellness.PomodoroReceiver"
             android:exported="false" />
 
+        <!-- Buenos días, eventos, tareas, buenas noches y rachas (wellness/MochiNotifier.kt). -->
+        <receiver
+            android:name=".wellness.MochiAlarmReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Only so Mochi can show what's playing while you focus (data/NowPlaying.kt). -->
+        <service
+            android:name=".data.MediaListener"
+            android:label="@string/app_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Sharing the diary's day as an image. -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -111,6 +133,36 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SleepWidgetReceiver"
+            android:label="@string/widget_sleep"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_sleep" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MoodWidgetReceiver"
+            android:label="@string/widget_mood"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_mood" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StreaksWidgetReceiver"
+            android:label="@string/widget_streaks"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streaks" />
         </receiver>
 
         <!-- Messages from the Mochi app on the watch (shared/…/Sync.kt). -->

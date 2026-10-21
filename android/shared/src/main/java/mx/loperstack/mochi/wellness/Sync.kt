@@ -27,15 +27,16 @@ object SyncPaths {
     const val MOOD = "/mochi/mood"
 }
 
-/** "1700000000000,5" → a session, or null. */
+/** "1700000000000,5[,in,hold,out,hold]" → a session, or null. */
 fun breathingOf(text: String): Breathing? {
     val parts = text.split(",")
     val at = parts.getOrNull(0)?.toLongOrNull() ?: return null
     val min = parts.getOrNull(1)?.toIntOrNull()?.takeIf { it in 1..60 } ?: return null
-    return Breathing(at, min)
+    fun d(i: Int, def: Double) = parts.getOrNull(i)?.toDoubleOrNull()?.takeIf { it in 0.0..20.0 } ?: def
+    return Breathing(at, min, d(2, INHALE_S).coerceAtLeast(1.0), d(3, 0.0), d(4, EXHALE_S).coerceAtLeast(1.0), d(5, 0.0))
 }
 
-fun Breathing.toWire(): String = "${startedAt ?: 0},$minutes"
+fun Breathing.toWire(): String = "${startedAt ?: 0},$minutes,$inhale,$holdIn,$exhale,$holdOut"
 
 data class EventLite(val title: String, val begin: Long, val end: Long, val allDay: Boolean, val meetUrl: String?)
 
@@ -58,6 +59,9 @@ data class Snapshot(
     val sleepNight: String = "",
     /** Mochi drawn flat (2D) or with the PC's gradient. */
     val flat: Boolean = true,
+    /** Your Pomodoro lengths. */
+    val focusMin: Int = 25,
+    val breakMin: Int = 5,
     /** Today's outfit (an Outfit name, already resolved for the season). */
     val outfit: String = "NONE",
     /** The last breathing sessions (with their pulse) and nights, for the watch's reports. */
@@ -125,6 +129,7 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("sleepNight", sleepNight)
     .put("flat", flat)
     .put("outfit", outfit)
+    .put("focusMin", focusMin).put("breakMin", breakMin)
     .put("sessions", JSONArray().apply { sessions.forEach { put(it.toJsonObject()) } })
     .put("nights", JSONArray().apply {
         nights.forEach { put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)) }
@@ -168,6 +173,7 @@ fun snapshotOf(raw: String?): Snapshot {
             sleepNight = o.optString("sleepNight", ""),
             flat = o.optBoolean("flat", true),
             outfit = o.optString("outfit", "NONE"),
+            focusMin = o.optInt("focusMin", 25).coerceIn(1, 180), breakMin = o.optInt("breakMin", 5).coerceIn(1, 60),
             sessions = o.optJSONArray("sessions")?.let { a -> (0 until a.length()).mapNotNull { sessionOf(a.optJSONObject(it)?.toString()) } } ?: emptyList(),
             nights = o.optJSONArray("nights")?.let { a ->
                 (0 until a.length()).mapNotNull { i ->

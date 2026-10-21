@@ -166,6 +166,7 @@ object WatchStore {
     /** Today's hat and last night's rest, as the phone says. */
     fun applyLook() {
         val s = _state.value
+        mx.loperstack.mochi.wellness.PomodoroConfig.current = mx.loperstack.mochi.wellness.PomodoroConfig.current.copy(focusMin = s.focusMin, breakMin = s.breakMin)
         mx.loperstack.mochi.mochi.MochiStyle.outfit = mx.loperstack.mochi.mochi.Outfit.of(s.outfit) ?: mx.loperstack.mochi.mochi.Outfit.NONE
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         mx.loperstack.mochi.mochi.MochiStyle.rest = when {

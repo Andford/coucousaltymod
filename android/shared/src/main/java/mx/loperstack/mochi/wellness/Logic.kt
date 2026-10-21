@@ -42,7 +42,12 @@ fun pendingCount(tasks: List<Task>) = tasks.count { !it.done }
 
 enum class Phase { IDLE, FOCUS, BREAK, LONG_BREAK }
 
-data class PomodoroConfig(val focusMin: Int = 25, val breakMin: Int = 5, val longBreakMin: Int = 15, val cyclesBeforeLong: Int = 4)
+data class PomodoroConfig(val focusMin: Int = 25, val breakMin: Int = 5, val longBreakMin: Int = 15, val cyclesBeforeLong: Int = 4) {
+    companion object {
+        /** Yours (Enfoque → personalizar); every Pomodoro function uses it by default. */
+        @Volatile var current = PomodoroConfig()
+    }
+}
 
 data class Pomodoro(
     val phase: Phase = Phase.IDLE,
@@ -65,7 +70,7 @@ fun dayKey(nowMs: Long): String {
     return "%04d-%02d-%02d".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
 }
 
-fun phaseMinutes(phase: Phase, cfg: PomodoroConfig = PomodoroConfig()) = when (phase) {
+fun phaseMinutes(phase: Phase, cfg: PomodoroConfig = PomodoroConfig.current) = when (phase) {
     Phase.FOCUS, Phase.IDLE -> cfg.focusMin
     Phase.BREAK -> cfg.breakMin
     Phase.LONG_BREAK -> cfg.longBreakMin
@@ -75,7 +80,7 @@ fun Pomodoro.isRunning() = phase != Phase.IDLE && endsAt != null && pausedLeft =
 fun Pomodoro.isPaused() = phase != Phase.IDLE && pausedLeft != null
 
 /** Seconds left in the phase (the full focus block while idle). */
-fun Pomodoro.left(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()): Int = when {
+fun Pomodoro.left(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current): Int = when {
     phase == Phase.IDLE -> cfg.focusMin * 60
     pausedLeft != null -> pausedLeft
     endsAt == null -> phaseMinutes(phase, cfg) * 60
@@ -83,7 +88,7 @@ fun Pomodoro.left(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()): Int = wh
 }
 
 /** 0…1 of the phase gone by. */
-fun Pomodoro.progress(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()): Float {
+fun Pomodoro.progress(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current): Float {
     if (phase == Phase.IDLE) return 0f
     val total = phaseMinutes(phase, cfg) * 60f
     return (1f - left(nowMs, cfg) / total).coerceIn(0f, 1f)
@@ -94,10 +99,10 @@ private fun Pomodoro.withDay(nowMs: Long): Pomodoro {
     return if (day == d) this else copy(day = d, today = 0)
 }
 
-fun Pomodoro.startFocus(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()) =
+fun Pomodoro.startFocus(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current) =
     withDay(nowMs).copy(phase = Phase.FOCUS, endsAt = nowMs + cfg.focusMin * 60_000L, pausedLeft = null)
 
-fun Pomodoro.pause(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()) =
+fun Pomodoro.pause(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current) =
     if (!isRunning()) this else copy(pausedLeft = left(nowMs, cfg), endsAt = null)
 
 fun Pomodoro.resume(nowMs: Long) =
@@ -110,7 +115,7 @@ fun Pomodoro.reset() = copy(phase = Phase.IDLE, endsAt = null, pausedLeft = null
  * `cyclesBeforeLong` — and a break back to focus. Only a block that ran out on
  * its own (`counted`) counts as done.
  */
-fun Pomodoro.finishPhase(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig(), counted: Boolean = true): Pair<Pomodoro, PomodoroEvent?> {
+fun Pomodoro.finishPhase(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current, counted: Boolean = true): Pair<Pomodoro, PomodoroEvent?> {
     val base = withDay(nowMs)
     return when (phase) {
         Phase.FOCUS -> {
@@ -132,7 +137,7 @@ fun Pomodoro.finishPhase(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig(), co
 }
 
 /** The alarm's job: a running phase whose time is up ends. */
-fun Pomodoro.tick(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()): Pair<Pomodoro, PomodoroEvent?> =
+fun Pomodoro.tick(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig.current): Pair<Pomodoro, PomodoroEvent?> =
     if (!isRunning() || (endsAt ?: 0) > nowMs) this to null else finishPhase(nowMs, cfg)
 
 // ── Breathing ─────────────────────────────────────────────────────────────────
@@ -140,12 +145,35 @@ fun Pomodoro.tick(nowMs: Long, cfg: PomodoroConfig = PomodoroConfig()): Pair<Pom
 val BREATHE_MINUTES = listOf(1, 5, 10)
 const val INHALE_S = 4.0
 const val EXHALE_S = 6.0
-private const val CYCLE_S = INHALE_S + EXHALE_S
 
-data class Breathing(val startedAt: Long? = null, val minutes: Int = 1)
+/** A breathing rhythm: in, hold full, out, hold empty (seconds). */
+data class BreathPattern(val id: String, val name: String, val inhale: Double, val holdIn: Double, val exhale: Double, val holdOut: Double, val note: String)
+
+val BREATH_PATTERNS = listOf(
+    BreathPattern("calma", "Calma 4·6", 4.0, 0.0, 6.0, 0.0, "Exhalar más largo baja el pulso"),
+    BreathPattern("478", "4·7·8 para dormir", 4.0, 7.0, 8.0, 0.0, "El clásico para conciliar el sueño"),
+    BreathPattern("caja", "Caja 4·4·4·4", 4.0, 4.0, 4.0, 4.0, "Para recuperar el enfoque"),
+    BreathPattern("coherencia", "Coherencia 5·5", 5.0, 0.0, 5.0, 0.0, "Seis respiraciones por minuto"),
+)
+
+enum class BreathPhase { IN, HOLD_IN, OUT, HOLD_OUT }
+
+data class Breathing(
+    val startedAt: Long? = null,
+    val minutes: Int = 1,
+    val inhale: Double = INHALE_S,
+    val holdIn: Double = 0.0,
+    val exhale: Double = EXHALE_S,
+    val holdOut: Double = 0.0,
+) {
+    val cycle: Double get() = (inhale + holdIn + exhale + holdOut).coerceAtLeast(1.0)
+
+    fun with(p: BreathPattern) = copy(inhale = p.inhale, holdIn = p.holdIn, exhale = p.exhale, holdOut = p.holdOut)
+}
 
 data class BreathFrame(
     val active: Boolean,
+    /** Breathing in, or holding full. */
     val inhaling: Boolean,
     /** How full Mochi is: 0 empty … 1 full, eased. */
     val fill: Float,
@@ -155,6 +183,9 @@ data class BreathFrame(
     val done: Boolean,
     /** 0…1 of the session gone by. */
     val progress: Float,
+    val phase: BreathPhase = BreathPhase.IN,
+    /** Seconds left in this phase. */
+    val phaseLeft: Double = 0.0,
 )
 
 private fun easeInOut(x: Double) = 0.5 - 0.5 * cos(PI * x.coerceIn(0.0, 1.0))
@@ -165,20 +196,49 @@ fun breathFrame(b: Breathing, nowMs: Long): BreathFrame {
     val elapsed = max(0.0, (nowMs - start) / 1000.0)
     val done = elapsed >= total
     val t = min(elapsed, total)
-    val inCycle = t % CYCLE_S
-    val inhaling = inCycle < INHALE_S
-    val p = if (inhaling) inCycle / INHALE_S else (inCycle - INHALE_S) / EXHALE_S
-    val fill = if (done) 0.0 else if (inhaling) easeInOut(p) else 1 - easeInOut(p)
+    val c = t % b.cycle
+    val (phase, p, len) = when {
+        c < b.inhale -> Triple(BreathPhase.IN, c / b.inhale, b.inhale)
+        c < b.inhale + b.holdIn -> Triple(BreathPhase.HOLD_IN, (c - b.inhale) / b.holdIn, b.holdIn)
+        c < b.inhale + b.holdIn + b.exhale -> Triple(BreathPhase.OUT, (c - b.inhale - b.holdIn) / b.exhale, b.exhale)
+        else -> Triple(BreathPhase.HOLD_OUT, (c - b.inhale - b.holdIn - b.exhale) / b.holdOut.coerceAtLeast(0.001), b.holdOut)
+    }
+    val fill = if (done) 0.0 else when (phase) {
+        BreathPhase.IN -> easeInOut(p)
+        BreathPhase.HOLD_IN -> 1.0
+        BreathPhase.OUT -> 1 - easeInOut(p)
+        BreathPhase.HOLD_OUT -> 0.0
+    }
     return BreathFrame(
         active = !done,
-        inhaling = inhaling,
+        inhaling = phase == BreathPhase.IN || phase == BreathPhase.HOLD_IN,
         fill = fill.toFloat(),
         left = max(0, ceil(total - elapsed).toInt()),
-        breaths = floor(t / CYCLE_S).toInt(),
+        breaths = floor(t / b.cycle).toInt(),
         done = done,
         progress = (t / total).toFloat(),
+        phase = phase,
+        phaseLeft = len * (1 - p),
     )
 }
+
+/** What Mochi says for each phase. */
+fun BreathPhase.cue(): String = when (this) {
+    BreathPhase.IN -> "Inhala…"
+    BreathPhase.HOLD_IN -> "Sostén…"
+    BreathPhase.OUT -> "Exhala…"
+    BreathPhase.HOLD_OUT -> "Pausa…"
+}
+
+/** "4 s inhalar · 7 sostener · 8 exhalar". */
+fun Breathing.rhythm(): String = buildList {
+    add("${inhale.fmt()} s inhalar")
+    if (holdIn > 0) add("${holdIn.fmt()} sostener")
+    add("${exhale.fmt()} exhalar")
+    if (holdOut > 0) add("${holdOut.fmt()} pausa")
+}.joinToString(" · ")
+
+private fun Double.fmt() = if (this % 1.0 == 0.0) toInt().toString() else "%.1f".format(this)
 
 /** 1500 → "25:00". */
 fun clock(seconds: Int): String {

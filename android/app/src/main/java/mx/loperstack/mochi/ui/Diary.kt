@@ -138,7 +138,7 @@ fun rememberDiaryImage(name: String?, maxPx: Int): Bitmap? {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, goBreathe: () -> Unit = {}) {
+fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: Long = 0L, goBreathe: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val now = rememberNow(60_000)
@@ -180,6 +180,8 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, goBreathe: (
     }
 
     var compose by remember { mutableStateOf(false) }
+    // From the night notification: straight to writing.
+    androidx.compose.runtime.LaunchedEffect(composeNow) { if (composeNow != 0L) compose = true }
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -302,7 +304,7 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Mochi(Modifier.width(52.dp).height(44.dp), color = Color(m.color), face = m.face)
-                    Text(m.label, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Color(m.color) else Ink.Dim)
+                    Text(m.label, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold, color = if (on) Color(m.color) else Ink.Dim)
                 }
             }
         }
@@ -642,7 +644,7 @@ private fun Composer(day: String, actions: Actions, done: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Mochi(Modifier.width(48.dp).height(40.dp), color = Color(m.color), face = m.face)
-                    Text(m.label, fontSize = 11.sp, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
+                    Text(m.label, fontSize = 11.sp, color = if (on) Color(m.color) else Ink.Dim, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold)
                 }
             }
         }

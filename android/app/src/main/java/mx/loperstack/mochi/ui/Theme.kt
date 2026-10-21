@@ -100,14 +100,15 @@ private fun pixelFont(weight: Int): android.graphics.Typeface {
 
 private val PixelSans = androidx.compose.ui.text.font.FontFamily(pixelFont(400))
 
+/** A touch heavier than Material's defaults: body text Medium, titles Bold. */
 private val MochiType = androidx.compose.material3.Typography().let { t ->
-    fun androidx.compose.ui.text.TextStyle.p() = copy(fontFamily = PixelSans)
+    fun androidx.compose.ui.text.TextStyle.p(w: Int) = copy(fontFamily = PixelSans, fontWeight = androidx.compose.ui.text.font.FontWeight(w))
     t.copy(
-        displayLarge = t.displayLarge.p(), displayMedium = t.displayMedium.p(), displaySmall = t.displaySmall.p(),
-        headlineLarge = t.headlineLarge.p(), headlineMedium = t.headlineMedium.p(), headlineSmall = t.headlineSmall.p(),
-        titleLarge = t.titleLarge.p(), titleMedium = t.titleMedium.p(), titleSmall = t.titleSmall.p(),
-        bodyLarge = t.bodyLarge.p(), bodyMedium = t.bodyMedium.p(), bodySmall = t.bodySmall.p(),
-        labelLarge = t.labelLarge.p(), labelMedium = t.labelMedium.p(), labelSmall = t.labelSmall.p(),
+        displayLarge = t.displayLarge.p(700), displayMedium = t.displayMedium.p(700), displaySmall = t.displaySmall.p(700),
+        headlineLarge = t.headlineLarge.p(700), headlineMedium = t.headlineMedium.p(700), headlineSmall = t.headlineSmall.p(700),
+        titleLarge = t.titleLarge.p(700), titleMedium = t.titleMedium.p(600), titleSmall = t.titleSmall.p(600),
+        bodyLarge = t.bodyLarge.p(500), bodyMedium = t.bodyMedium.p(500), bodySmall = t.bodySmall.p(500),
+        labelLarge = t.labelLarge.p(600), labelMedium = t.labelMedium.p(600), labelSmall = t.labelSmall.p(600),
     )
 }
 

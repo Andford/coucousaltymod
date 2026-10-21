@@ -50,7 +50,51 @@ data class AppData(
     val mochiFlat: Boolean = true,
     /** "auto" (the season's hat), "NONE", or an Outfit name. */
     val outfit: String = "auto",
+    /** Respirar: a pattern id (BREATH_PATTERNS) or "custom", the custom rhythm and the usual length. */
+    val breathPattern: String = "calma",
+    val breathCustom: List<Double> = listOf(4.0, 2.0, 6.0, 0.0),
+    val breathMinutes: Int = 5,
+    /** Enfoque: your block lengths. */
+    val pomodoroConfig: mx.loperstack.mochi.wellness.PomodoroConfig = mx.loperstack.mochi.wellness.PomodoroConfig(),
+    val habits: List<Habit> = emptyList(),
+    val notify: NotifySettings = NotifySettings(),
 )
+
+/** Mochi's notifications (Ajustes → Notificaciones). Times in minutes of the day. */
+data class NotifySettings(
+    val morning: Boolean = true,
+    val morningAt: Int = 8 * 60,
+    val tasks: Boolean = true,
+    val tasksAt: Int = 17 * 60,
+    val events: Boolean = true,
+    val eventLead: Int = 10,
+    val night: Boolean = true,
+    val nightAt: Int = 21 * 60 + 30,
+    val streaks: Boolean = true,
+)
+
+fun notifyJson(n: NotifySettings): String = org.json.JSONObject()
+    .put("morning", n.morning).put("morningAt", n.morningAt).put("tasks", n.tasks).put("tasksAt", n.tasksAt)
+    .put("events", n.events).put("eventLead", n.eventLead).put("night", n.night).put("nightAt", n.nightAt).put("streaks", n.streaks)
+    .toString()
+
+fun notifyOf(raw: String?): NotifySettings = runCatching {
+    val o = org.json.JSONObject(raw ?: return NotifySettings())
+    fun t(k: String, d: Int) = o.optInt(k, d).takeIf { it in 0 until 1440 } ?: d
+    NotifySettings(
+        o.optBoolean("morning", true), t("morningAt", 480), o.optBoolean("tasks", true), t("tasksAt", 1020),
+        o.optBoolean("events", true), o.optInt("eventLead", 10).coerceIn(0, 120), o.optBoolean("night", true), t("nightAt", 1290),
+        o.optBoolean("streaks", true),
+    )
+}.getOrDefault(NotifySettings())
+
+/** The rhythm you picked, for a session of `minutes`. */
+fun AppData.breathing(start: Long?, minutes: Int): mx.loperstack.mochi.wellness.Breathing {
+    val base = mx.loperstack.mochi.wellness.Breathing(start, minutes)
+    val p = mx.loperstack.mochi.wellness.BREATH_PATTERNS.firstOrNull { it.id == breathPattern }
+    return if (p != null) base.with(p)
+    else base.copy(inhale = breathCustom[0], holdIn = breathCustom[1], exhale = breathCustom[2], holdOut = breathCustom[3])
+}
 
 object Store {
     private lateinit var prefs: SharedPreferences
@@ -88,7 +132,16 @@ object Store {
             bedReminder = prefs.getBoolean("bedReminder", false),
             mochiFlat = prefs.getBoolean("mochiFlat", true),
             outfit = prefs.getString("outfit", "auto") ?: "auto",
+            breathPattern = prefs.getString("breathPattern", "calma") ?: "calma",
+            breathCustom = (prefs.getString("breathCustom", null) ?: "4,2,6,0").split(",").mapNotNull { it.toDoubleOrNull() }
+                .takeIf { it.size == 4 } ?: listOf(4.0, 2.0, 6.0, 0.0),
+            breathMinutes = prefs.getInt("breathMinutes", 5),
+            pomodoroConfig = mx.loperstack.mochi.wellness.PomodoroConfig(
+                prefs.getInt("pFocus", 25), prefs.getInt("pBreak", 5), prefs.getInt("pLong", 15), prefs.getInt("pCycles", 4),
+            ),
         )
+        _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)))
+        mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
     }
 
     /** Every change reaches the watch and the home screen widgets. */
@@ -185,6 +238,31 @@ object Store {
         val n = petsToday() + 1
         prefs.edit().putString("petDay", dayKey(System.currentTimeMillis())).putInt("petCount", n).apply()
         return n
+    }
+
+    fun setHabits(list: List<Habit>) {
+        _state.value = _state.value.copy(habits = list)
+        prefs.edit().putString("habits", habitsJson(list)).apply()
+        Widgets.refresh(app)
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    fun setNotify(n: NotifySettings) {
+        _state.value = _state.value.copy(notify = n)
+        prefs.edit().putString("notify", notifyJson(n)).apply()
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    fun setBreath(pattern: String, custom: List<Double>, minutes: Int) {
+        _state.value = _state.value.copy(breathPattern = pattern, breathCustom = custom, breathMinutes = minutes)
+        prefs.edit().putString("breathPattern", pattern).putString("breathCustom", custom.joinToString(",")).putInt("breathMinutes", minutes).apply()
+    }
+
+    fun setPomodoroConfig(c: mx.loperstack.mochi.wellness.PomodoroConfig) {
+        _state.value = _state.value.copy(pomodoroConfig = c)
+        mx.loperstack.mochi.wellness.PomodoroConfig.current = c
+        prefs.edit().putInt("pFocus", c.focusMin).putInt("pBreak", c.breakMin).putInt("pLong", c.longBreakMin).putInt("pCycles", c.cyclesBeforeLong).apply()
+        changed()
     }
 
     fun setOutfit(selection: String) {

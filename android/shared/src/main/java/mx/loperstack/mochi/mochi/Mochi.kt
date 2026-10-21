@@ -99,6 +99,8 @@ fun Mochi(
     wear: Boolean = face == null,
     /** Your own engine, to drive him from outside (the Mimos screen). */
     engine: MochiEngine? = null,
+    /** A long sigh when he appears (the breathing screen). */
+    sigh: Boolean = false,
 ) {
     val own = remember { MochiEngine() }
     val engine = engine ?: own
@@ -110,6 +112,7 @@ fun Mochi(
     LaunchedEffect(engine) {
         engine.configure(color, mood, breathing, dancing, face, wear)
         if (greet) engine.greet()
+        if (sigh) { kotlinx.coroutines.delay(350); engine.sigh() }
         var last = System.nanoTime()
         while (true) {
             if (engine.busy) {
@@ -216,11 +219,17 @@ fun rememberMusicPlaying(): Boolean {
 }
 
 /** Mochi at rest as a bitmap — for home screen widgets. */
-fun mochiBitmap(widthPx: Int, heightPx: Int, color: Color, mood: Mood = Mood.IDLE, face: MochiEngine.Eye? = null): Bitmap {
+fun mochiBitmap(
+    widthPx: Int, heightPx: Int, color: Color, mood: Mood = Mood.IDLE, face: MochiEngine.Eye? = null,
+    wear: Boolean = face == null,
+    /** A pose for animated widgets: vertical squash (1 = rest) and lift (px of the unit box). */
+    squash: Float = 1f, lift: Float = 0f,
+): Bitmap {
     val image = ImageBitmap(widthPx, heightPx)
     val engine = MochiEngine().apply {
-        configure(color, mood, null, false, face, face == null)
+        configure(color, mood, null, false, face, wear)
         settle()
+        pose(squash, lift)
     }
     CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(widthPx.toFloat(), heightPx.toFloat())) {
         engine.draw(this)

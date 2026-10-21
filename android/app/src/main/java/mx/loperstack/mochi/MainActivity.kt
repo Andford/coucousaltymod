@@ -22,11 +22,14 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_TAB = "tab"
         /** From the Respirar widget: start a session of this many minutes. */
         const val EXTRA_BREATHE_MIN = "breatheMin"
+        /** From the night notification: open the diary's composer. */
+        const val EXTRA_COMPOSE = "compose"
     }
 
     private val startTab = mutableStateOf(Tab.HOME)
     /** minutes to breathe, and a nonce so the same button works twice. */
     private val breatheNow = mutableStateOf(0 to 0L)
+    private val composeNow = mutableStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,20 +50,27 @@ class MainActivity : ComponentActivity() {
         catchUp()
         startTab.value = tabOf(intent)
         breatheNow.value = breatheOf(intent)
-        setContent { MochiApp(startTab.value, breatheNow.value) }
+        composeNow.value = composeOf(intent)
+        mx.loperstack.mochi.wellness.MochiNotifier.channels(this)
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(this)
+        setContent { MochiApp(startTab.value, breatheNow.value, composeNow.value) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         startTab.value = tabOf(intent)
         breatheNow.value = breatheOf(intent)
+        composeNow.value = composeOf(intent)
     }
+
+    private fun composeOf(intent: Intent?) = if (intent?.getBooleanExtra(EXTRA_COMPOSE, false) == true) System.nanoTime() else 0L
 
     override fun onResume() {
         super.onResume()
         catchUp()
         Store.applyLook()
         WearSync.push(this)
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(this)
         // Tasks changed on the PC or in Google: bring them in.
         if (GoogleTasks.connected) TaskSync.refresh(this)
     }
@@ -87,6 +97,8 @@ class MainActivity : ComponentActivity() {
         "tasks" -> Tab.TASKS
         "diary" -> Tab.DIARY
         "sleep" -> Tab.SLEEP
+        "streaks" -> Tab.STREAKS
+        "pet" -> Tab.PET
         else -> Tab.HOME
     }
 }

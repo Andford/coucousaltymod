@@ -18,6 +18,7 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -80,7 +81,7 @@ private val GESTURES = listOf(
     "🤭 Frota rápido: cosquillas", "🤏 Pellizca: apachúrralo", "🚀 Lánzalo: rebota", "📳 Agita el teléfono: se marea",
 )
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PetScreen(color: Color, actions: Actions) {
     val context = LocalContext.current
@@ -90,8 +91,8 @@ fun PetScreen(color: Color, actions: Actions) {
     val pos = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     var count by remember { mutableIntStateOf(Store.petsToday()) }
     var said by remember { mutableStateOf("Tócalo, acarícialo, abrázalo…") }
-    val mochiW = with(density) { 210.dp.toPx() }
-    val mochiH = with(density) { 176.dp.toPx() }
+    val mochiW = with(density) { 250.dp.toPx() }
+    val mochiH = with(density) { 210.dp.toPx() }
     val music by rememberUpdatedState(actions.music)
 
     fun pet(text: String) {
@@ -121,12 +122,22 @@ fun PetScreen(color: Color, actions: Actions) {
         onDispose { sm?.unregisterListener(l) }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Text("Mimos", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 18.dp, start = 6.dp))
-        Text("Tu Mochi antiestrés · $count mimos hoy", color = Ink.Dim, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
-        Spacer(Modifier.height(14.dp))
+    var manual by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp, start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Mimos", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text("$count mimos hoy", color = Ink.Dim, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Text(
+                "¿Cómo jugar?", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Ink.VioletSoft,
+                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.VioletDeep)
+                    .clickable { Haptics.click(context); manual = true }.padding(horizontal = 14.dp, vertical = 9.dp),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
         Box(
-            Modifier.fillMaxWidth().height(440.dp).clip(RoundedCornerShape(36.dp)).background(Ink.Card)
+            Modifier.fillMaxWidth().weight(1f).padding(bottom = 12.dp).clip(RoundedCornerShape(36.dp)).background(Ink.Card)
                 .pointerInput(Unit) {
                     var lastTap = 0L
                     awaitEachGesture {
@@ -260,7 +271,7 @@ fun PetScreen(color: Color, actions: Actions) {
         ) {
             Aurora(color, Modifier.fillMaxSize())
             Mochi(
-                Modifier.offset { IntOffset(pos.value.x.roundToInt(), pos.value.y.roundToInt()) }.size(210.dp, 176.dp),
+                Modifier.offset { IntOffset(pos.value.x.roundToInt(), pos.value.y.roundToInt()) }.size(250.dp, 210.dp),
                 color = color, engine = engine, dancing = music, greet = true,
             )
             Text(
@@ -269,17 +280,23 @@ fun PetScreen(color: Color, actions: Actions) {
                     .clip(RoundedCornerShape(20.dp)).background(Ink.CardHigh).padding(horizontal = 14.dp, vertical = 8.dp),
             )
         }
-        Spacer(Modifier.height(14.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (g in GESTURES) {
-                Text(
-                    g, fontSize = 13.sp, color = Ink.Text,
-                    modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Ink.VioletDeep).padding(horizontal = 12.dp, vertical = 8.dp),
-                )
+    }
+    if (manual) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { manual = false }, containerColor = Ink.CardHigh) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+                Text("Cómo jugar con Mochi", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (g in GESTURES) {
+                        Text(
+                            g, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Ink.VioletDeep).padding(horizontal = 12.dp, vertical = 9.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Cada gesto vibra distinto. Puedes apagar la vibración en Ajustes.", color = Ink.Dim, fontSize = 13.sp)
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row { Label("Cada gesto vibra distinto. Puedes apagar la vibración en Ajustes.", Ink.Dim2, 12.sp) }
-        Spacer(Modifier.height(24.dp))
     }
 }

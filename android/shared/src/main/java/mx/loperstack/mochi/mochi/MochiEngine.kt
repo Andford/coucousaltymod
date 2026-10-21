@@ -362,6 +362,17 @@ class MochiEngine {
         wake()
     }
 
+    /** A long sigh: he fills up with his eyes closed, then lets it all out. */
+    fun sigh() {
+        eyeOverride = Eye.CLOSED
+        eyeOverrideUntil = now() + 2.0
+        anim(P.SY, listOf(k(1.14f, 800, Ease.inOut), k(1.14f, 250, Ease.lin), k(0.93f, 900, Ease.inOut), k(1f, 400, Ease.back)))
+        anim(P.SX, listOf(k(1.08f, 800, Ease.inOut), k(1.08f, 250, Ease.lin), k(1.04f, 900, Ease.inOut), k(1f, 400, Ease.back)))
+        anim(P.OY, listOf(k(-0.05f, 800, Ease.inOut), k(-0.05f, 250, Ease.lin), k(0.03f, 900, Ease.inOut), k(0f, 400, Ease.back)))
+        after(1050) { Sounds.play("peek") }
+        wake()
+    }
+
     /** Double tap: a jump with a flip. */
     fun flip() {
         if (dizzy.value) return
@@ -701,6 +712,11 @@ class MochiEngine {
         col = colT; tint = tintT
         breathLevel = if (isBreathing) 1f else 0f
         this[P.OPEN] = 1f; this[P.SX] = 1f; this[P.SY] = 1f; this[P.OY] = 0f; this[P.YAW] = 0f; this[P.PITCH] = 0f
+    }
+
+    /** A still pose (widget frames): squash 1 = rest; lift in body radii, up. */
+    fun pose(squash: Float, lift: Float) {
+        this[P.SY] = squash; this[P.SX] = 1f + (1f - squash) * 0.8f; this[P.OY] = -lift
     }
 
     // ── Draw ──────────────────────────────────────────────────────────────────
@@ -1052,27 +1068,51 @@ class MochiEngine {
         }
     }
 
-    // ── The wardrobe, flat ────────────────────────────────────────────────────
+    // ── The wardrobe: flat, cel-shaded (a light side, a shade, a crisp line) ──
+
+    private fun lighter(c: Color, t: Float = 0.35f) = lerp(c, Color.White, t)
+    private fun darker(c: Color, t: Float = 0.28f) = lerp(c, Color.Black, t)
+
+    /** A shape in two tones: the shade on the lower right, the colour on top, then the line. */
+    private fun DrawScope.cel(path: Path, base: Color, r: Float, line: Boolean = true) {
+        drawPath(path, darker(base))
+        clipPath(path) { withTransform({ translate(-r * 0.045f, -r * 0.055f) }) { drawPath(path, base) } }
+        if (line) drawPath(path, darker(base, 0.6f).copy(alpha = 0.9f), style = Stroke(r * 0.028f, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+
+    /** A soft light stroke along a curve. */
+    private fun DrawScope.shine(path: Path, r: Float, alpha: Float = 0.55f) =
+        drawPath(path, Color.White.copy(alpha = alpha), style = Stroke(r * 0.04f, cap = StrokeCap.Round))
+
+    private fun DrawScope.ball(x: Float, y: Float, rad: Float, base: Color, r: Float) {
+        val p = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(x - rad, y - rad), Size(rad * 2, rad * 2))) }
+        cel(p, base, r * 0.7f)
+        drawCircle(Color.White.copy(alpha = 0.7f), rad * 0.28f, Offset(x - rad * 0.35f, y - rad * 0.35f))
+    }
 
     private fun DrawScope.drawSunglasses(list: List<EyePos>, ew: Float, eh: Float) {
-        val lens = Color(0xFF111318)
+        val frame = Color(0xFF1E1B2E)
+        val lens = Color(0xFF2B2F45)
         for (e in list) {
             withTransform({ translate(e.x, e.y); scale(e.fx, e.fy, pivot = Offset.Zero) }) {
-                drawRoundRect(lens, Offset(-ew * 0.95f, -eh * 0.55f), Size(ew * 1.9f, eh * 1.15f), CornerRadius(ew * 0.5f))
-                drawLine(Color.White.copy(alpha = 0.55f), Offset(-ew * 0.55f, -eh * 0.3f), Offset(-ew * 0.15f, -eh * 0.3f), ew * 0.14f, StrokeCap.Round)
+                val shape = Path().apply {
+                    addRoundRect(androidx.compose.ui.geometry.RoundRect(-ew * 1.0f, -eh * 0.6f, ew * 1.0f, eh * 0.62f, ew * 0.55f, ew * 0.55f))
+                }
+                drawPath(shape, lens)
+                clipPath(shape) { drawRect(Color(0xFF475080), Offset(-ew, -eh * 0.6f), Size(ew * 2, eh * 0.45f)) }
+                drawPath(shape, frame, style = Stroke(ew * 0.16f))
+                drawLine(Color.White.copy(alpha = 0.7f), Offset(-ew * 0.55f, -eh * 0.32f), Offset(-ew * 0.1f, -eh * 0.32f), ew * 0.13f, StrokeCap.Round)
             }
         }
-        if (list.size == 2) drawLine(lens, Offset(list[0].x + ew * 0.8f, list[0].y - eh * 0.25f), Offset(list[1].x - ew * 0.8f, list[1].y - eh * 0.25f), ew * 0.22f, StrokeCap.Round)
-    }
-
-    private fun DrawScope.outlined(path: Path, fill: Color, r: Float) {
-        drawPath(path, fill)
-        drawPath(path, lerp(fill, Color.Black, 0.45f).copy(alpha = 0.6f), style = Stroke(r * 0.035f, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-    }
-
-    private fun DrawScope.pom(x: Float, y: Float, rad: Float, fill: Color, r: Float) {
-        drawCircle(fill, rad, Offset(x, y))
-        drawCircle(lerp(fill, Color.Black, 0.35f).copy(alpha = 0.5f), rad, Offset(x, y), style = Stroke(r * 0.03f))
+        if (list.size == 2) {
+            val a = list[0]
+            val b = list[1]
+            val bridge = Path().apply {
+                moveTo(a.x + ew * 0.85f, a.y - eh * 0.3f)
+                quadraticTo((a.x + b.x) / 2f, (a.y + b.y) / 2f - eh * 0.6f, b.x - ew * 0.85f, b.y - eh * 0.3f)
+            }
+            drawPath(bridge, frame, style = Stroke(ew * 0.18f, cap = StrokeCap.Round))
+        }
     }
 
     /** Hats and the rest, in the body's own space (they tilt and squash with him). */
@@ -1082,85 +1122,149 @@ class MochiEngine {
         val top = -ry
         when (o) {
             Outfit.WITCH -> {
+                val purple = Color(0xFF5B3A91)
+                // The brim's underside, behind the cone.
+                val brim = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(-rx * 1.05f + hx, top - r * 0.02f), Size(rx * 2.1f, r * 0.3f))) }
                 val cone = Path().apply {
-                    moveTo(-rx * 0.5f + hx, top + ry * 0.1f)
-                    quadraticTo(-rx * 0.15f + hx, top - r * 0.55f, rx * 0.42f + hx, top - r * 1.15f)
-                    quadraticTo(rx * 0.12f + hx, top - r * 0.5f, rx * 0.5f + hx, top + ry * 0.1f)
+                    moveTo(-rx * 0.52f + hx, top + r * 0.12f)
+                    cubicTo(-rx * 0.42f + hx, top - r * 0.45f, -rx * 0.05f + hx, top - r * 0.95f, rx * 0.22f + hx, top - r * 1.18f)
+                    // The crooked tip, curling back.
+                    quadraticTo(rx * 0.55f + hx, top - r * 1.3f, rx * 0.62f + hx, top - r * 1.05f)
+                    quadraticTo(rx * 0.38f + hx, top - r * 1.08f, rx * 0.2f + hx, top - r * 0.9f)
+                    cubicTo(rx * 0.3f + hx, top - r * 0.5f, rx * 0.48f + hx, top - r * 0.2f, rx * 0.52f + hx, top + r * 0.12f)
                     close()
                 }
-                outlined(cone, Color(0xFF4C2C7A), r)
-                drawRect(Color(0xFFF59E0B), Offset(-rx * 0.47f + hx, top - r * 0.08f), Size(rx * 0.94f, r * 0.13f))
-                drawRect(Color(0xFFFDE68A), Offset(-rx * 0.08f + hx, top - r * 0.1f), Size(r * 0.17f, r * 0.17f), style = Stroke(r * 0.035f))
-                outlined(Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(-rx * 1.0f + hx, top + ry * 0.02f), Size(rx * 2.0f, r * 0.24f))) }, Color(0xFF3B2160), r)
+                cel(brim, darker(purple, 0.15f), r)
+                cel(cone, purple, r)
+                shine(Path().apply { moveTo(-rx * 0.36f + hx, top - r * 0.05f); cubicTo(-rx * 0.3f + hx, top - r * 0.4f, -rx * 0.1f + hx, top - r * 0.75f, rx * 0.08f + hx, top - r * 0.95f) }, r, 0.35f)
+                // Satin band and a gold buckle.
+                val band = Path().apply {
+                    moveTo(-rx * 0.5f + hx, top - r * 0.02f); lineTo(rx * 0.5f + hx, top - r * 0.02f)
+                    lineTo(rx * 0.46f + hx, top - r * 0.2f); lineTo(-rx * 0.46f + hx, top - r * 0.2f); close()
+                }
+                cel(band, Color(0xFFF59E0B), r)
+                val buckle = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-r * 0.1f + hx, top - r * 0.22f, r * 0.1f + hx, top + r * 0.0f, r * 0.04f, r * 0.04f)) }
+                drawPath(buckle, Color(0xFFFDE68A), style = Stroke(r * 0.045f))
+                // The brim's front edge.
+                val front = Path().apply {
+                    moveTo(-rx * 1.03f + hx, top + r * 0.13f)
+                    quadraticTo(hx, top + r * 0.42f, rx * 1.03f + hx, top + r * 0.13f)
+                    quadraticTo(hx, top + r * 0.28f, -rx * 1.03f + hx, top + r * 0.13f)
+                    close()
+                }
+                cel(front, purple, r)
+                // A little star charm on the tip.
+                withTransform({ translate(rx * 0.64f + hx, top - r * 1.02f); rotate(15f, pivot = Offset.Zero) }) {
+                    drawPath(starPath(r * 0.11f, r * 0.05f), Color(0xFFFDE047))
+                }
             }
             Outfit.SANTA -> {
+                val red = Color(0xFFD92B3A)
                 val cone = Path().apply {
-                    moveTo(-rx * 0.62f + hx, top + ry * 0.16f)
-                    cubicTo(-rx * 0.5f + hx, top - r * 0.5f, rx * 0.4f + hx, top - r * 0.75f, rx * 0.95f + hx, top - r * 0.2f)
-                    quadraticTo(rx * 0.45f + hx, top - r * 0.2f, rx * 0.62f + hx, top + ry * 0.16f)
+                    moveTo(-rx * 0.6f + hx, top + r * 0.16f)
+                    cubicTo(-rx * 0.5f + hx, top - r * 0.6f, rx * 0.35f + hx, top - r * 0.95f, rx * 0.9f + hx, top - r * 0.3f)
+                    quadraticTo(rx * 0.7f + hx, top - r * 0.38f, rx * 0.45f + hx, top - r * 0.38f)
+                    quadraticTo(rx * 0.58f + hx, top - r * 0.1f, rx * 0.6f + hx, top + r * 0.16f)
                     close()
                 }
-                outlined(cone, Color(0xFFE03131), r)
-                outlined(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.72f + hx, top + ry * 0.02f, rx * 0.72f + hx, top + ry * 0.02f + r * 0.28f, r * 0.14f, r * 0.14f)) }, Color.White, r)
-                pom(rx * 0.97f + hx, top - r * 0.18f, r * 0.16f, Color.White, r)
+                cel(cone, red, r)
+                // A fold of velvet.
+                shine(Path().apply { moveTo(-rx * 0.25f + hx, top - r * 0.1f); cubicTo(-rx * 0.15f + hx, top - r * 0.5f, rx * 0.2f + hx, top - r * 0.7f, rx * 0.55f + hx, top - r * 0.55f) }, r, 0.3f)
+                // Plush band: a row of soft bumps.
+                val band = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.74f + hx, top + r * 0.02f, rx * 0.74f + hx, top + r * 0.32f, r * 0.15f, r * 0.15f)) }
+                cel(band, Color(0xFFF8FAFC), r)
+                for (k in -3..3) drawCircle(Color(0xFFE2E8F0), r * 0.045f, Offset(k * rx * 0.2f + hx, top + r * 0.2f))
+                ball(rx * 0.92f + hx, top - r * 0.26f, r * 0.17f, Color(0xFFF8FAFC), r)
             }
             Outfit.PARTY -> {
                 withTransform({ rotate(-12f, pivot = Offset(hx, top)) }) {
                     val cone = Path().apply {
-                        moveTo(-rx * 0.36f + hx, top + ry * 0.12f); lineTo(hx + rx * 0.05f, top - r * 0.95f); lineTo(rx * 0.36f + hx, top + ry * 0.12f); close()
+                        moveTo(-rx * 0.38f + hx, top + r * 0.14f); lineTo(hx + rx * 0.04f, top - r * 1.0f); lineTo(rx * 0.38f + hx, top + r * 0.14f); close()
                     }
-                    outlined(cone, Color(0xFFF472B6), r)
+                    cel(cone, Color(0xFF8B5CF6), r)
                     clipPath(cone) {
-                        for (k in 0..3) {
-                            val y0 = top - r * 0.15f - k * r * 0.25f
-                            drawLine(Color(0xFFFDE047), Offset(hx - rx * 0.5f, y0 + r * 0.1f), Offset(hx + rx * 0.5f, y0 - r * 0.1f), r * 0.08f)
+                        for (k in 0..4) {
+                            val y0 = top - r * 0.05f - k * r * 0.24f
+                            drawLine(Color(0xFFFBBF24), Offset(hx - rx * 0.6f, y0 + r * 0.12f), Offset(hx + rx * 0.6f, y0 - r * 0.12f), r * 0.07f)
+                        }
+                        for ((dx, dy) in listOf(-0.12f to -0.35f, 0.14f to -0.6f, -0.02f to -0.15f)) {
+                            drawCircle(Color(0xFF34D399), r * 0.035f, Offset(hx + dx * rx, top + dy * r))
                         }
                     }
-                    pom(hx + rx * 0.05f, top - r * 0.98f, r * 0.12f, Color(0xFF60A5FA), r)
+                    drawPath(cone, darker(Color(0xFF8B5CF6), 0.6f), style = Stroke(r * 0.028f, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                    val trim = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.42f + hx, top + r * 0.06f, rx * 0.42f + hx, top + r * 0.18f, r * 0.06f, r * 0.06f)) }
+                    cel(trim, Color(0xFFFACC15), r)
+                    ball(hx + rx * 0.04f, top - r * 1.04f, r * 0.12f, Color(0xFFF472B6), r)
                 }
             }
             Outfit.BUNNY -> {
                 val fill = if (MochiStyle.flat) flatFill() else BASE_TOP
                 for (sd in SIDES) {
                     withTransform({ rotate(sd * 12f, pivot = Offset(sd * rx * 0.32f + hx, top + ry * 0.1f)) }) {
-                        val ear = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(sd * rx * 0.32f + hx - r * 0.18f, top - r * 0.95f), Size(r * 0.36f, r * 1.1f))) }
-                        outlined(ear, fill, r)
-                        drawOval(Color(0xFFF9A8D4), Offset(sd * rx * 0.32f + hx - r * 0.09f, top - r * 0.78f), Size(r * 0.18f, r * 0.75f))
+                        val ear = Path().apply {
+                            val cxE = sd * rx * 0.32f + hx
+                            moveTo(cxE - r * 0.14f, top + r * 0.1f)
+                            cubicTo(cxE - r * 0.26f, top - r * 0.6f, cxE - r * 0.12f, top - r * 1.05f, cxE, top - r * 1.05f)
+                            cubicTo(cxE + r * 0.12f, top - r * 1.05f, cxE + r * 0.26f, top - r * 0.6f, cxE + r * 0.14f, top + r * 0.1f)
+                            close()
+                        }
+                        cel(ear, fill, r)
+                        val inner = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(sd * rx * 0.32f + hx - r * 0.07f, top - r * 0.85f), Size(r * 0.14f, r * 0.7f))) }
+                        drawPath(inner, Color(0xFFF9A8D4))
                     }
                 }
             }
             Outfit.BEANIE -> {
+                val knit = Color(0xFF2F6FB0)
                 val dome = Path().apply {
                     moveTo(-rx * 0.86f + hx, top + ry * 0.48f)
-                    cubicTo(-rx * 0.9f + hx, top - r * 0.45f, rx * 0.9f + hx, top - r * 0.45f, rx * 0.86f + hx, top + ry * 0.48f)
+                    cubicTo(-rx * 0.9f + hx, top - r * 0.5f, rx * 0.9f + hx, top - r * 0.5f, rx * 0.86f + hx, top + ry * 0.48f)
                     close()
                 }
-                outlined(dome, Color(0xFF38BDF8), r)
-                outlined(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.92f + hx, top + ry * 0.32f, rx * 0.92f + hx, top + ry * 0.32f + r * 0.24f, r * 0.12f, r * 0.12f)) }, Color(0xFF0284C7), r)
-                pom(hx, top - r * 0.22f, r * 0.15f, Color(0xFFF0F9FF), r)
+                cel(dome, knit, r)
+                clipPath(dome) {
+                    for (k in -4..4) drawLine(darker(knit, 0.2f), Offset(k * rx * 0.2f + hx, top - r * 0.5f), Offset(k * rx * 0.22f + hx, top + ry * 0.5f), r * 0.02f)
+                }
+                val cuff = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.94f + hx, top + ry * 0.3f, rx * 0.94f + hx, top + ry * 0.3f + r * 0.28f, r * 0.14f, r * 0.14f)) }
+                cel(cuff, Color(0xFF1E4F86), r)
+                clipPath(cuff) {
+                    for (k in -9..9) drawLine(Color(0xFF173E6B), Offset(k * rx * 0.1f + hx, top + ry * 0.3f), Offset(k * rx * 0.1f + hx, top + ry * 0.3f + r * 0.3f), r * 0.018f)
+                }
+                ball(hx, top - r * 0.26f, r * 0.17f, Color(0xFFF1F5F9), r)
             }
             Outfit.CROWN -> {
-                val y0 = top + ry * 0.12f
+                val gold = Color(0xFFF2B705)
+                val y0 = top + r * 0.14f
                 val crown = Path().apply {
-                    moveTo(-rx * 0.48f + hx, y0); lineTo(-rx * 0.52f + hx, y0 - r * 0.42f); lineTo(-rx * 0.24f + hx, y0 - r * 0.22f)
-                    lineTo(hx, y0 - r * 0.5f); lineTo(rx * 0.24f + hx, y0 - r * 0.22f); lineTo(rx * 0.52f + hx, y0 - r * 0.42f); lineTo(rx * 0.48f + hx, y0); close()
+                    moveTo(-rx * 0.5f + hx, y0); lineTo(-rx * 0.56f + hx, y0 - r * 0.44f); lineTo(-rx * 0.26f + hx, y0 - r * 0.24f)
+                    lineTo(hx, y0 - r * 0.56f); lineTo(rx * 0.26f + hx, y0 - r * 0.24f); lineTo(rx * 0.56f + hx, y0 - r * 0.44f); lineTo(rx * 0.5f + hx, y0); close()
                 }
-                outlined(crown, Color(0xFFFACC15), r)
-                drawCircle(Color(0xFFEF4444), r * 0.06f, Offset(hx, y0 - r * 0.14f))
-                drawCircle(Color(0xFF3B82F6), r * 0.05f, Offset(hx - rx * 0.28f, y0 - r * 0.1f))
-                drawCircle(Color(0xFF22C55E), r * 0.05f, Offset(hx + rx * 0.28f, y0 - r * 0.1f))
+                cel(crown, gold, r)
+                val band = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(-rx * 0.52f + hx, y0 - r * 0.12f, rx * 0.52f + hx, y0 + r * 0.02f, r * 0.04f, r * 0.04f)) }
+                cel(band, darker(gold, 0.1f), r)
+                for ((dx, c) in listOf(-0.3f to Color(0xFF2563EB), 0f to Color(0xFFDC2626), 0.3f to Color(0xFF16A34A))) {
+                    ball(hx + dx * rx, y0 - r * 0.05f, r * 0.055f, c, r)
+                }
+                for (dx in listOf(-0.56f, 0f, 0.56f)) ball(hx + dx * rx, y0 - r * (if (dx == 0f) 0.58f else 0.46f), r * 0.045f, Color(0xFFFFF7D6), r)
             }
             Outfit.BOW -> {
-                val bx = rx * 0.48f + hx
-                val by = top + ry * 0.12f
+                val pink = Color(0xFFEC4899)
+                val bx = rx * 0.5f + hx
+                val by = top + r * 0.14f
                 for (sd in SIDES) {
-                    val wing = Path().apply { moveTo(bx, by); lineTo(bx + sd * r * 0.32f, by - r * 0.2f); lineTo(bx + sd * r * 0.32f, by + r * 0.2f); close() }
-                    outlined(wing, Color(0xFFF472B6), r)
+                    val wing = Path().apply {
+                        moveTo(bx, by)
+                        cubicTo(bx + sd * r * 0.12f, by - r * 0.3f, bx + sd * r * 0.42f, by - r * 0.32f, bx + sd * r * 0.38f, by)
+                        cubicTo(bx + sd * r * 0.42f, by + r * 0.32f, bx + sd * r * 0.12f, by + r * 0.3f, bx, by)
+                        close()
+                    }
+                    cel(wing, pink, r)
+                    shine(Path().apply { moveTo(bx + sd * r * 0.12f, by - r * 0.14f); quadraticTo(bx + sd * r * 0.24f, by - r * 0.2f, bx + sd * r * 0.3f, by - r * 0.1f) }, r, 0.5f)
                 }
-                pom(bx, by, r * 0.09f, Color(0xFFEC4899), r)
+                ball(bx, by, r * 0.09f, darker(pink, 0.1f), r)
             }
             Outfit.FLOWERS -> {
-                // Cempasúchil across the top, with small magenta flowers in between.
+                // Cempasúchil across the top: layered petals, a few leaves, magenta in between.
                 val angles = listOf(-62f, -31f, 0f, 31f, 62f)
                 for ((i, a) in angles.withIndex()) {
                     val t = Math.toRadians(a.toDouble()).toFloat()
@@ -1168,14 +1272,21 @@ class MochiEngine {
                     val y = -cos(t) * ry * 0.95f
                     if (i < angles.size - 1) {
                         val t2 = Math.toRadians((a + 15.5f).toDouble()).toFloat()
-                        drawCircle(Color(0xFFC026D3), r * 0.07f, Offset(sin(t2) * rx * 0.86f + hx, -cos(t2) * ry * 1.0f))
+                        val lx = sin(t2) * rx * 0.86f + hx
+                        val ly = -cos(t2) * ry * 1.0f
+                        drawOval(Color(0xFF16A34A), Offset(lx - r * 0.1f, ly - r * 0.04f), Size(r * 0.2f, r * 0.08f))
+                        ball(lx, ly - r * 0.04f, r * 0.06f, Color(0xFFC026D3), r)
+                    }
+                    for (p in 0 until 10) {
+                        val pa = p * (PI.toFloat() / 5)
+                        drawCircle(Color(0xFFEA580C), r * 0.075f, Offset(x + cos(pa) * r * 0.11f, y + sin(pa) * r * 0.11f))
                     }
                     for (p in 0 until 8) {
-                        val pa = p * (PI.toFloat() / 4)
-                        drawCircle(Color(0xFFFB923C), r * 0.075f, Offset(x + cos(pa) * r * 0.1f, y + sin(pa) * r * 0.1f))
+                        val pa = p * (PI.toFloat() / 4) + 0.3f
+                        drawCircle(Color(0xFFFB923C), r * 0.06f, Offset(x + cos(pa) * r * 0.065f, y + sin(pa) * r * 0.065f))
                     }
-                    drawCircle(Color(0xFFF97316), r * 0.1f, Offset(x, y))
-                    drawCircle(Color(0xFFB45309), r * 0.04f, Offset(x, y))
+                    drawCircle(Color(0xFFFDBA74), r * 0.05f, Offset(x, y))
+                    drawCircle(Color.White.copy(alpha = 0.5f), r * 0.02f, Offset(x - r * 0.02f, y - r * 0.02f))
                 }
             }
             else -> Unit

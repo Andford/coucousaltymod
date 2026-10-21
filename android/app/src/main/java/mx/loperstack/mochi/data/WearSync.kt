@@ -57,7 +57,7 @@ object WearSync {
             runCatching {
                 val nodes = com.google.android.gms.tasks.Tasks.await(Wearable.getNodeClient(app).connectedNodes)
                 val helper = RemoteActivityHelper(app, io)
-                val uri = Uri.parse("mochi://breathe?at=${b.startedAt}&min=${b.minutes}")
+                val uri = Uri.parse("mochi://breathe?at=${b.startedAt}&min=${b.minutes}&p=${b.inhale},${b.holdIn},${b.exhale},${b.holdOut}")
                 for (n in nodes) {
                     // Opens Mochi on the watch, even with its screen off…
                     runCatching {
@@ -102,6 +102,7 @@ object WearSync {
             sleepMin = d.sleep.lastOrNull()?.minutes ?: 0,
             sleepNight = d.sleep.lastOrNull()?.night ?: "",
             flat = d.mochiFlat,
+            focusMin = d.pomodoroConfig.focusMin, breakMin = d.pomodoroConfig.breakMin,
             outfit = mx.loperstack.mochi.mochi.Outfit.resolve(d.outfit).name,
             sessions = d.sessions.takeLast(7),
             nights = d.sleep.takeLast(7).map { NightLite(it.night, it.minutes, it.quality, it.bed, it.wake) },

@@ -102,6 +102,7 @@ import mx.loperstack.mochi.wellness.Phase
 import mx.loperstack.mochi.wellness.Pomodoro
 import mx.loperstack.mochi.wellness.Snapshot
 import mx.loperstack.mochi.wellness.breathFrame
+import mx.loperstack.mochi.wellness.cue
 import mx.loperstack.mochi.wellness.clock
 import mx.loperstack.mochi.wellness.left
 import mx.loperstack.mochi.wellness.minutesUntil
@@ -152,7 +153,9 @@ class WearActivity : ComponentActivity() {
         if (uri.scheme != "mochi" || uri.host != "breathe") return
         val at = uri.getQueryParameter("at")?.toLongOrNull() ?: return
         val min = uri.getQueryParameter("min")?.toIntOrNull() ?: return
-        if (System.currentTimeMillis() - at < min * 60_000L) WatchStore.breathRequest.value = Breathing(at, min)
+        val p = uri.getQueryParameter("p")?.split(",")?.mapNotNull { it.toDoubleOrNull() }
+        val b = if (p != null && p.size == 4) Breathing(at, min, p[0], p[1], p[2], p[3]) else Breathing(at, min)
+        if (System.currentTimeMillis() - at < min * 60_000L) WatchStore.breathRequest.value = b
         WatchStore.clearBreatheNotice(this)
     }
 
@@ -306,7 +309,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     Chip(
                         onClick = { WatchStore.pomodoro() },
                         label = { Text("Iniciar Pomodoro") },
-                        secondaryLabel = { Text("25 min de enfoque") },
+                        secondaryLabel = { Text("${mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin} min de enfoque") },
                         colors = ChipDefaults.secondaryChipColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -420,6 +423,7 @@ fun Breathe(snap: Snapshot, go: (String) -> Unit = {}) {
     val bpmNow by rememberUpdatedState(bpm)
     val beats = rememberHeartBeats(active)
     var inhaling by remember { mutableStateOf(true) }
+    var cue by remember { mutableStateOf("Inhala…") }
     var left by remember { mutableIntStateOf(0) }
     val askSensors = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
@@ -453,18 +457,19 @@ fun Breathe(snap: Snapshot, go: (String) -> Unit = {}) {
         var lastSent = 0L
         val samples = ArrayList<Int>()
         var nextSample = start
-        var lastInhale: Boolean? = null
+        var lastPhase: mx.loperstack.mochi.wellness.BreathPhase? = null
         while (true) {
             val now = System.currentTimeMillis()
             val f = breathFrame(b, now)
-            if (f.inhaling != lastInhale && !f.done) {
-                lastInhale = f.inhaling
+            if (f.phase != lastPhase && !f.done) {
+                lastPhase = f.phase
                 inhaling = f.inhaling
-                Haptics.breath(
-                    context, f.inhaling,
-                    if (f.inhaling) mx.loperstack.mochi.wellness.INHALE_S else mx.loperstack.mochi.wellness.EXHALE_S,
-                    guide = WatchStore.breathGuide,
-                )
+                cue = f.phase.cue()
+                when (f.phase) {
+                    mx.loperstack.mochi.wellness.BreathPhase.IN -> Haptics.breath(context, true, b.inhale, guide = WatchStore.breathGuide)
+                    mx.loperstack.mochi.wellness.BreathPhase.OUT -> Haptics.breath(context, false, b.exhale, guide = WatchStore.breathGuide)
+                    else -> { Haptics.stop(context); Haptics.tick(context) }
+                }
             }
             if (f.left != left) left = f.left
             val hr = bpmNow
@@ -506,7 +511,7 @@ fun Breathe(snap: Snapshot, go: (String) -> Unit = {}) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("${if (linked) "Con tu teléfono · " else ""}quedan ${clock(left)}", color = Dim, fontSize = 11.sp)
                 Mochi(Modifier.width(120.dp).height(98.dp), color = Color(snap.mochiColor), breathing = b)
-                Text(if (inhaling) "Inhala…" else "Exhala…", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(cue, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(if (bpm > 0) "♥ $bpm lpm" else "Midiendo pulso…", color = if (bpm > 0) Pink else Dim, fontSize = 13.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(

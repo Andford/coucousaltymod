@@ -137,7 +137,7 @@ private fun openApp(context: Context, tab: String, minutes: Int = 0) =
 private fun color() = Color(Store.state.value.mochiColor)
 
 private fun mochi(context: Context, mood: Mood = Mood.IDLE, w: Int = 300, h: Int = 250, face: MochiEngine.Eye? = null) =
-    ImageProvider(mochiBitmap(w, h, color(), mood, face, wear = true))
+    ImageProvider(mochiBitmap(w, h, color(), mood, face, wear = true, headroom = 0.32f))
 
 // ── Cozy backgrounds ──────────────────────────────────────────────────────────
 
@@ -181,28 +181,30 @@ private fun card(m: Mood2) = GlanceModifier.fillMaxSize().background(bg(m)).corn
 
 // ── Mochi, moving ─────────────────────────────────────────────────────────────
 
-/** One frame: squash (1 = rest), lift (body radii) and, if any, a face. */
-private data class Pose(val squash: Float, val lift: Float = 0f, val face: MochiEngine.Eye? = null)
+/** How he moves: each is a smooth tween (res/anim) the launcher plays on every flip. */
+private enum class Motion(val layout: Int, val headroom: Float) {
+    HOP(R.layout.widget_flip_hop, 0.4f),
+    BOB(R.layout.widget_flip_bob, 0.32f),
+    BREATH(R.layout.widget_flip_breath, 0.32f),
+    SNOOZE(R.layout.widget_flip_snooze, 0.3f),
+}
 
-/** A little bob and a blink. */
-private val IDLE = listOf(Pose(1f), Pose(0.97f), Pose(0.95f), Pose(0.98f, 0.04f), Pose(1.02f, 0.06f), Pose(1f, 0.02f, MochiEngine.Eye.CLOSED))
-/** A happy hop. */
-private val HOP = listOf(Pose(1f), Pose(0.9f), Pose(1.06f, 0.14f), Pose(1.02f, 0.2f), Pose(1f, 0.08f), Pose(0.94f))
-/** 4 s in, 6 s out, at one frame a second: the app's calm rhythm. */
-private val BREATH = listOf(1f, 1.025f, 1.05f, 1.075f, 1.1f, 1.083f, 1.066f, 1.05f, 1.033f, 1.016f).map { Pose(it, (it - 1f) * 0.6f) }
-/** Asleep: slow and deep. */
-private val SNOOZE = listOf(1f, 1.03f, 1.05f, 1.03f, 1f, 0.98f).map { Pose(it) }
-
-/** Mochi's frames in a ViewFlipper, for `AndroidRemoteViews`. */
-private fun moving(context: Context, poses: List<Pose>, mood: Mood, w: Int, h: Int, interval: Int, soft: Boolean = false, face: MochiEngine.Eye? = null): RemoteViews {
-    val flip = RemoteViews(context.packageName, if (soft) R.layout.widget_flip_soft else R.layout.widget_flip)
+/**
+ * Mochi moving, for `AndroidRemoteViews`: a ViewFlipper whose frames are the
+ * same picture (sent once — RemoteViews share a repeated bitmap) plus, if
+ * given, one with other eyes (a blink, a smile). Each flip plays the motion's
+ * tween, so it is fluid at the screen's own rate, not a slideshow.
+ */
+private fun moving(context: Context, motion: Motion, mood: Mood, w: Int, h: Int, face: MochiEngine.Eye? = null, alt: MochiEngine.Eye? = null): RemoteViews {
+    val flip = RemoteViews(context.packageName, motion.layout)
     val col = color()
-    for (p in poses) {
+    val main = mochiBitmap(w, h, col, mood, face, wear = true, headroom = motion.headroom)
+    val other = alt?.let { mochiBitmap(w, h, col, mood, it, wear = true, headroom = motion.headroom) }
+    for (b in listOfNotNull(main, main, main, other ?: main)) {
         val frame = RemoteViews(context.packageName, R.layout.widget_frame)
-        frame.setImageViewBitmap(R.id.frame, mochiBitmap(w, h, col, mood, p.face ?: face, wear = true, squash = p.squash, lift = p.lift))
+        frame.setImageViewBitmap(R.id.frame, b)
         flip.addView(R.id.flip, frame)
     }
-    flip.setInt(R.id.flip, "setFlipInterval", interval)
     return flip
 }
 
@@ -218,7 +220,7 @@ class MochiWidget : GlanceAppWidget() {
         val data = Store.state.value
         val focusing = data.pomodoro.phase == Phase.FOCUS
         Store.applyLook()
-        val image = moving(context, if (pending0(data) == 0) HOP else IDLE, if (focusing) Mood.FOCUS else Mood.IDLE, 168, 140, 420)
+        val image = moving(context, if (pending0(data) == 0) Motion.HOP else Motion.BOB, if (focusing) Mood.FOCUS else Mood.IDLE, 240, 220, alt = MochiEngine.Eye.HAPPY)
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }.let { if (data.name.isBlank()) it else "$it, ${data.name}" }
         val pending = pendingCount(data.tasks)
@@ -227,7 +229,7 @@ class MochiWidget : GlanceAppWidget() {
                 card(Mood2.MOCHI).padding(12.dp).clickable(openApp(context, "home")),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically,
             ) {
-                AndroidRemoteViews(image, GlanceModifier.size(110.dp, 92.dp))
+                AndroidRemoteViews(image, GlanceModifier.size(124.dp, 114.dp))
                 Text(hello, style = TextStyle(color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold))
                 if (next != null) {
                     val min = ((next.begin - now) / 60_000).toInt()
@@ -255,7 +257,7 @@ class BreatheWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Store.init(context)
         Store.applyLook()
-        val image = moving(context, BREATH, Mood.BREATHING, 120, 100, 1000, soft = true)
+        val image = moving(context, Motion.BREATH, Mood.BREATHING, 160, 146)
         val week = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
             add(Calendar.DAY_OF_YEAR, -((get(Calendar.DAY_OF_WEEK) + 5) % 7))
@@ -264,7 +266,7 @@ class BreatheWidget : GlanceAppWidget() {
         provideContent {
             Column(card(Mood2.BREATHE).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.clickable(openApp(context, "breathe"))) {
-                    AndroidRemoteViews(image, GlanceModifier.size(64.dp, 54.dp))
+                    AndroidRemoteViews(image, GlanceModifier.size(72.dp, 66.dp))
                     Spacer(GlanceModifier.width(8.dp))
                     Column {
                         Text("Respirar", style = TextStyle(color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold))
@@ -298,7 +300,7 @@ class PomodoroWidget : GlanceAppWidget() {
         val p = Store.state.value.pomodoro
         val now = System.currentTimeMillis()
         Store.applyLook()
-        val image = moving(context, if (p.phase == Phase.FOCUS && !p.isPaused()) BREATH.take(6) else IDLE, if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, 132, 110, 700, soft = p.phase == Phase.FOCUS)
+        val image = moving(context, if (p.phase == Phase.FOCUS && !p.isPaused()) Motion.SNOOZE else Motion.BOB, if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, 160, 146)
         val running = p.phase != Phase.IDLE && !p.isPaused() && p.endsAt != null
         val countdown = RemoteViews(context.packageName, R.layout.widget_chrono).apply {
             val base = SystemClock.elapsedRealtime() + ((p.endsAt ?: now) - now)
@@ -307,7 +309,7 @@ class PomodoroWidget : GlanceAppWidget() {
         }
         provideContent {
             Row(card(Mood2.FOCUS).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(GlanceModifier.size(66.dp, 55.dp).clickable(openApp(context, "focus"))) { AndroidRemoteViews(image, GlanceModifier.fillMaxSize()) }
+                Box(GlanceModifier.size(72.dp, 66.dp).clickable(openApp(context, "focus"))) { AndroidRemoteViews(image, GlanceModifier.fillMaxSize()) }
                 Spacer(GlanceModifier.width(8.dp))
                 Column(GlanceModifier.defaultWeight().clickable(openApp(context, "focus"))) {
                     Text(
@@ -421,7 +423,7 @@ class SleepWidget : GlanceAppWidget() {
         val lastToday = last?.takeIf { it.night == dayKey(now) }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val night = hour >= 20 || hour < 6
-        val image = moving(context, SNOOZE, Mood.SLEEPY, 140, 116, 900, soft = true)
+        val image = moving(context, Motion.SNOOZE, Mood.SLEEPY, 190, 172)
         val title = when {
             lastToday != null -> "${lastToday.minutes / 60} h ${"%02d".format(lastToday.minutes % 60)} anoche"
             night -> "Hora de descansar"
@@ -435,7 +437,7 @@ class SleepWidget : GlanceAppWidget() {
         }
         provideContent {
             Row(card(Mood2.SLEEP).padding(12.dp).clickable(openApp(context, "sleep")), verticalAlignment = Alignment.CenterVertically) {
-                AndroidRemoteViews(image, GlanceModifier.size(76.dp, 63.dp))
+                AndroidRemoteViews(image, GlanceModifier.size(92.dp, 84.dp))
                 Spacer(GlanceModifier.width(10.dp))
                 Column(GlanceModifier.defaultWeight()) {
                     Text("Sueño", style = TextStyle(color = Violet, fontSize = 12.sp, fontWeight = FontWeight.Bold))
@@ -518,11 +520,11 @@ class StreaksWidget : GlanceAppWidget() {
         val today = Store.state.value.habits.filter { it.scheduledOn(cal) }
             .map { Triple(it.id, "${it.emoji} ${it.name}", it.streak(now)) to it.doneOn(now) }
         val left = today.count { !it.second }
-        val image = moving(context, if (today.isNotEmpty() && left == 0) HOP else IDLE, Mood.IDLE, 96, 80, 420)
+        val image = moving(context, if (today.isNotEmpty() && left == 0) Motion.HOP else Motion.BOB, Mood.IDLE, 110, 100)
         provideContent {
             Column(card(Mood2.STREAK).padding(12.dp)) {
                 Row(GlanceModifier.fillMaxWidth().clickable(openApp(context, "streaks")), verticalAlignment = Alignment.CenterVertically) {
-                    AndroidRemoteViews(image, GlanceModifier.size(36.dp, 30.dp))
+                    AndroidRemoteViews(image, GlanceModifier.size(42.dp, 38.dp))
                     Spacer(GlanceModifier.width(6.dp))
                     Text(
                         when {

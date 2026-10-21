@@ -297,8 +297,8 @@ object MochiNotifier {
         // A soft circle behind Mochi.
         p.color = if (dark) 0x22FFFFFF else 0x55FFFFFF
         c.drawCircle(w * 0.78f, h * 0.55f, h * 0.42f, p)
-        val mochi = mochiBitmap(440, 366, Color(color), Mood.IDLE, face, wear = true)
-        c.drawBitmap(mochi, null, RectF(w * 0.78f - 220f, h * 0.55f - 190f, w * 0.78f + 220f, h * 0.55f + 176f), Paint(Paint.FILTER_BITMAP_FLAG))
+        val mochi = mochiBitmap(440, 400, Color(color), Mood.IDLE, face, wear = true, headroom = 0.3f)
+        c.drawBitmap(mochi, null, RectF(w * 0.78f - 220f, h * 0.55f - 220f, w * 0.78f + 220f, h * 0.55f + 180f), Paint(Paint.FILTER_BITMAP_FLAG))
         val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = if (dark) 0xFFF5F3FF.toInt() else 0xFF1F1A2E.toInt()
             textSize = 56f
@@ -319,7 +319,7 @@ object MochiNotifier {
     ) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val color = Store.state.value.mochiColor
-        val icon = mochiBitmap(256, 214, Color(color), Mood.IDLE, face, wear = true)
+        val icon = mochiBitmap(256, 256, Color(color), Mood.IDLE, face, wear = true, headroom = 0.3f)
         val b = NotificationCompat.Builder(context, channel)
             .setSmallIcon(mx.loperstack.mochi.shared.R.drawable.ic_stat_mochi)
             .setColor(theme.accent)

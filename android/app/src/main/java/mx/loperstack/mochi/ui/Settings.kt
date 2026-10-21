@@ -57,6 +57,7 @@ import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import mx.loperstack.mochi.data.AppData
 import mx.loperstack.mochi.data.GoogleTasks
 import mx.loperstack.mochi.data.Store
@@ -238,6 +239,10 @@ fun SettingsSheet(
                 mx.loperstack.mochi.mochi.Haptics.enabled = it
                 if (it) mx.loperstack.mochi.mochi.Haptics.click(context)
             }
+            if (data.haptics) {
+                Spacer(Modifier.height(6.dp))
+                HapticStrength(data.hapticStrength)
+            }
             Spacer(Modifier.height(10.dp))
             ToggleRow("Respirar con vibración", "Pulsos que crecen al inhalar y se apagan al exhalar, en el teléfono", data.breathHaptics) {
                 Store.setBreathHaptics(it)
@@ -245,6 +250,8 @@ fun SettingsSheet(
             }
             SectionTitle("Notificaciones")
             NotificationSettings(data.notify)
+            SectionTitle("Copia de seguridad")
+            BackupRow()
             SectionTitle("Tus dispositivos")
             Devices(google)
         }
@@ -330,5 +337,82 @@ fun OutfitChips(current: String) {
             }
             Segment("$icon ${o.label}", current == o.name) { Store.setOutfit(o.name) }
         }
+    }
+}
+
+/** Ajustes → Vibración → Intensidad: scales every tap, thud and purr (phone and watch). */
+@Composable
+fun HapticStrength(current: Float) {
+    val context = LocalContext.current
+    var v by remember { mutableStateOf(current) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Intensidad", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(end = 12.dp))
+        androidx.compose.material3.Slider(
+            value = v, onValueChange = { v = it }, valueRange = 0.2f..1f, steps = 7,
+            onValueChangeFinished = { Store.setHapticStrength(v); mx.loperstack.mochi.mochi.Haptics.thud(context) },
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            when { v < 0.4f -> "Suave"; v < 0.75f -> "Media"; else -> "Fuerte" },
+            fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp),
+        )
+    }
+}
+
+/** Ajustes → Copia de seguridad: all of Mochi in one .zip, and back. */
+@Composable
+fun BackupRow() {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var confirm by remember { mutableStateOf<android.net.Uri?>(null) }
+    fun toast(t: String) = android.widget.Toast.makeText(context, t, android.widget.Toast.LENGTH_LONG).show()
+    val save = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.export(context, uri) }
+            toast(if (ok) "Copia guardada ✓" else "No se pudo guardar la copia")
+            if (ok) mx.loperstack.mochi.mochi.Haptics.success(context)
+        }
+    }
+    val open = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) confirm = uri }
+    Label("Todo Mochi en un archivo .zip: ajustes, tareas, diario con fotos, ánimo, sueño, respiraciones y rachas. Guárdalo en Drive o donde quieras.", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            "💾 Crear copia", fontWeight = FontWeight.Bold, color = Ink.Ground, fontSize = 14.sp,
+            modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.VioletSoft).clickable {
+                mx.loperstack.mochi.mochi.Haptics.click(context)
+                val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                save.launch("Mochi-copia-$day.zip")
+            }.padding(horizontal = 16.dp, vertical = 11.dp),
+        )
+        Text(
+            "♻️ Restaurar", fontWeight = FontWeight.Bold, color = Ink.Text, fontSize = 14.sp,
+            modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp)).clickable {
+                mx.loperstack.mochi.mochi.Haptics.click(context)
+                open.launch(arrayOf("application/zip", "application/octet-stream"))
+            }.padding(horizontal = 16.dp, vertical = 11.dp),
+        )
+    }
+    confirm?.let { uri ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text("¿Restaurar la copia?") },
+            text = { Text("Lo que tienes ahora en Mochi se reemplaza por lo de la copia.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    confirm = null
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.restore(context, uri) }
+                        toast(if (ok) "Copia restaurada ✓" else "Ese archivo no es una copia de Mochi")
+                        if (ok) mx.loperstack.mochi.mochi.Haptics.success(context)
+                    }
+                }) { Text("Restaurar") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = null }) { Text("Cancelar") } },
+        )
     }
 }

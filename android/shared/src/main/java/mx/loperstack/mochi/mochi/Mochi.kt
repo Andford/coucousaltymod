@@ -224,6 +224,8 @@ fun mochiBitmap(
     wear: Boolean = face == null,
     /** A pose for animated widgets: vertical squash (1 = rest) and lift (px of the unit box). */
     squash: Float = 1f, lift: Float = 0f,
+    /** Empty room above him, as a share of the height, so hats and ears (and a hop) fit. */
+    headroom: Float = 0f,
 ): Bitmap {
     val image = ImageBitmap(widthPx, heightPx)
     val engine = MochiEngine().apply {
@@ -232,7 +234,10 @@ fun mochiBitmap(
         pose(squash, lift)
     }
     CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(widthPx.toFloat(), heightPx.toFloat())) {
-        engine.draw(this)
+        val top = heightPx * headroom.coerceIn(0f, 0.6f)
+        val inner = heightPx - top
+        val side = ((widthPx - inner * 1.2f) / 2f).coerceAtLeast(0f)
+        androidx.compose.ui.graphics.drawscope.inset(side, top, side, 0f) { engine.draw(this) }
     }
     return image.asAndroidBitmap()
 }

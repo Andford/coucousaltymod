@@ -196,6 +196,7 @@ fun WearApp() {
             composable("sleep") { SleepReport(snap) }
             composable("battery") { Batteries(snap) }
             composable("mood") { MoodPicker(snap) { nav.popBackStack() } }
+            composable("pet") { WatchPet(snap) }
         }
     }
 }
@@ -255,6 +256,15 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
+            item {
+                Chip(
+                    onClick = { go("pet") },
+                    label = { Text("Mimos") },
+                    secondaryLabel = { Text("Juega y apapacha a Mochi") },
+                    colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             item {
                 Chip(

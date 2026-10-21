@@ -99,6 +99,7 @@ object WearSync {
             soundOn = d.soundOn,
             name = d.name,
             haptics = d.haptics,
+            hapticStrength = d.hapticStrength,
             sleepMin = d.sleep.lastOrNull()?.minutes ?: 0,
             sleepNight = d.sleep.lastOrNull()?.night ?: "",
             flat = d.mochiFlat,

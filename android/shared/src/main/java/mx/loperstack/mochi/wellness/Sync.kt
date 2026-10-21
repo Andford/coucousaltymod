@@ -54,6 +54,7 @@ data class Snapshot(
     val name: String = "",
     /** Taps and navigation vibrate (Ajustes on the phone). */
     val haptics: Boolean = true,
+    val hapticStrength: Float = 1f,
     /** Last night's sleep in minutes (0 = not logged), and its morning, yyyy-MM-dd. */
     val sleepMin: Int = 0,
     val sleepNight: String = "",
@@ -124,7 +125,7 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("sound", soundOn)
     .put("mood", moodToday)
     .put("name", name)
-    .put("haptics", haptics)
+    .put("haptics", haptics).put("hapticStrength", hapticStrength.toDouble())
     .put("sleepMin", sleepMin)
     .put("sleepNight", sleepNight)
     .put("flat", flat)
@@ -169,6 +170,7 @@ fun snapshotOf(raw: String?): Snapshot {
             moodToday = o.optInt("mood", 0).coerceIn(0, 5),
             name = o.optString("name", "").take(30),
             haptics = o.optBoolean("haptics", true),
+            hapticStrength = o.optDouble("hapticStrength", 1.0).toFloat().coerceIn(0.2f, 1f),
             sleepMin = o.optInt("sleepMin", 0).coerceIn(0, 24 * 60),
             sleepNight = o.optString("sleepNight", ""),
             flat = o.optBoolean("flat", true),

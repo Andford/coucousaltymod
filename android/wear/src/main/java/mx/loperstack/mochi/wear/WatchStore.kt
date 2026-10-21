@@ -61,6 +61,7 @@ object WatchStore {
         _state.value = snapshotOf(prefs.getString("snapshot", null))
         Sounds.enabled = _state.value.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
+        mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
         mx.loperstack.mochi.mochi.MochiStyle.flat = _state.value.flat
         applyLook()
     }
@@ -72,6 +73,7 @@ object WatchStore {
         _state.value = s
         Sounds.enabled = s.soundOn
         mx.loperstack.mochi.mochi.Haptics.enabled = s.haptics
+        mx.loperstack.mochi.mochi.Haptics.strength = s.hapticStrength
         mx.loperstack.mochi.mochi.MochiStyle.flat = s.flat
         applyLook()
         prefs.edit().putString("snapshot", json).apply()
@@ -171,7 +173,7 @@ object WatchStore {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         mx.loperstack.mochi.mochi.MochiStyle.rest = when {
             s.sleepNight != today || s.sleepMin <= 0 -> mx.loperstack.mochi.mochi.Rest.UNKNOWN
-            s.sleepMin < 360 -> mx.loperstack.mochi.mochi.Rest.TIRED
+            s.sleepMin < 360 -> if (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) < 12) mx.loperstack.mochi.mochi.Rest.TIRED else mx.loperstack.mochi.mochi.Rest.OK
             s.sleepMin >= 420 -> mx.loperstack.mochi.mochi.Rest.GREAT
             else -> mx.loperstack.mochi.mochi.Rest.OK
         }

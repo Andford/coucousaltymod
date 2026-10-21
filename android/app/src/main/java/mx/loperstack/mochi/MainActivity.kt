@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
         Store.applyLook()
         }
         mx.loperstack.mochi.mochi.Haptics.enabled = Store.state.value.haptics
+        mx.loperstack.mochi.mochi.Haptics.strength = Store.state.value.hapticStrength
         PomodoroScheduler.channels(this)
         mx.loperstack.mochi.wellness.BedReminder.sync(this)
         catchUp()

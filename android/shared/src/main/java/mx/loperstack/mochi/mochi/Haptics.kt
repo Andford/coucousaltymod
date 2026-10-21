@@ -15,6 +15,12 @@ object Haptics {
     /** Taps and navigation (Ajustes → Vibración háptica). */
     @Volatile var enabled = true
 
+    /** How strong, 0.2 … 1 (Ajustes → Intensidad); scales every effect. */
+    @Volatile var strength = 1f
+
+    private fun sc(x: Float) = (x * strength).coerceIn(0.05f, 1f)
+    private fun amp(a: Int) = (a * strength).toInt().coerceIn(1, 255)
+
     private fun vibrator(context: Context): Vibrator? =
         runCatching { context.getSystemService(VibratorManager::class.java)?.defaultVibrator }.getOrNull()
 
@@ -24,7 +30,7 @@ object Haptics {
         val v = vibrator(context) ?: return
         runCatching {
             val effect = if (v.areAllPrimitivesSupported(primitive)) {
-                VibrationEffect.startComposition().addPrimitive(primitive, scale).compose()
+                VibrationEffect.startComposition().addPrimitive(primitive, sc(scale)).compose()
             } else VibrationEffect.createPredefined(fallback)
             v.vibrate(effect)
         }
@@ -50,7 +56,7 @@ object Haptics {
             val c = VibrationEffect.Composition.PRIMITIVE_CLICK
             v.vibrate(
                 if (v.areAllPrimitivesSupported(c)) {
-                    VibrationEffect.startComposition().addPrimitive(c, 0.5f).addPrimitive(c, 1f, 90).compose()
+                    VibrationEffect.startComposition().addPrimitive(c, sc(0.5f)).addPrimitive(c, sc(1f), 90).compose()
                 } else VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK),
             )
         }
@@ -66,8 +72,8 @@ object Haptics {
         runCatching {
             if (!guide || !v.hasAmplitudeControl()) {
                 v.vibrate(
-                    if (inhale) VibrationEffect.createOneShot(70, 140)
-                    else VibrationEffect.createWaveform(longArrayOf(0, 45, 90, 45), intArrayOf(0, 110, 0, 110), -1),
+                    if (inhale) VibrationEffect.createOneShot(70, amp(140))
+                    else VibrationEffect.createWaveform(longArrayOf(0, 45, 90, 45), intArrayOf(0, amp(110), 0, amp(110)), -1),
                 )
                 return
             }
@@ -83,7 +89,7 @@ object Haptics {
                 timings[i * 2] = if (i == 0) 0 else period - on
                 amps[i * 2] = 0
                 timings[i * 2 + 1] = on
-                amps[i * 2 + 1] = (25 + 200 * level).toInt().coerceIn(1, 255)
+                amps[i * 2 + 1] = amp((25 + 200 * level).toInt())
             }
             v.vibrate(VibrationEffect.createWaveform(timings, amps, -1))
         }
@@ -101,8 +107,8 @@ object Haptics {
             val t = VibrationEffect.Composition.PRIMITIVE_THUD
             v.vibrate(
                 if (v.areAllPrimitivesSupported(t)) {
-                    VibrationEffect.startComposition().addPrimitive(t, 0.6f).addPrimitive(t, 0.35f, 140).compose()
-                } else VibrationEffect.createWaveform(longArrayOf(0, 40, 120, 30), intArrayOf(0, 160, 0, 90), -1),
+                    VibrationEffect.startComposition().addPrimitive(t, sc(0.6f)).addPrimitive(t, sc(0.35f), 140).compose()
+                } else VibrationEffect.createWaveform(longArrayOf(0, 40, 120, 30), intArrayOf(0, amp(160), 0, amp(90)), -1),
             )
         }
     }
@@ -115,7 +121,7 @@ object Haptics {
             val c = VibrationEffect.Composition.PRIMITIVE_TICK
             v.vibrate(
                 if (v.areAllPrimitivesSupported(c)) {
-                    VibrationEffect.startComposition().addPrimitive(c, 0.7f).addPrimitive(c, 0.5f, 60).addPrimitive(c, 0.8f, 60).addPrimitive(c, 0.4f, 60).compose()
+                    VibrationEffect.startComposition().addPrimitive(c, sc(0.7f)).addPrimitive(c, sc(0.5f), 60).addPrimitive(c, sc(0.8f), 60).addPrimitive(c, sc(0.4f), 60).compose()
                 } else VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK),
             )
         }

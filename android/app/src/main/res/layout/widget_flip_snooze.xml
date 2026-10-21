@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mochi's frames on a widget: Glance can't animate, a ViewFlipper can (crisp steps). -->
+<!-- Mochi moving on a widget: each flip plays a smooth tween on the next frame. -->
 <ViewFlipper xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/flip"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:autoStart="true"
-    android:flipInterval="420" />
+    android:flipInterval="3200"
+    android:inAnimation="@anim/mochi_snooze" />

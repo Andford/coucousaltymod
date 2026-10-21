@@ -44,12 +44,14 @@ data class SleepGoal(val bedMin: Int = 23 * 60, val wakeMin: Int = 7 * 60) {
     val minutes: Int get() = ((wakeMin - bedMin + 24 * 60) % (24 * 60)).let { if (it == 0) 24 * 60 else it }
 }
 
-/** How last night shows on Mochi: under 6 h tired, 7 h or more rested; only on that morning's day. */
+/** How last night shows on Mochi: under 6 h tired (eye bags until noon), 7 h or more rested; only on that morning's day. */
 fun restLevel(list: List<SleepEntry>, now: Long): mx.loperstack.mochi.mochi.Rest {
     val last = list.lastOrNull() ?: return mx.loperstack.mochi.mochi.Rest.UNKNOWN
     if (last.night != dayKey(now)) return mx.loperstack.mochi.mochi.Rest.UNKNOWN
     return when {
-        last.minutes < 6 * 60 -> mx.loperstack.mochi.mochi.Rest.TIRED
+        last.minutes < 6 * 60 ->
+            if (Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY) < 12) mx.loperstack.mochi.mochi.Rest.TIRED
+            else mx.loperstack.mochi.mochi.Rest.OK
         last.minutes >= 7 * 60 -> mx.loperstack.mochi.mochi.Rest.GREAT
         else -> mx.loperstack.mochi.mochi.Rest.OK
     }

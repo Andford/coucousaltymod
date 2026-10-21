@@ -39,6 +39,7 @@ data class AppData(
     val onboarded: Boolean = false,
     /** Vibration on taps and navigation (phone and watch). */
     val haptics: Boolean = true,
+    val hapticStrength: Float = 1f,
     /** The breathing guide also vibrates on the phone. */
     val breathHaptics: Boolean = true,
     /** Nights, oldest first. */
@@ -109,6 +110,18 @@ object Store {
         if (::prefs.isInitialized) return
         app = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences("mochi", Context.MODE_PRIVATE)
+        load()
+    }
+
+    /** After restoring a backup: read everything again, and tell the watch and widgets. */
+    fun reload() {
+        load()
+        applyLook()
+        changed()
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    private fun load() {
         // Mochi now looks like the PC's: the old violet default becomes white, once.
         if (!prefs.getBoolean("pcLook", false)) {
             val e = prefs.edit().putBoolean("pcLook", true)
@@ -126,6 +139,7 @@ object Store {
             theme = prefs.getString("theme", "pixel") ?: "pixel",
             onboarded = prefs.getBoolean("onboarded", false),
             haptics = prefs.getBoolean("haptics", true),
+            hapticStrength = prefs.getFloat("hapticStrength", 1f).coerceIn(0.2f, 1f),
             breathHaptics = prefs.getBoolean("breathHaptics", true),
             sleep = sleepOf(prefs.getString("sleep", null)),
             sleepGoal = SleepGoal(prefs.getInt("bedMin", 23 * 60), prefs.getInt("wakeMin", 7 * 60)),
@@ -142,6 +156,8 @@ object Store {
         )
         _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)))
         mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
+        mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
+        mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
     }
 
     /** Every change reaches the watch and the home screen widgets. */
@@ -211,6 +227,14 @@ object Store {
     fun setHaptics(on: Boolean) {
         _state.value = _state.value.copy(haptics = on)
         prefs.edit().putBoolean("haptics", on).apply()
+        changed()
+    }
+
+    fun setHapticStrength(x: Float) {
+        val v = x.coerceIn(0.2f, 1f)
+        _state.value = _state.value.copy(hapticStrength = v)
+        prefs.edit().putFloat("hapticStrength", v).apply()
+        mx.loperstack.mochi.mochi.Haptics.strength = v
         changed()
     }
 

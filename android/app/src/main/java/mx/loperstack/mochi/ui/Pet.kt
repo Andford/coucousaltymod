@@ -78,7 +78,7 @@ import kotlin.math.sqrt
 
 private val GESTURES = listOf(
     "👉 Toca: piquete", "✨ Doble toque: salto", "🤗 Mantén: abrazo", "💜 Acarícialo: ronronea",
-    "🤭 Frota rápido: cosquillas", "🤏 Pellizca: apachúrralo", "🚀 Lánzalo: rebota", "📳 Agita el teléfono: se marea",
+    "🤭 Frota rápido: cosquillas", "🤏 Pellizca: apachúrralo", "🚀 Lánzalo: rebota como pelota", "📳 Agita el teléfono: se marea",
 )
 
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -98,6 +98,61 @@ fun PetScreen(color: Color, actions: Actions) {
     fun pet(text: String) {
         said = text
         count = Store.addPet()
+    }
+
+    var physics by remember { mutableStateOf<Job?>(null) }
+    var area by remember { mutableStateOf(Offset.Zero) }
+
+    /**
+     * He flies like a rubber ball: gravity, bounces off the walls and the floor
+     * (squash, a thud as strong as the hit), rolls to a stop on the floor, then
+     * springs back to the middle.
+     */
+    suspend fun bounce(v0: Offset) {
+        val bx = ((area.x - mochiW) / 2f).coerceAtLeast(1f)
+        val by = ((area.y - mochiH) / 2f).coerceAtLeast(1f)
+        val g = with(density) { 2600.dp.toPx() }
+        var p = pos.value
+        var v = v0
+        var last = 0L
+        var still = 0
+        var lastHit = 0L
+        val start = System.nanoTime()
+        fun hit(speed: Float) {
+            val t = System.currentTimeMillis()
+            if (t - lastHit < 70) return
+            lastHit = t
+            engine.bump()
+            when {
+                speed > 2200f -> { Haptics.thud(context); Sounds.play("pop") }
+                speed > 700f -> Haptics.thud(context)
+                else -> Haptics.tick(context)
+            }
+        }
+        while (true) {
+            val nanos = androidx.compose.runtime.withFrameNanos { it }
+            if (last == 0L) { last = nanos; continue }
+            val dt = ((nanos - last) / 1e9f).coerceAtMost(1 / 30f)
+            last = nanos
+            v = Offset(v.x, v.y + g * dt)
+            p += v * dt
+            if (p.x > bx || p.x < -bx) {
+                hit(abs(v.x)); p = Offset(p.x.coerceIn(-bx, bx), p.y); v = Offset(-v.x * 0.78f, v.y)
+            }
+            if (p.y < -by) { hit(abs(v.y)); p = Offset(p.x, -by); v = Offset(v.x, -v.y * 0.7f) }
+            if (p.y > by) {
+                val impact = abs(v.y)
+                p = Offset(p.x, by)
+                if (impact > 260f) { hit(impact); v = Offset(v.x * 0.9f, -impact * 0.68f) }
+                else { v = Offset(v.x * 0.86f, 0f); still++ }
+            }
+            pos.snapTo(p)
+            if ((still > 8 && abs(v.x) < 30f) || System.nanoTime() - start > 9_000_000_000L) break
+        }
+        delay(250)
+        Haptics.rise(context)
+        engine.cheer()
+        pos.animateTo(Offset.Zero, spring(dampingRatio = 0.32f, stiffness = Spring.StiffnessLow))
     }
 
     // Shake the phone: dizzy.
@@ -140,8 +195,12 @@ fun PetScreen(color: Color, actions: Actions) {
             Modifier.fillMaxWidth().weight(1f).padding(bottom = 12.dp).clip(RoundedCornerShape(36.dp)).background(Ink.Card)
                 .pointerInput(Unit) {
                     var lastTap = 0L
+                    area = Offset(size.width.toFloat(), size.height.toFloat())
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        // Catch him mid-air.
+                        area = Offset(size.width.toFloat(), size.height.toFloat())
+                        if (physics?.isActive == true) { physics?.cancel(); physics = null }
                         val startT = down.uptimeMillis
                         val downWall = System.currentTimeMillis()
                         val center = Offset(size.width / 2f, size.height / 2f) + pos.value
@@ -231,39 +290,29 @@ fun PetScreen(color: Color, actions: Actions) {
                                     engine.slap()
                                     if (!wasDizzy) { if (engine.dizzy.value) Haptics.spin(context) else Haptics.thud(context) }
                                     pet(if (engine.dizzy.value) "Demasiados piquetes 😵" else "¡Oye! 😠")
+                                    // …and he hops off the poke, bouncing on the floor.
+                                    if (!engine.dizzy.value && physics?.isActive != true) {
+                                        val side = ((down.position.x - center.x) / (mochiW * 0.42f)).coerceIn(-1f, 1f)
+                                        physics = scope.launch { bounce(Offset(-side * 700f, -1500f)) }
+                                    }
                                 }
                                 lastTap = now
                             }
                             travel >= 14f -> {
                                 val v = vt.calculateVelocity()
-                                if (hypot(v.x, v.y) > 2200f) {
+                                if (hypot(v.x, v.y) > 1100f) {
                                     pet("¡Allá va! 🚀")
                                     Sounds.play("open")
-                                    scope.launch {
-                                        val bx = (size.width - mochiW) / 2f
-                                        val by = (size.height - mochiH) / 2f
-                                        pos.updateBounds(Offset(-bx, -by), Offset(bx, by))
-                                        var vel = Offset(v.x, v.y)
-                                        for (bounce in 0 until 5) {
-                                            val res = pos.animateDecay(vel, exponentialDecay(frictionMultiplier = 1.4f))
-                                            if (res.endReason != AnimationEndReason.BoundReached) break
-                                            engine.bump()
-                                            Haptics.thud(context)
-                                            Sounds.play("pop")
-                                            val p = pos.value
-                                            val end = res.endState.velocity
-                                            vel = Offset(
-                                                if (abs(p.x) >= bx - 1f) -end.x * 0.55f else end.x * 0.8f,
-                                                if (abs(p.y) >= by - 1f) -end.y * 0.55f else end.y * 0.8f,
-                                            )
-                                            if (hypot(vel.x, vel.y) < 400f) break
-                                        }
-                                        pos.animateTo(Offset.Zero, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow))
-                                    }
+                                    physics?.cancel()
+                                    physics = scope.launch { bounce(Offset(v.x, v.y)) }
                                 } else if (onBody) {
                                     pet("Prrr… 💜")
                                 }
                             }
+                        }
+                        // Caught mid-air and let go: back to the middle, wobbling.
+                        if (physics?.isActive != true && pos.value != Offset.Zero && !pos.isRunning) {
+                            scope.launch { pos.animateTo(Offset.Zero, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessLow)) }
                         }
                     }
                 },

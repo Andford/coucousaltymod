@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
@@ -237,7 +238,7 @@ fun mochiBitmap(
         val top = heightPx * headroom.coerceIn(0f, 0.6f)
         val inner = heightPx - top
         val side = ((widthPx - inner * 1.2f) / 2f).coerceAtLeast(0f)
-        androidx.compose.ui.graphics.drawscope.inset(side, top, side, 0f) { engine.draw(this) }
+        inset(side, top, side, 0f) { engine.draw(this) }
     }
     return image.asAndroidBitmap()
 }

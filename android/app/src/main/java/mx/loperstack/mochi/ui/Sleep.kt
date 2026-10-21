@@ -153,7 +153,7 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
                 logging = null
                 showLog = true
             }
-            PrimaryButton("Del reloj", Modifier.weight(1f), Ink.CardHigh, Ink.Text, fromWatch)
+            PrimaryButton("Del reloj", Modifier.weight(1f), Ink.CardHigh, Ink.Text, onClick = fromWatch)
         }
         if (stats != null) {
             Spacer(Modifier.height(14.dp))

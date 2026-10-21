@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 
 /**
  * The app's colours. They follow the theme you pick: your Pixel's wallpaper
@@ -169,20 +171,20 @@ object Glyph {
     }
 
     // Material Symbols, rounded (Material 3 Expressive), in place of the mockup's strokes.
-    val Home = androidx.compose.material.icons.Icons.Rounded.Home
-    val Tasks = androidx.compose.material.icons.Icons.Rounded.TaskAlt
-    val Focus = androidx.compose.material.icons.Icons.Rounded.Timer
-    val Breathe = androidx.compose.material.icons.Icons.Rounded.SelfImprovement
-    val Diary = androidx.compose.material.icons.Icons.Rounded.AutoStories
-    val Heart = androidx.compose.material.icons.Icons.Rounded.Favorite
-    val Moon = androidx.compose.material.icons.Icons.Rounded.Bedtime
-    val Pc = androidx.compose.material.icons.Icons.Rounded.Laptop
-    val Gear = androidx.compose.material.icons.Icons.Rounded.Settings
-    val Video = androidx.compose.material.icons.Icons.Rounded.Videocam
-    val Back = androidx.compose.material.icons.Icons.Rounded.ArrowBack
-    val Skip = androidx.compose.material.icons.Icons.Rounded.SkipNext
-    val Reset = androidx.compose.material.icons.Icons.Rounded.Replay
-    val Plus = androidx.compose.material.icons.Icons.Rounded.Add
-    val Close = androidx.compose.material.icons.Icons.Rounded.Close
-    val Calendar = androidx.compose.material.icons.Icons.Rounded.CalendarMonth
+    val Home = Icons.Rounded.Home
+    val Tasks = Icons.Rounded.TaskAlt
+    val Focus = Icons.Rounded.Timer
+    val Breathe = Icons.Rounded.SelfImprovement
+    val Diary = Icons.Rounded.AutoStories
+    val Heart = Icons.Rounded.Favorite
+    val Moon = Icons.Rounded.Bedtime
+    val Pc = Icons.Rounded.Laptop
+    val Gear = Icons.Rounded.Settings
+    val Video = Icons.Rounded.Videocam
+    val Back = Icons.Rounded.ArrowBack
+    val Skip = Icons.Rounded.SkipNext
+    val Reset = Icons.Rounded.Replay
+    val Plus = Icons.Rounded.Add
+    val Close = Icons.Rounded.Close
+    val Calendar = Icons.Rounded.CalendarMonth
 }

@@ -4,8 +4,8 @@
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="110dp"
     android:minHeight="110dp"
-    android:targetCellWidth=" márcalas desde aquí"
-    android:targetCellHeight="3:2"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="1800000" />

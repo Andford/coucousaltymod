@@ -5,6 +5,11 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+
+import mx.loperstack.mochi.mochi.Squircle
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -185,17 +190,17 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Diario", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            ScreenTitle("Diario", Modifier.weight(1f))
             if (run > 0) {
-                Text(
-                    "🔥 $run", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316),
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0x26F97316)).padding(horizontal = 10.dp, vertical = 5.dp),
+                IconLabel(
+                    Icons.Rounded.LocalFireDepartment, "$run", Color(0xFFF97316),
+                    Modifier.clip(CircleShape).background(Color(0x26F97316)).padding(horizontal = 10.dp, vertical = 6.dp),
                 )
                 Spacer(Modifier.width(6.dp))
             }
             Text(
                 "Imagen", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink.VioletSoft,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ink.VioletDeep).clickable { card = true }
+                modifier = Modifier.clip(Squircle(12.dp)).background(Ink.VioletDeep).clickable { card = true }
                     .padding(horizontal = 10.dp, vertical = 5.dp),
             )
             Box {
@@ -220,7 +225,7 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
         icon = { Icon(Glyph.Plus, contentDescription = null) },
         text = { Text("Escribir", fontWeight = FontWeight.Bold) },
         containerColor = Ink.VioletDeep, contentColor = Ink.Text,
-        shape = RoundedCornerShape(20.dp),
+        shape = Squircle(20.dp),
         modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
     )
     }
@@ -263,8 +268,8 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
         }
     }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ink.Card)
-            .border(1.dp, Ink.VioletLine, RoundedCornerShape(24.dp))
+        Modifier.fillMaxWidth().clip(Squircle(24.dp)).background(Ink.Card)
+            .border(1.dp, Ink.VioletLine, Squircle(24.dp))
             .drawBehind {
                 val step = 30.dp.toPx()
                 var y = 96.dp.toPx()
@@ -291,7 +296,7 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
             for (m in MOODS) {
                 val on = log.mood == m.value
                 Column(
-                    Modifier.weight(1f).alpha(if (log.mood == 0 || on) 1f else 0.55f).clip(RoundedCornerShape(18.dp))
+                    Modifier.weight(1f).alpha(if (log.mood == 0 || on) 1f else 0.55f).clip(Squircle(18.dp))
                         .background(if (on) Color(m.color).copy(alpha = 0.18f) else Color.Transparent)
                         .clickable {
                             // Each tap is a moment of the day: 08:10 Genial, 18:05 Bajón…
@@ -326,12 +331,12 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
         OutlinedTextField(
             value = text, onValueChange = { text = it.take(500) }, modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(if (isToday) "Escribe una línea del día…" else "Agregar a este día…", color = Ink.Dim2) },
-            shape = RoundedCornerShape(16.dp), maxLines = 4,
+            shape = Squircle(16.dp), maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
             leadingIcon = {
                 IconButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                    Text("📷", fontSize = 18.sp)
+                    Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = "Foto", tint = Ink.VioletSoft)
                 }
             },
             trailingIcon = { IconButton(onClick = { submit() }) { Icon(Glyph.Plus, contentDescription = "Guardar", tint = Ink.Violet) } },
@@ -341,7 +346,7 @@ private fun LogCard(log: DayLog, number: Int, isToday: Boolean, actions: Actions
             ),
         )
         Spacer(Modifier.height(4.dp))
-        Text("📷 agrega fotos (el texto escrito queda como su pie). Solo se guarda en este teléfono.", fontSize = 11.sp, color = Ink.Dim2)
+        Text("Agrega fotos (el texto escrito queda como su pie). Solo se guarda en este teléfono.", fontSize = 11.sp, color = Ink.Dim2)
     }
 }
 
@@ -360,7 +365,7 @@ private fun NoteRow(day: String, n: LogNote, view: (String) -> Unit) {
             if (n.image != null) {
                 val bmp = rememberDiaryImage(n.image, 900)
                 Box(
-                    Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)).background(Ink.Track)
+                    Modifier.fillMaxWidth().height(190.dp).clip(Squircle(16.dp)).background(Ink.Track)
                         .clickable { view(n.image) },
                 ) {
                     if (bmp != null) Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -443,9 +448,9 @@ private fun DayCard(log: DayLog, number: Int, color: Color, name: String) {
     val photos = log.notes.mapNotNull { it.image }.take(4)
     val lines = log.notes.filter { it.text.isNotEmpty() }.take(8)
     Column(
-        Modifier.width(340.dp).clip(RoundedCornerShape(30.dp))
+        Modifier.width(340.dp).clip(Squircle(30.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF15121F), Color(0xFF0B0C0E), accent.copy(alpha = 0.35f))))
-            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(30.dp))
+            .border(1.dp, Color(0x33FFFFFF), Squircle(30.dp))
             .padding(22.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -459,7 +464,7 @@ private fun DayCard(log: DayLog, number: Int, color: Color, name: String) {
                 if (mood != null) {
                     Text(
                         mood.label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accent,
-                        modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f))
+                        modifier = Modifier.padding(top = 6.dp).clip(Squircle(10.dp)).background(accent.copy(alpha = 0.18f))
                             .padding(horizontal = 10.dp, vertical = 3.dp),
                     )
                 }
@@ -472,7 +477,7 @@ private fun DayCard(log: DayLog, number: Int, color: Color, name: String) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                     for (p in row) {
                         val bmp = rememberDiaryImage(p, 700)
-                        Box(Modifier.weight(1f).aspectRatio(if (photos.size == 1) 1.5f else 1f).clip(RoundedCornerShape(14.dp)).background(Color(0x14FFFFFF))) {
+                        Box(Modifier.weight(1f).aspectRatio(if (photos.size == 1) 1.5f else 1f).clip(Squircle(14.dp)).background(Color(0x14FFFFFF))) {
                             if (bmp != null) Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         }
                     }
@@ -539,12 +544,12 @@ private fun MonthGrid(logs: List<DayLog>, month: Long, selected: String, today: 
                     val future = key > today
                     val hasPhoto = entry?.notes?.any { it.image != null } == true
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(9.dp))
+                        Modifier.weight(1f).aspectRatio(1f).clip(Squircle(9.dp))
                             .background(mood?.let { Color(it.color).copy(alpha = 0.75f) } ?: Ink.Track)
                             .border(
                                 if (key == selected) 2.dp else if (key == today) 1.dp else 0.dp,
                                 if (key == selected) Ink.Text else if (key == today) Ink.VioletSoft else Color.Transparent,
-                                RoundedCornerShape(9.dp),
+                                Squircle(9.dp),
                             )
                             .clickable(enabled = !future) { onSelect(key) },
                         contentAlignment = Alignment.Center,
@@ -603,7 +608,7 @@ private fun MoodTimeline(log: DayLog) {
         for (e in log.moods) {
             val m = moodOf(e.value) ?: continue
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(m.color).copy(alpha = 0.16f)).padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                Modifier.clip(Squircle(16.dp)).background(Color(m.color).copy(alpha = 0.16f)).padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(SimpleDateFormat("HH:mm", MX).format(Date(e.at)), fontFamily = Mono, fontSize = 12.sp, color = Ink.Dim, fontWeight = FontWeight.Bold)
@@ -639,7 +644,7 @@ private fun Composer(day: String, actions: Actions, done: () -> Unit) {
             for (m in MOODS) {
                 val on = mood == m.value
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (on) Color(m.color).copy(alpha = 0.18f) else Color.Transparent)
+                    Modifier.weight(1f).clip(Squircle(18.dp)).background(if (on) Color(m.color).copy(alpha = 0.18f) else Color.Transparent)
                         .clickable { mood = if (on) 0 else m.value; mx.loperstack.mochi.mochi.Haptics.tick(context) }.padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -651,7 +656,7 @@ private fun Composer(day: String, actions: Actions, done: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = text, onValueChange = { text = it.take(500) }, modifier = Modifier.fillMaxWidth().height(170.dp),
-            placeholder = { Text("¿Qué pasó? ¿Qué sientes?", color = Ink.Dim2) }, shape = RoundedCornerShape(24.dp),
+            placeholder = { Text("¿Qué pasó? ¿Qué sientes?", color = Ink.Dim2) }, shape = Squircle(24.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
                 focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
@@ -659,12 +664,9 @@ private fun Composer(day: String, actions: Actions, done: () -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "📷  Fotos${if (photos.isEmpty()) "" else " · ${photos.size}"}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
-                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card)
-                    .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-            )
+            Pill("Fotos${if (photos.isEmpty()) "" else " · ${photos.size}"}", false, Icons.Rounded.AddPhotoAlternate) {
+                pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
         }
         Spacer(Modifier.height(18.dp))
         PrimaryButton("Guardar", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.Ground) {

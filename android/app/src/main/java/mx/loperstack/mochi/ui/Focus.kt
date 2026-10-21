@@ -4,6 +4,15 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.graphicsLayer
+import mx.loperstack.mochi.mochi.MShapes
+import mx.loperstack.mochi.mochi.PolygonShape
+
+import mx.loperstack.mochi.mochi.Squircle
 import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -82,11 +91,11 @@ fun NowPlayingCard(track: NowPlaying.Track?) {
     val context = LocalContext.current
     if (!NowPlaying.granted(context)) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ink.Card)
+            Modifier.fillMaxWidth().clip(Squircle(24.dp)).background(Ink.Card)
                 .clickable { NowPlaying.openSettings(context) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("🎵", fontSize = 24.sp)
+            ShapeIcon(Icons.Rounded.MusicNote, shape = MShapes.Cookie12, size = 44.dp)
             Column(Modifier.padding(start = 12.dp).weight(1f)) {
                 Text("Ver lo que suena", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Label("Permite a Mochi ver la música (acceso a notificaciones → Mochi)", Ink.Dim2, 12.sp)
@@ -97,24 +106,32 @@ fun NowPlayingCard(track: NowPlaying.Track?) {
     }
     if (track == null) return
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ink.Card).padding(12.dp),
+        Modifier.fillMaxWidth().clip(Squircle(24.dp)).background(Ink.Card).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Ink.VioletDeep), contentAlignment = Alignment.Center) {
+        // The cover in a turning cookie, like an expressive player.
+        val spin by androidx.compose.animation.core.rememberInfiniteTransition(label = "art").animateFloat(
+            0f, 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(20_000, easing = androidx.compose.animation.core.LinearEasing)), label = "r",
+        )
+        Box(
+            Modifier.size(60.dp).graphicsLayer { rotationZ = if (track.playing) spin else 0f }
+                .clip(PolygonShape(MShapes.Cookie9)).background(Ink.VioletDeep),
+            contentAlignment = Alignment.Center,
+        ) {
             val art = track.art
             if (art != null) Image(art.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            else Text("♪", fontSize = 24.sp, color = Ink.VioletSoft)
+            else Icon(Icons.Rounded.MusicNote, null, tint = Ink.VioletSoft, modifier = Modifier.size(26.dp))
         }
         Column(Modifier.padding(horizontal = 12.dp).weight(1f)) {
             Text(track.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(listOf(track.artist, track.app).filter { it.isNotBlank() }.joinToString(" · "), fontSize = 12.sp, color = Ink.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        for ((label, act) in listOf("⏮" to { NowPlaying.previous() }, (if (track.playing) "⏸" else "▶") to { NowPlaying.playPause() }, "⏭" to { NowPlaying.next() })) {
-            Text(
-                label, fontSize = 20.sp, color = Ink.Text,
-                modifier = Modifier.clip(CircleShape).clickable { Haptics.click(context); act() }.padding(8.dp),
-            )
-        }
+        CircleButton(Icons.Rounded.SkipPrevious, "Anterior", size = 38.dp, container = Color.Transparent) { NowPlaying.previous() }
+        ExpressiveButton(
+            "", icon = if (track.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            modifier = Modifier.padding(horizontal = 2.dp), container = Ink.VioletSoft, content = Ink.Ground,
+        ) { NowPlaying.playPause() }
+        CircleButton(Icons.Rounded.SkipNext, "Siguiente", size = 38.dp, container = Color.Transparent) { NowPlaying.next() }
     }
 }
 
@@ -133,7 +150,7 @@ fun PomodoroSettings(current: PomodoroConfig) {
     var c by remember { mutableStateOf(current) }
     fun save(n: PomodoroConfig) { c = n; Store.setPomodoroConfig(n) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-        Text("Tus bloques", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        ScreenTitle("Tus bloques", size = 28.sp)
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((name, preset) in POMODORO_PRESETS) Segment(name, c == preset) { save(preset) }
@@ -195,7 +212,7 @@ fun FocusAod(p: Pomodoro, color: Color, track: NowPlaying.Track?, close: () -> U
                 if (track != null) {
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        "♪ ${track.title}${if (track.artist.isBlank()) "" else " — ${track.artist}"}", fontSize = 13.sp, color = Color(0xFF555555),
+                        "${track.title}${if (track.artist.isBlank()) "" else " — ${track.artist}"}", fontSize = 13.sp, color = Color(0xFF555555),
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(260.dp),
                     )
                 }

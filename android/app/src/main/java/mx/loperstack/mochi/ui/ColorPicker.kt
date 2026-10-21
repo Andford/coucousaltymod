@@ -3,6 +3,7 @@
 
 package mx.loperstack.mochi.ui
 
+import mx.loperstack.mochi.mochi.Squircle
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -89,7 +90,7 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
         Text("El color de Mochi", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
         Box(
-            Modifier.width(170.dp).height(140.dp).clip(RoundedCornerShape(36.dp))
+            Modifier.width(170.dp).height(140.dp).clip(Squircle(36.dp))
                 .background(Brush.radialGradient(listOf(shown.copy(alpha = 0.35f), Color.Transparent))),
             contentAlignment = Alignment.Center,
         ) { Mochi(Modifier.width(150.dp).height(124.dp), color = color, interactive = true) }
@@ -150,12 +151,4 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
 }
 
 @Composable
-fun Segment(text: String, on: Boolean, onClick: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bg by animateColorAsState(if (on) Ink.VioletSoft else Ink.Card, label = "seg")
-    Text(
-        text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) Ink.Ground else Ink.Text,
-        modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(bg).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
-            .clickable { mx.loperstack.mochi.mochi.Haptics.tick(context); onClick() }.padding(horizontal = 14.dp, vertical = 9.dp),
-    )
-}
+fun Segment(text: String, on: Boolean, onClick: () -> Unit) = Pill(text, on, onClick = onClick)

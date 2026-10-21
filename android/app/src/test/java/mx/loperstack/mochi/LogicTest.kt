@@ -224,7 +224,7 @@ class LogicTest {
         assertEquals(true, s.debt > 0)
         assertEquals(true, s.score in 0..100)
         // Short nights: the first tip is about sleeping longer.
-        assertEquals("⏰", personalTips(list, SleepGoal(22 * 60, 7 * 60)).first().icon)
+        assertEquals("short", personalTips(list, SleepGoal(22 * 60, 7 * 60)).first().icon)
     }
 
     @Test fun watchNightsKeepYourRating() {

@@ -3,6 +3,7 @@
 
 package mx.loperstack.mochi.ui
 
+import mx.loperstack.mochi.mochi.Squircle
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
@@ -64,8 +65,8 @@ private fun Pill(text: String, on: Boolean, onClick: () -> Unit) {
     Text(
         text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
         color = if (on) Ink.Ground else Ink.Text,
-        modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (on) Ink.VioletSoft else Ink.Card)
-            .border(1.dp, if (on) Ink.VioletSoft else Ink.Hairline, RoundedCornerShape(16.dp))
+        modifier = Modifier.clip(Squircle(16.dp)).background(if (on) Ink.VioletSoft else Ink.Card)
+            .border(1.dp, if (on) Ink.VioletSoft else Ink.Hairline, Squircle(16.dp))
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp),
     )
 }
@@ -91,7 +92,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = title, onValueChange = { title = it.take(200) }, modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("¿Qué es?", color = Ink.Dim2) }, singleLine = true, shape = RoundedCornerShape(18.dp),
+            placeholder = { Text("¿Qué es?", color = Ink.Dim2) }, singleLine = true, shape = Squircle(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
                 focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
@@ -138,7 +139,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
         Spacer(Modifier.height(14.dp))
         if (cal != null) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ink.Card)
+                Modifier.fillMaxWidth().clip(Squircle(16.dp)).background(Ink.Card)
                     .clickable(enabled = calendars.size > 1) { calIndex = (calIndex + 1) % calendars.size }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

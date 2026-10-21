@@ -41,6 +41,10 @@ dependencies {
     api("androidx.compose.ui:ui-graphics")
     api("androidx.compose.foundation:foundation")
     api("androidx.compose.animation:animation")
+    // Material 3 Expressive shapes (cookie, clover, sunny…) and morphs between them.
+    api("androidx.graphics:graphics-shapes:1.0.1")
+    // Rounded Material Symbols, in place of emoji.
+    api("androidx.compose.material:material-icons-extended")
     api("androidx.core:core-ktx:1.15.0")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")

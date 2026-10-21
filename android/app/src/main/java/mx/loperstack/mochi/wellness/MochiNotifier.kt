@@ -188,7 +188,7 @@ object MochiNotifier {
                 val extra = listOfNotNull(sleepLine, if (pending > 0) "$pending pendientes" else null).joinToString(" · ")
                 post(
                     context, 201, CH_DAY,
-                    title = if (name.isBlank()) "Buenos días ☀️" else "Buenos días, $name ☀️",
+                    title = if (name.isBlank()) "Buenos días" else "Buenos días, $name",
                     text = phrase, sub = extra, theme = Theme.MORNING,
                     face = if (rest == Rest.TIRED) MochiEngine.Eye.TIRED else MochiEngine.Eye.HAPPY,
                     open = openApp(context, "home"),
@@ -198,7 +198,7 @@ object MochiNotifier {
                 val pending = d.tasks.filter { !it.done }
                 if (pending.isEmpty() && preview) {
                     post(
-                        context, 202, CH_REMIND, title = "¡Sin pendientes!", text = "Hoy no te queda nada. Disfruta tu tarde ✨",
+                        context, 202, CH_REMIND, title = "¡Sin pendientes!", text = "Hoy no te queda nada. Disfruta tu tarde",
                         sub = "Así se ve el aviso de tareas", theme = Theme.TASKS, face = MochiEngine.Eye.HAPPY, open = openApp(context, "tasks"),
                     )
                 }
@@ -207,7 +207,7 @@ object MochiNotifier {
                     post(
                         context, 202, CH_REMIND,
                         title = if (pending.size == 1) "Te queda una tarea" else "Te quedan ${pending.size} tareas",
-                        text = list, sub = "Una a la vez, tú puedes 💪", theme = Theme.TASKS, face = MochiEngine.Eye.WIDE,
+                        text = list, sub = "Una a la vez, tú puedes", theme = Theme.TASKS, face = MochiEngine.Eye.WIDE,
                         open = openApp(context, "tasks"),
                     )
                 }
@@ -217,10 +217,10 @@ object MochiNotifier {
                     val c = Calendar.getInstance()
                     h.scheduledOn(c) && !h.doneOn(now)
                 }
-                val sub = if (d.notify.streaks && habitsLeft.isNotEmpty()) "Aún hoy: " + habitsLeft.take(3).joinToString(", ") { "${it.emoji} ${it.name}" } else "Toca para escribir en tu diario"
+                val sub = if (d.notify.streaks && habitsLeft.isNotEmpty()) "Aún hoy: " + habitsLeft.take(3).joinToString(", ") { it.name } else "Toca para escribir en tu diario"
                 post(
                     context, 203, CH_DAY,
-                    title = if (name.isBlank()) "Buenas noches 🌙" else "Buenas noches, $name 🌙",
+                    title = if (name.isBlank()) "Buenas noches" else "Buenas noches, $name",
                     text = NIGHT.random(), sub = sub, theme = Theme.NIGHT, face = MochiEngine.Eye.CLOSED,
                     open = openApp(context, "diary", compose = true),
                     action = "Escribir" to openApp(context, "diary", compose = true),
@@ -243,14 +243,14 @@ object MochiNotifier {
                 val h: Habit? = d.habits.firstOrNull { it.id == intent.getStringExtra(EXTRA_ID) }
                 if (h == null && preview) {
                     post(
-                        context, 8000, CH_STREAK, title = "🔥 Tu racha", text = "Hoy es un gran día para empezar una racha ✨",
+                        context, 8000, CH_STREAK, title = " Tu racha", text = "Hoy es un gran día para empezar una racha",
                         sub = "Crea una en Tareas → Rachas", theme = Theme.STREAK, face = MochiEngine.Eye.STAR, open = openApp(context, "streaks"),
                     )
                 }
                 if (h != null && (preview || (!h.doneOn(now) && h.scheduledOn(Calendar.getInstance())))) {
                     post(
                         context, 8000 + (h.id.hashCode() and 0x3FF), CH_STREAK,
-                        title = "${h.emoji} ${h.name}", text = h.nudge(now), sub = "Toca para marcarlo",
+                        title = h.name, text = h.nudge(now), sub = "Toca para marcarlo",
                         theme = Theme.STREAK, face = MochiEngine.Eye.STAR,
                         open = openApp(context, "streaks"),
                     )

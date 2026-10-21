@@ -13,7 +13,8 @@ import java.util.Calendar
 data class Habit(
     val id: String,
     val name: String,
-    val emoji: String = "⭐",
+    /** The icon's key (ui/Expressive.kt MIcon.habit); old versions kept an emoji here. */
+    val emoji: String = "star",
     /** Calendar.DAY_OF_WEEK values (1 = Sunday … 7 = Saturday); empty = every day. */
     val days: Set<Int> = emptySet(),
     /** Minutes of the day for the reminder; null = any time. */
@@ -25,10 +26,22 @@ data class Habit(
     val createdAt: Long = 0,
 )
 
-val HABIT_EMOJIS = listOf(
-    "⭐", "💧", "📚", "🏃", "🧘", "🥗", "😴", "💊", "🎸", "✍️", "🧹", "🌱",
-    "🚶", "💪", "🍎", "🎨", "🧠", "📵", "☀️", "🙏", "💰", "🗣️", "🐶", "❤️",
+/** The icons you can pick for a habit, by key. */
+val HABIT_ICONS = listOf(
+    "star", "water", "book", "run", "yoga", "food", "sleep", "pill", "music", "write", "clean", "plant",
+    "walk", "gym", "fruit", "art", "mind", "nophone", "sun", "thanks", "money", "talk", "pet", "heart",
+    "code", "bike", "coffee", "game",
 )
+
+/** Habits saved with an emoji (0.7–0.8) get the matching icon. */
+private val EMOJI_KEYS = mapOf(
+    "⭐" to "star", "💧" to "water", "📚" to "book", "🏃" to "run", "🧘" to "yoga", "🥗" to "food", "😴" to "sleep",
+    "💊" to "pill", "🎸" to "music", "✍️" to "write", "🧹" to "clean", "🌱" to "plant", "🚶" to "walk", "💪" to "gym",
+    "🍎" to "fruit", "🎨" to "art", "🧠" to "mind", "📵" to "nophone", "☀️" to "sun", "🙏" to "thanks", "💰" to "money",
+    "🗣️" to "talk", "🐶" to "pet", "❤️" to "heart",
+)
+
+fun habitIconKey(raw: String): String = if (raw in HABIT_ICONS) raw else EMOJI_KEYS[raw] ?: "star"
 
 val HABIT_COLORS = listOf(0xFFA78BFA, 0xFF60A5FA, 0xFF34D399, 0xFFFBBF24, 0xFFF97316, 0xFFF472B6, 0xFF22D3EE, 0xFFF87171)
 
@@ -106,11 +119,11 @@ fun Habit.scheduleText(): String {
 fun Habit.nudge(now: Long): String {
     val n = streak(now)
     return when {
-        n == 0 -> "Hoy es un gran día para empezar «$name» $emoji"
-        n == 1 -> "Ayer empezaste «$name». ¡Que sean dos! $emoji"
-        n < 7 -> "🔥 Llevas $n días con «$name». ¡No rompas la racha!"
-        n < 30 -> "🔥 ¡$n días seguidos con «$name»! Eres constante, sigue así."
-        else -> "🏆 $n días con «$name». Esto ya es parte de ti."
+        n == 0 -> "Hoy es un gran día para empezar «$name»."
+        n == 1 -> "Ayer empezaste «$name». ¡Que sean dos!"
+        n < 7 -> "Llevas $n días con «$name». ¡No rompas la racha!"
+        n < 30 -> "¡$n días seguidos con «$name»! Eres constante, sigue así."
+        else -> "$n días con «$name». Esto ya es parte de ti."
     }
 }
 
@@ -134,7 +147,7 @@ fun habitsOf(raw: String?): List<Habit> {
             val d = o.optJSONArray("days")
             val dn = o.optJSONArray("done")
             Habit(
-                id, name.take(60), o.optString("emoji", "⭐").take(8),
+                id, name.take(60), habitIconKey(o.optString("emoji", "star")),
                 (0 until (d?.length() ?: 0)).map { d!!.optInt(it) }.filter { it in 1..7 }.toSet(),
                 o.optInt("time", -1).takeIf { it in 0 until 1440 }, o.optBoolean("remind", true),
                 o.optLong("color", 0xFFA78BFA),

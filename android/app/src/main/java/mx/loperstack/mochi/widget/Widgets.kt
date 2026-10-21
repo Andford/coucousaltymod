@@ -237,7 +237,7 @@ class MochiWidget : GlanceAppWidget() {
                     Text("$whenText · ${next.title}", style = TextStyle(color = Violet, fontSize = 12.sp), maxLines = 1)
                 }
                 Text(
-                    if (pending == 0) "Sin pendientes ✓" else if (pending == 1) "1 pendiente" else "$pending pendientes",
+                    if (pending == 0) "Sin pendientes" else if (pending == 1) "1 pendiente" else "$pending pendientes",
                     style = TextStyle(color = if (pending == 0) GreenText else Dim, fontSize = 12.sp),
                 )
             }
@@ -381,7 +381,7 @@ private fun TasksContent(context: Context, tasks: List<Pair<String, String>>, im
         }
         Spacer(GlanceModifier.height(6.dp))
         if (tasks.isEmpty()) {
-            Text("Nada pendiente ✓", style = TextStyle(color = GreenText, fontSize = 13.sp), modifier = GlanceModifier.padding(top = 8.dp))
+            Text("Nada pendiente", style = TextStyle(color = GreenText, fontSize = 13.sp), modifier = GlanceModifier.padding(top = 8.dp))
         } else {
             LazyColumn {
                 items(tasks, itemId = { it.first.hashCode().toLong() }) { (taskId, text) ->
@@ -430,9 +430,9 @@ class SleepWidget : GlanceAppWidget() {
             else -> "¿Cómo dormiste?"
         }
         val sub = when {
-            night -> "Meta: dormir a las ${hhmm(d.sleepGoal.bedMin)} 🌙"
-            lastToday != null && lastToday.minutes >= 420 -> "¡Descansaste! ✨"
-            lastToday != null && lastToday.minutes < 360 -> "Hoy ve con calma 💜"
+            night -> "Meta: dormir a las ${hhmm(d.sleepGoal.bedMin)}"
+            lastToday != null && lastToday.minutes >= 420 -> "¡Descansaste!"
+            lastToday != null && lastToday.minutes < 360 -> "Hoy ve con calma"
             else -> "Toca para registrar tu noche"
         }
         provideContent {
@@ -518,7 +518,7 @@ class StreaksWidget : GlanceAppWidget() {
         val now = System.currentTimeMillis()
         val cal = Calendar.getInstance()
         val today = Store.state.value.habits.filter { it.scheduledOn(cal) }
-            .map { Triple(it.id, "${it.emoji} ${it.name}", it.streak(now)) to it.doneOn(now) }
+            .map { Triple(it.id, it.name, it.streak(now)) to it.doneOn(now) }
         val left = today.count { !it.second }
         val image = moving(context, if (today.isNotEmpty() && left == 0) Motion.HOP else Motion.BOB, Mood.IDLE, 110, 100)
         provideContent {
@@ -529,7 +529,7 @@ class StreaksWidget : GlanceAppWidget() {
                     Text(
                         when {
                             today.isEmpty() -> "Rachas"
-                            left == 0 -> "¡Todo listo hoy! 🔥"
+                            left == 0 -> "¡Todo listo hoy!"
                             else -> "Rachas · faltan $left"
                         },
                         modifier = GlanceModifier.defaultWeight(),
@@ -538,7 +538,7 @@ class StreaksWidget : GlanceAppWidget() {
                 }
                 Spacer(GlanceModifier.height(6.dp))
                 if (today.isEmpty()) {
-                    Text("Toca para crear tu primera racha ✨", style = TextStyle(color = Amber, fontSize = 13.sp), modifier = GlanceModifier.clickable(openApp(context, "streaks")))
+                    Text("Toca para crear tu primera racha", style = TextStyle(color = Amber, fontSize = 13.sp), modifier = GlanceModifier.clickable(openApp(context, "streaks")))
                 } else {
                     LazyColumn {
                         items(today, itemId = { it.first.first.hashCode().toLong() }) { (h, done) ->
@@ -551,7 +551,7 @@ class StreaksWidget : GlanceAppWidget() {
                                     maxLines = 1,
                                     modifier = GlanceModifier.defaultWeight(),
                                 )
-                                Text(if (h.third > 0) "🔥${h.third}" else "", style = TextStyle(color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold))
+                                Text(if (h.third > 0) "racha ${h.third}" else "", style = TextStyle(color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold))
                             }
                         }
                     }

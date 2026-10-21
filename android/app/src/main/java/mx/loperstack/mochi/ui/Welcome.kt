@@ -4,6 +4,11 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+
+import mx.loperstack.mochi.mochi.Squircle
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -135,7 +140,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                             Devices(google)
                             Spacer(Modifier.height(14.dp))
                             if (google.connected) {
-                                Label("Google Tasks conectado ✓", Ink.GreenSoft, 14.sp, FontWeight.Bold)
+                                IconLabel(Icons.Rounded.CheckCircle, "Google Tasks conectado", Ink.GreenSoft, size = 14.sp)
                             } else {
                                 PrimaryButton("Conectar Google Tasks", color = Ink.VioletSoft, textColor = Ink.Ground, onClick = connectGoogle)
                                 if (google.error.isNotEmpty()) Label(google.error, Ink.Red)
@@ -191,27 +196,27 @@ private fun Permissions() {
 
     Text("Lo que Mochi necesita", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
     Text("Puedes cambiarlo cuando quieras.", fontSize = 16.sp, color = Ink.Dim, modifier = Modifier.padding(top = 8.dp, bottom = 18.dp))
-    PermissionRow("📅", "Tu calendario", "Tu agenda en Inicio y eventos nuevos en Google Calendar", calendar) {
+    PermissionRow(Icons.Rounded.CalendarMonth, "Tu calendario", "Tu agenda en Inicio y eventos nuevos en Google Calendar", calendar) {
         askCal.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
     }
-    PermissionRow("🔔", "Avisos", "El Pomodoro y el fin de cada bloque, aunque la app esté cerrada", notify) {
+    PermissionRow(Icons.Rounded.NotificationsActive, "Avisos", "El Pomodoro y el fin de cada bloque, aunque la app esté cerrada", notify) {
         askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 
 @Composable
-private fun PermissionRow(icon: String, title: String, why: String, granted: Boolean, ask: () -> Unit) {
+private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, why: String, granted: Boolean, ask: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(Squircle(20.dp))
             .background(Ink.Card).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(icon, fontSize = 24.sp)
+        ShapeIcon(icon, shape = MShapes.Cookie9, size = 44.dp)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Label(why, Ink.Dim, 12.sp)
         }
-        if (granted) Text("✓", fontSize = 20.sp, color = Ink.Green, fontWeight = FontWeight.Bold)
+        if (granted) androidx.compose.material3.Icon(Icons.Rounded.CheckCircle, "Listo", tint = Ink.Green, modifier = Modifier.size(26.dp))
         else OutlinedButton(onClick = ask) { Text("Permitir", color = Ink.Text) }
     }
 }

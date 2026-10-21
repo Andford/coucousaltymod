@@ -49,7 +49,7 @@ class StreaksTest {
     }
 
     @Test fun habitsRoundTrip() {
-        val h = Habit("c", "Leer", "📚", setOf(2, 4), 7 * 60 + 30, true, 0xFF60A5FA, setOf(dayKey(day(2026, 10, 20))), 5L)
+        val h = Habit("c", "Leer", "book", setOf(2, 4), 7 * 60 + 30, true, 0xFF60A5FA, setOf(dayKey(day(2026, 10, 20))), 5L)
         assertEquals(listOf(h), habitsOf(habitsJson(listOf(h))))
         assertTrue(habitsOf("nope").isEmpty())
         assertEquals("L X · 7:30", h.scheduleText())

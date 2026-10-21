@@ -33,8 +33,8 @@ val SleepEntry.minutes: Int get() = (((wake - bed) / 60_000L).toInt() - awakeMin
 
 /** What can get in the way of a night, as chips. */
 val SLEEP_FACTORS = listOf(
-    "cafe" to "☕ Café tarde", "pantalla" to "📱 Pantalla", "cena" to "🍽️ Cena pesada", "alcohol" to "🍷 Alcohol",
-    "estres" to "😣 Estrés", "ejercicio" to "🏃 Ejercicio", "siesta" to "😴 Siesta", "ruido" to "🔊 Ruido",
+    "cafe" to "Café tarde", "pantalla" to "Pantalla", "cena" to "Cena pesada", "alcohol" to "Alcohol",
+    "estres" to "Estrés", "ejercicio" to "Ejercicio", "siesta" to "Siesta", "ruido" to "Ruido",
 )
 
 val SLEEP_QUALITY = listOf(5 to "Descansado", 4 to "Bien", 3 to "Regular", 2 to "Cansado", 1 to "Agotado")
@@ -126,23 +126,24 @@ fun sleepStats(list: List<SleepEntry>, goal: SleepGoal, nights: Int = 7): SleepS
 
 // ── Consejos ──────────────────────────────────────────────────────────────────
 
+/** `icon` is a key (ui/Expressive.kt MIcon.tip). */
 data class SleepTip(val icon: String, val title: String, val text: String)
 
 /** Tips that fit your last nights (at most three), most useful first. */
 fun personalTips(list: List<SleepEntry>, goal: SleepGoal): List<SleepTip> {
     val s = sleepStats(list, goal) ?: return listOf(
-        SleepTip("📝", "Empieza tu registro", "Anota cómo dormiste unas noches y Mochi te dirá qué ajustar."),
+        SleepTip("start", "Empieza tu registro", "Anota cómo dormiste unas noches y Mochi te dirá qué ajustar."),
     )
     val out = mutableListOf<SleepTip>()
     if (s.avgMin < goal.minutes - 30) {
         out += SleepTip(
-            "⏰", "Te faltan ${durationText(goal.minutes - s.avgMin)} por noche",
+            "short", "Te faltan ${durationText(goal.minutes - s.avgMin)} por noche",
             "Acuéstate 15–20 minutos antes cada semana hasta llegar a tu meta, en lugar de compensar el fin de semana.",
         )
     }
     if (s.spread > 45) {
         out += SleepTip(
-            "📐", "Horario irregular (±${s.spread} min)",
+            "irregular", "Horario irregular (±${s.spread} min)",
             "Tu reloj interno ama la constancia: misma hora para dormir y despertar, también sábado y domingo (±30 min).",
         )
     }
@@ -156,37 +157,37 @@ fun personalTips(list: List<SleepEntry>, goal: SleepGoal): List<SleepTip> {
         }.maxByOrNull { it.third }
         if (worst != null && worst.third >= 0.6) {
             out += when (worst.first) {
-                "cafe" -> SleepTip("☕", "El café te pasa factura", "La cafeína dura 6–8 h en el cuerpo: tu último café, antes de las 2 de la tarde.")
-                "pantalla" -> SleepTip("📱", "La pantalla te quita descanso", "Deja el teléfono 30–60 min antes de dormir; si lo usas, brillo bajo y modo oscuro.")
-                "cena" -> SleepTip("🍽️", "Cenas pesadas = peor noche", "Cena 2–3 h antes de acostarte y algo ligero.")
-                "alcohol" -> SleepTip("🍷", "El alcohol fragmenta tu sueño", "Aunque ayuda a dormirse, rompe el sueño profundo de la segunda mitad de la noche.")
-                "estres" -> SleepTip("🫁", "El estrés llega contigo a la cama", "Escribe en el diario lo que te ronda y haz 5 min de respiración con Mochi antes de dormir.")
-                "siesta" -> SleepTip("😴", "Las siestas te restan sueño", "Si la necesitas, que sea de 20 min y antes de las 3 de la tarde.")
-                "ruido" -> SleepTip("🔇", "El ruido te despierta", "Prueba tapones, ruido blanco o un ventilador; un cuarto fresco y oscuro ayuda.")
-                else -> SleepTip("🏃", "El ejercicio tarde te activa", "Muévete, pero termina el ejercicio intenso 3 h antes de dormir.")
+                "cafe" -> SleepTip("cafe", "El café te pasa factura", "La cafeína dura 6–8 h en el cuerpo: tu último café, antes de las 2 de la tarde.")
+                "pantalla" -> SleepTip("pantalla", "La pantalla te quita descanso", "Deja el teléfono 30–60 min antes de dormir; si lo usas, brillo bajo y modo oscuro.")
+                "cena" -> SleepTip("cena", "Cenas pesadas = peor noche", "Cena 2–3 h antes de acostarte y algo ligero.")
+                "alcohol" -> SleepTip("alcohol", "El alcohol fragmenta tu sueño", "Aunque ayuda a dormirse, rompe el sueño profundo de la segunda mitad de la noche.")
+                "estres" -> SleepTip("breathe", "El estrés llega contigo a la cama", "Escribe en el diario lo que te ronda y haz 5 min de respiración con Mochi antes de dormir.")
+                "siesta" -> SleepTip("siesta", "Las siestas te restan sueño", "Si la necesitas, que sea de 20 min y antes de las 3 de la tarde.")
+                "ruido" -> SleepTip("ruido", "El ruido te despierta", "Prueba tapones, ruido blanco o un ventilador; un cuarto fresco y oscuro ayuda.")
+                else -> SleepTip("ejercicio", "El ejercicio tarde te activa", "Muévete, pero termina el ejercicio intenso 3 h antes de dormir.")
             }
         }
     }
-    if (s.debt > 120 && out.none { it.icon == "⏰" }) {
-        out += SleepTip("💤", "Deuda de sueño: ${durationText(s.debt)}", "Esta semana, una o dos noches 30 min más largas te ponen al día.")
+    if (s.debt > 120 && out.none { it.icon == "short" }) {
+        out += SleepTip("debt", "Deuda de sueño: ${durationText(s.debt)}", "Esta semana, una o dos noches 30 min más largas te ponen al día.")
     }
-    if (out.isEmpty()) out += SleepTip("🌙", "¡Vas muy bien!", "Duermes ${durationText(s.avgMin)} de promedio con un horario constante. Sigue así.")
+    if (out.isEmpty()) out += SleepTip("good", "¡Vas muy bien!", "Duermes ${durationText(s.avgMin)} de promedio con un horario constante. Sigue así.")
     return out.take(3)
 }
 
 private val DAILY_TIPS = listOf(
-    SleepTip("☀️", "Luz por la mañana", "10 min de luz natural al despertar ajustan tu reloj interno para tener sueño a tiempo por la noche."),
-    SleepTip("🌡️", "Cuarto fresco", "Entre 18 y 21 °C se duerme mejor: el cuerpo necesita bajar su temperatura para dormir."),
-    SleepTip("🌑", "Oscuridad total", "Hasta un poco de luz frena la melatonina. Cortinas gruesas o antifaz."),
-    SleepTip("🫁", "Respira 4-7-8", "Inhala 4 s, sostén 7, exhala 8. Tres o cuatro rondas calman el sistema nervioso."),
-    SleepTip("🛏️", "La cama, solo para dormir", "Si a los 20 min no te duermes, levántate, luz tenue y algo tranquilo hasta tener sueño."),
-    SleepTip("📵", "Modo descanso", "Activa el modo hora de dormir del Pixel: pantalla en grises y notificaciones en silencio."),
-    SleepTip("🧠", "Vacía la mente", "Escribe 3 cosas pendientes para mañana: tu cerebro deja de repasarlas."),
-    SleepTip("🚿", "Ducha tibia", "Una ducha 1–2 h antes de dormir ayuda a que la temperatura baje después."),
-    SleepTip("⏳", "Rutina de 30 min", "Las mismas señales cada noche (luz baja, lectura, respiración) le dicen al cuerpo que ya toca."),
-    SleepTip("💧", "Ojo con los líquidos", "Bebe agua durante el día y menos en la última hora para no despertarte."),
-    SleepTip("🎧", "Sonido de fondo", "Ruido blanco o lluvia tapan los ruidos sueltos que te despiertan."),
-    SleepTip("🧘", "Relaja el cuerpo", "Tensa y suelta cada grupo de músculos de los pies a la cara, despacio."),
+    SleepTip("light", "Luz por la mañana", "10 min de luz natural al despertar ajustan tu reloj interno para tener sueño a tiempo por la noche."),
+    SleepTip("cool", "Cuarto fresco", "Entre 18 y 21 °C se duerme mejor: el cuerpo necesita bajar su temperatura para dormir."),
+    SleepTip("dark", "Oscuridad total", "Hasta un poco de luz frena la melatonina. Cortinas gruesas o antifaz."),
+    SleepTip("breathe", "Respira 4-7-8", "Inhala 4 s, sostén 7, exhala 8. Tres o cuatro rondas calman el sistema nervioso."),
+    SleepTip("bed", "La cama, solo para dormir", "Si a los 20 min no te duermes, levántate, luz tenue y algo tranquilo hasta tener sueño."),
+    SleepTip("winddown", "Modo descanso", "Activa el modo hora de dormir del Pixel: pantalla en grises y notificaciones en silencio."),
+    SleepTip("mind", "Vacía la mente", "Escribe 3 cosas pendientes para mañana: tu cerebro deja de repasarlas."),
+    SleepTip("shower", "Ducha tibia", "Una ducha 1–2 h antes de dormir ayuda a que la temperatura baje después."),
+    SleepTip("routine", "Rutina de 30 min", "Las mismas señales cada noche (luz baja, lectura, respiración) le dicen al cuerpo que ya toca."),
+    SleepTip("water", "Ojo con los líquidos", "Bebe agua durante el día y menos en la última hora para no despertarte."),
+    SleepTip("sound", "Sonido de fondo", "Ruido blanco o lluvia tapan los ruidos sueltos que te despiertan."),
+    SleepTip("relax", "Relaja el cuerpo", "Tensa y suelta cada grupo de músculos de los pies a la cara, despacio."),
 )
 
 /** The tip of the day, the same all day. */

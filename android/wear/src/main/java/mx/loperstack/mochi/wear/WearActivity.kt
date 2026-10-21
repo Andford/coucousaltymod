@@ -8,6 +8,8 @@
 
 package mx.loperstack.mochi.wear
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -260,6 +262,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("pet") },
+                    icon = { Icon(Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("Mimos") },
                     secondaryLabel = { Text("Juega y apapacha a Mochi") },
                     colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
@@ -269,6 +272,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("tasks") },
+                    icon = { Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("Pendientes · ${pendingCount(snap.tasks)}") },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
@@ -277,6 +281,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("breathe") },
+                    icon = { Icon(Icons.Rounded.Air, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("Respirar") },
                     secondaryLabel = { Text("Con vibración y pulso") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -289,6 +294,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     val m = snap.sleepMin % 60
                     Chip(
                         onClick = { go("sleep") },
+                    icon = { Icon(Icons.Rounded.Bedtime, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                         label = { Text("Dormiste $h h ${"%02d".format(m)}") },
                         secondaryLabel = { Text(if (snap.sleepNight == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) "Anoche" else "Última noche registrada") },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -299,6 +305,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("mood") },
+                    icon = { Icon(Icons.Rounded.Mood, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("¿Cómo te sientes?") },
                     secondaryLabel = { Text(moodOf(WatchStore.todayMood())?.let { "Hoy: ${it.label}" } ?: "Anótalo en tu diario") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -308,6 +315,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("battery") },
+                    icon = { Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("Baterías") },
                     secondaryLabel = { Text(if (snap.phoneBattery >= 0) "Teléfono ${snap.phoneBattery}%" else "Sin datos del teléfono") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -318,6 +326,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                 item {
                     Chip(
                         onClick = { WatchStore.pomodoro() },
+                        icon = { Icon(Icons.Rounded.Timer, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                         label = { Text("Iniciar Pomodoro") },
                         secondaryLabel = { Text("${mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin} min de enfoque") },
                         colors = ChipDefaults.secondaryChipColors(),

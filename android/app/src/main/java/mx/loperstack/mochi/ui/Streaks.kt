@@ -4,6 +4,7 @@
 
 package mx.loperstack.mochi.ui
 
+import mx.loperstack.mochi.mochi.Squircle
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
@@ -60,7 +61,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import mx.loperstack.mochi.data.DayMark
 import mx.loperstack.mochi.data.HABIT_COLORS
-import mx.loperstack.mochi.data.HABIT_EMOJIS
+import mx.loperstack.mochi.data.HABIT_ICONS
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import mx.loperstack.mochi.mochi.MShapes
 import mx.loperstack.mochi.data.Habit
 import mx.loperstack.mochi.data.NotifySettings
 import mx.loperstack.mochi.data.Store
@@ -95,12 +100,12 @@ fun StreaksScreen(habits: List<Habit>, color: Color, actions: Actions) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Rachas", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        ScreenTitle("Rachas")
                         Label(
                             when {
                                 habits.isEmpty() -> "Hábitos pequeños, cambios grandes"
-                                today.isEmpty() -> "Hoy es día libre ☁️"
-                                doneToday == today.size -> "¡Todo listo hoy! 🔥"
+                                today.isEmpty() -> "Hoy es día libre"
+                                doneToday == today.size -> "¡Todo listo hoy!"
                                 else -> "$doneToday de ${today.size} hoy"
                             },
                         )
@@ -131,7 +136,7 @@ fun StreaksScreen(habits: List<Habit>, color: Color, actions: Actions) {
             icon = { androidx.compose.material3.Icon(Glyph.Plus, contentDescription = null) },
             text = { Text("Nueva racha", fontWeight = FontWeight.Bold) },
             containerColor = Ink.VioletDeep, contentColor = Ink.Text,
-            shape = RoundedCornerShape(20.dp),
+            shape = Squircle(20.dp),
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
         )
     }
@@ -150,9 +155,9 @@ private fun blankHabit() = Habit(UUID.randomUUID().toString(), "", createdAt = S
 @Composable
 private fun EmptyStreaks(create: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Ink.Card).clickable(onClick = create).padding(22.dp),
+        Modifier.fillMaxWidth().clip(Squircle(28.dp)).background(Ink.Card).clickable(onClick = create).padding(22.dp),
     ) {
-        Text("🔥", fontSize = 34.sp)
+        ShapeIcon(Icons.Rounded.LocalFireDepartment, shape = MShapes.Sunny, container = Color(0xFFFB923C).copy(alpha = 0.22f), tint = Color(0xFFFB923C), size = 60.dp, spin = true)
         Spacer(Modifier.height(6.dp))
         Text("Empieza tu primera racha", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Label("Tomar agua, leer, caminar, meditar… Elige los días y, si quieres, una hora para que Mochi te lo recuerde con ánimo.", Ink.Dim2)
@@ -168,29 +173,32 @@ private fun HabitCard(h: Habit, now: Long, edit: () -> Unit, tick: () -> Unit) {
     val pop by animateFloatAsState(if (done) 1f else 0.9f, spring(dampingRatio = 0.4f, stiffness = 400f), label = "pop")
     val ring by animateColorAsState(if (done) accent else Ink.Hairline, label = "ring")
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Ink.Card)
-            .border(1.dp, if (done) accent.copy(alpha = 0.5f) else Ink.Hairline, RoundedCornerShape(26.dp))
+        Modifier.fillMaxWidth().clip(Squircle(26.dp)).background(Ink.Card)
+            .border(1.dp, if (done) accent.copy(alpha = 0.5f) else Ink.Hairline, Squircle(26.dp))
             .clickable(onClick = edit).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(accent.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
-                Text(h.emoji, fontSize = 24.sp)
-            }
+            ShapeIcon(MIcon.habitIcon(h.emoji), shape = MShapes.ALL[(h.id.hashCode() and 0x7fffffff) % MShapes.ALL.size], container = accent.copy(alpha = 0.22f), tint = accent, size = 50.dp)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(h.name, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Label(h.scheduleText() + if (h.time != null && h.remind) " · 🔔" else "", Ink.Dim2, 12.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Label(h.scheduleText(), Ink.Dim2, 12.sp)
+                    if (h.time != null && h.remind) Icon(Icons.Rounded.NotificationsActive, null, tint = Ink.Dim2, modifier = Modifier.padding(start = 4.dp).size(14.dp))
+                }
             }
             Box(
                 Modifier.size(46.dp).scale(pop).clip(CircleShape).background(if (done) accent else Color.Transparent)
                     .border(2.dp, ring, CircleShape).clickable(enabled = scheduled, onClick = tick),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(if (done) "✓" else if (scheduled) "" else "–", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = if (done) Ink.Ground else Ink.Dim2)
+                if (done) Icon(Icons.Rounded.Check, "Hecho", tint = Ink.Ground, modifier = Modifier.size(26.dp))
+                else if (!scheduled) Icon(Icons.Rounded.Remove, "Hoy no toca", tint = Ink.Dim2, modifier = Modifier.size(20.dp))
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (streak > 0) "🔥 $streak" else "🔥 0", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = if (streak > 0) Color(0xFFFB923C) else Ink.Dim2)
+            Icon(Icons.Rounded.LocalFireDepartment, null, tint = if (streak > 0) Color(0xFFFB923C) else Ink.Dim2, modifier = Modifier.size(20.dp))
+            Text(" $streak", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = if (streak > 0) Color(0xFFFB923C) else Ink.Dim2)
             Label(if (streak == 1) " día" else " días", Ink.Dim2, 12.sp)
             Label("   ·   mejor ${h.best(now)}", Ink.Dim2, 12.sp)
             Spacer(Modifier.weight(1f))
@@ -231,18 +239,18 @@ private fun HabitEditor(start: Habit, isNew: Boolean, close: () -> Unit) {
         OutlinedTextField(
             value = h.name, onValueChange = { h = h.copy(name = it.take(60)) }, singleLine = true,
             placeholder = { Text("Ej. Tomar 2 L de agua", color = Ink.Dim2) },
-            leadingIcon = { Text(h.emoji, fontSize = 22.sp) },
-            shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(MIcon.habitIcon(h.emoji), null, tint = Color(h.color)) },
+            shape = Squircle(18.dp), modifier = Modifier.fillMaxWidth(),
         )
         SectionTitle("Ícono")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (e in HABIT_EMOJIS) {
+            for (e in HABIT_ICONS) {
                 Box(
-                    Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
+                    Modifier.size(42.dp).clip(Squircle(14.dp))
                         .background(if (e == h.emoji) Color(h.color).copy(alpha = 0.35f) else Ink.Card)
                         .clickable { Haptics.tick(context); h = h.copy(emoji = e) },
                     contentAlignment = Alignment.Center,
-                ) { Text(e, fontSize = 20.sp) }
+                ) { Icon(MIcon.habitIcon(e), null, tint = if (e == h.emoji) Color(h.color) else Ink.Dim, modifier = Modifier.size(22.dp)) }
             }
         }
         SectionTitle("Color")
@@ -338,11 +346,11 @@ fun NotificationSettings(n: NotifySettings) {
 
     if (!granted) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Ink.VioletDeep)
+            Modifier.fillMaxWidth().clip(Squircle(20.dp)).background(Ink.VioletDeep)
                 .clickable { ask.launch(Manifest.permission.POST_NOTIFICATIONS) }.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("🔔", fontSize = 22.sp)
+            Icon(Icons.Rounded.NotificationsActive, null, tint = Ink.Text, modifier = Modifier.size(24.dp))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text("Permitir notificaciones", fontWeight = FontWeight.Bold)
                 Label("Para que Mochi te escriba", Ink.Dim)
@@ -353,12 +361,12 @@ fun NotificationSettings(n: NotifySettings) {
     }
 
     @Composable
-    fun Item(emoji: String, title: String, why: String, on: Boolean, time: String?, kind: String, set: (Boolean) -> Unit, editTime: (() -> Unit)?) {
+    fun Item(emoji: androidx.compose.ui.graphics.vector.ImageVector, title: String, why: String, on: Boolean, time: String?, kind: String, set: (Boolean) -> Unit, editTime: (() -> Unit)?) {
         Column(
-            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(20.dp)).background(Ink.Card).padding(14.dp),
+            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(Squircle(20.dp)).background(Ink.Card).padding(14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(emoji, fontSize = 22.sp)
+                ShapeIcon(emoji, shape = MShapes.Cookie9, size = 40.dp)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Label(why, Ink.Dim2, 12.sp)
@@ -370,14 +378,14 @@ fun NotificationSettings(n: NotifySettings) {
                     if (time != null && editTime != null) {
                         Text(
                             time, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink.Text,
-                            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Ink.CardHigh).clickable(onClick = editTime)
+                            modifier = Modifier.clip(Squircle(14.dp)).background(Ink.CardHigh).clickable(onClick = editTime)
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
                         )
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
                         "Probar", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable {
+                        modifier = Modifier.clip(Squircle(14.dp)).clickable {
                             Haptics.click(context)
                             if (!granted) ask.launch(Manifest.permission.POST_NOTIFICATIONS) else MochiNotifier.preview(context, kind)
                         }.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -387,20 +395,20 @@ fun NotificationSettings(n: NotifySettings) {
         }
     }
 
-    Item("☀️", "Buenos días", "Una frase para empezar, según cómo dormiste", n.morning, hhmm(n.morningAt), "morning", { save(n.copy(morning = it)) }) {
+    Item(Icons.Rounded.WbSunny, "Buenos días", "Una frase para empezar, según cómo dormiste", n.morning, hhmm(n.morningAt), "morning", { save(n.copy(morning = it)) }) {
         pick(n.morningAt) { save(n.copy(morningAt = it)) }
     }
-    Item("📅", "Eventos", "Un aviso antes de cada evento de tu calendario", n.events, null, "event", { save(n.copy(events = it)) }, null)
+    Item(Icons.Rounded.Event, "Eventos", "Un aviso antes de cada evento de tu calendario", n.events, null, "event", { save(n.copy(events = it)) }, null)
     if (n.events) {
         Row(Modifier.padding(start = 8.dp, top = 2.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (m in listOf(5, 10, 15, 30)) Segment("$m min antes", n.eventLead == m) { save(n.copy(eventLead = m)) }
         }
     }
-    Item("✅", "Tareas pendientes", "Un empujoncito si te quedan tareas", n.tasks, hhmm(n.tasksAt), "tasks", { save(n.copy(tasks = it)) }) {
+    Item(Icons.Rounded.TaskAlt, "Tareas pendientes", "Un empujoncito si te quedan tareas", n.tasks, hhmm(n.tasksAt), "tasks", { save(n.copy(tasks = it)) }) {
         pick(n.tasksAt) { save(n.copy(tasksAt = it)) }
     }
-    Item("🌙", "Buenas noches", "Una pregunta para reflexionar y escribir en tu diario", n.night, hhmm(n.nightAt), "night", { save(n.copy(night = it)) }) {
+    Item(Icons.Rounded.Bedtime, "Buenas noches", "Una pregunta para reflexionar y escribir en tu diario", n.night, hhmm(n.nightAt), "night", { save(n.copy(night = it)) }) {
         pick(n.nightAt) { save(n.copy(nightAt = it)) }
     }
-    Item("🔥", "Rachas", "Ánimo a la hora de cada racha que aún no marcas", n.streaks, null, "habit", { save(n.copy(streaks = it)) }, null)
+    Item(Icons.Rounded.LocalFireDepartment, "Rachas", "Ánimo a la hora de cada racha que aún no marcas", n.streaks, null, "habit", { save(n.copy(streaks = it)) }, null)
 }

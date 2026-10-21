@@ -4,6 +4,15 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.outlined.AutoStories as OAutoStories
+import androidx.compose.material.icons.outlined.FavoriteBorder as OFavoriteBorder
+import androidx.compose.material.icons.outlined.Home as OHome
+import androidx.compose.material.icons.outlined.Spa as OSpa
+import androidx.compose.material.icons.outlined.TaskAlt as OTaskAlt
+import mx.loperstack.mochi.mochi.MShapes
+import mx.loperstack.mochi.mochi.Squircle
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -148,7 +157,20 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class Tab(val label: String) { HOME("Inicio"), TASKS("Tareas"), FOCUS("Enfoque"), STREAKS("Rachas"), BREATHE("Respirar"), DIARY("Diario"), SLEEP("Sueño"), PET("Mimos") }
+enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    HOME("Inicio", Icons.Rounded.Home), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
+    STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories),
+    SLEEP("Sueño", Icons.Rounded.Bedtime), PET("Mimos", Icons.Rounded.Favorite),
+}
+
+/** The floating bar's five places, filled when selected. */
+private val NAV_ITEMS = listOf(
+    NavItem("Inicio", Icons.Outlined.OHome, Icons.Rounded.Home),
+    NavItem("Tareas", Icons.Outlined.OTaskAlt, Icons.Rounded.TaskAlt),
+    NavItem("Diario", Icons.Outlined.OAutoStories, Icons.Rounded.AutoStories),
+    NavItem("Bienestar", Icons.Outlined.OSpa, Icons.Rounded.Spa),
+    NavItem("Mochi", Icons.Outlined.OFavoriteBorder, Icons.Rounded.Favorite),
+)
 
 /** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
 enum class Group(val label: String, val tabs: List<Tab>) {
@@ -411,27 +433,11 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
             Scaffold(
                 containerColor = Ink.Ground,
                 bottomBar = {
-                    NavigationBar(containerColor = Ink.Card, tonalElevation = 0.dp) {
-                        val glyphs = mapOf(Group.HOME to Glyph.Home, Group.TASKS to Glyph.Tasks, Group.DIARY to Glyph.Diary, Group.CALM to Glyph.Breathe, Group.PET to Glyph.Heart)
-                        val current = Group.of(tab)
-                        for (g in Group.entries) {
-                            NavigationBarItem(
-                                selected = current == g,
-                                onClick = {
-                                    if (current != g) Haptics.tick(context)
-                                    tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
-                                },
-                                icon = { Icon(glyphs.getValue(g), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                                label = { Text(g.label, fontSize = 12.sp, fontWeight = if (current == g) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Ink.VioletSoft,
-                                    selectedTextColor = Ink.Text,
-                                    indicatorColor = Ink.VioletDeep,
-                                    unselectedIconColor = Ink.Dim,
-                                    unselectedTextColor = Ink.Dim,
-                                ),
-                            )
-                        }
+                    val current = Group.of(tab)
+                    FloatingNavBar(NAV_ITEMS, Group.entries.indexOf(current)) { i ->
+                        val g = Group.entries[i]
+                        if (current != g) Haptics.tick(context)
+                        tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
                     }
                 },
             ) { pad ->
@@ -496,7 +502,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
 fun Panel(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
-            .clip(RoundedCornerShape(28.dp))
+            .clip(Squircle(30.dp))
             .background(Ink.Card)
             .padding(padding),
         content = content,
@@ -508,22 +514,12 @@ fun Label(text: String, color: Color = Ink.Dim, size: TextUnit = 13.sp, weight: 
     Text(text, color = color, fontSize = size, fontWeight = weight)
 
 @Composable
-fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = Ink.Text, textColor: Color = Ink.Ground, onClick: () -> Unit) {
-    val context = LocalContext.current
-    Button(
-        onClick = { Haptics.click(context); onClick() }, modifier = modifier.heightIn(min = 48.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = textColor),
-        contentPadding = PaddingValues(horizontal = 24.dp),
-    ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
-}
+fun PrimaryButton(text: String, modifier: Modifier = Modifier, color: Color = Ink.Text, textColor: Color = Ink.Ground, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) =
+    ExpressiveButton(text, modifier, icon = icon, container = color, content = textColor, onClick = onClick)
 
 @Composable
-fun RoundIcon(glyph: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
-    val context = LocalContext.current
-    IconButton(onClick = { Haptics.click(context); onClick() }, modifier = Modifier.size(52.dp).clip(CircleShape).background(Ink.CardHigh)) {
-        Icon(glyph, contentDescription = description, tint = Ink.Dim, modifier = Modifier.size(20.dp))
-    }
-}
+fun RoundIcon(glyph: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) =
+    CircleButton(glyph, description, size = 52.dp, onClick = onClick)
 
 @Composable
 fun TaskRow(task: Task, actions: Actions, showDelete: Boolean = false) {
@@ -558,7 +554,7 @@ fun NewTaskField(actions: Actions, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text("Nueva tarea…", color = Ink.Dim2) },
         singleLine = true,
-        shape = RoundedCornerShape(18.dp),
+        shape = Squircle(18.dp),
         keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { submit() }),
         trailingIcon = {
@@ -574,7 +570,7 @@ fun NewTaskField(actions: Actions, modifier: Modifier = Modifier) {
 @Composable
 fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        Modifier.fillMaxWidth().clip(Squircle(14.dp))
             .background(if (highlight) Ink.Violet.copy(alpha = 0.14f) else Color.Transparent)
             .heightIn(min = 52.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -591,7 +587,7 @@ fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
         if (e.meetUrl != null) {
             Text(
                 "Unirse", color = Ink.Green, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ink.Green.copy(alpha = 0.18f))
+                modifier = Modifier.clip(Squircle(12.dp)).background(Ink.Green.copy(alpha = 0.18f))
                     .clickable { actions.open(e.meetUrl) }.padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
@@ -636,15 +632,18 @@ fun HomeScreen(
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Label(longDate(now))
+                Spacer(Modifier.height(4.dp))
+                ScreenTitle(greeting(now), size = 38.sp)
                 val who = Store.state.value.name
-                Text(if (who.isBlank()) greeting(now) else "${greeting(now)}, $who", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink.Text)
+                if (who.isNotBlank()) ScreenTitle(who, size = 38.sp, color = Ink.VioletSoft)
             }
-            RoundIcon(Glyph.Gear, "Color de Mochi", openColors)
+            CircleButton(Icons.Rounded.Settings, "Ajustes", onClick = openColors)
         }
         Spacer(Modifier.height(16.dp))
         Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
           Box {
             Aurora(color, Modifier.matchParentSize())
+            MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.align(Alignment.TopCenter).padding(top = 6.dp).size(196.dp))
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Mochi(
                 Modifier.align(Alignment.CenterHorizontally).width(170.dp).height(140.dp),
@@ -655,10 +654,10 @@ fun HomeScreen(
                 greet = true,
                 dancing = actions.music,
             )
-            if (actions.music) Label("♪ Mochi baila con tu música", Ink.VioletSoft, modifier = Modifier.align(Alignment.CenterHorizontally))
+            if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Mochi baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
             when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
-                mx.loperstack.mochi.mochi.Rest.TIRED -> Label("😴 Dormiste poco: Mochi anda con ojeras", Ink.Dim, modifier = Modifier.align(Alignment.CenterHorizontally))
-                mx.loperstack.mochi.mochi.Rest.GREAT -> Label("✨ Descansaste: Mochi está de muy buen humor", Ink.GreenSoft, modifier = Modifier.align(Alignment.CenterHorizontally))
+                mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Mochi anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
+                mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Mochi está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
                 else -> Unit
             }
             Spacer(Modifier.height(10.dp))
@@ -689,25 +688,21 @@ fun HomeScreen(
         if (calendarOk) {
             Spacer(Modifier.height(20.dp))
             Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Agenda", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(
-                    "+ Evento", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Ink.VioletDeep).clickable(onClick = newEvent)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+                Text("Agenda", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Pill("Evento", true, Icons.Rounded.Add, onClick = newEvent)
             }
             Spacer(Modifier.height(8.dp))
             Panel(Modifier.fillMaxWidth(), padding = 8.dp) { AgendaList(events, now, actions, max = 5) }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "25:00" else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.VioletSoft, Modifier.weight(1f), goFocus)
-            Tile("Respirar", "1 · 5 · 10 min", Ink.Green.copy(alpha = 0.10f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true)
+            Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "%d:00".format(mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin) else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.VioletSoft, Modifier.weight(1f), goFocus, icon = Icons.Rounded.Timer, shape = MShapes.Cookie9)
+            Tile("Respirar", "Toma un respiro", Ink.Green.copy(alpha = 0.12f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true, icon = Icons.Rounded.Air, shape = MShapes.Clover4)
         }
         Spacer(Modifier.height(20.dp))
         Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.Bottom) {
-            Text("Tareas", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Label("${pendingCount(tasks)} pendientes", modifier = Modifier.clickable(onClick = goTasks))
+            Text("Tareas", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Pill("${pendingCount(tasks)} pendientes", false, Icons.Rounded.ChevronRight, onClick = goTasks)
         }
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
@@ -723,14 +718,30 @@ fun Label(text: String, color: Color = Ink.Dim, modifier: Modifier) =
     Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
 
 @Composable
-fun Tile(title: String, value: String, bg: Color, line: Color, accent: Color, modifier: Modifier, onClick: () -> Unit, small: Boolean = false) {
+fun Tile(
+    title: String, value: String, bg: Color, line: Color, accent: Color, modifier: Modifier, onClick: () -> Unit, small: Boolean = false,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null, shape: androidx.graphics.shapes.RoundedPolygon = MShapes.Cookie9,
+) {
     Column(
-        modifier.height(96.dp).clip(RoundedCornerShape(22.dp)).background(bg).border(1.dp, line, RoundedCornerShape(22.dp))
+        modifier.height(132.dp).clip(Squircle(28.dp)).background(bg)
             .clickable(onClick = onClick).padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(title, color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        Text(value, fontSize = if (small) 15.sp else 28.sp, fontWeight = if (small) FontWeight.SemiBold else FontWeight.ExtraBold, color = Ink.Text)
+        if (icon != null) ShapeIcon(icon, shape = shape, container = accent.copy(alpha = 0.22f), tint = accent, size = 42.dp)
+        Column {
+            Text(title, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(value, fontSize = if (small) 16.sp else 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text, maxLines = 1)
+        }
+    }
+}
+
+/** A small label with its icon in front. */
+@Composable
+fun IconLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color = Ink.Dim, modifier: Modifier = Modifier, size: TextUnit = 13.sp) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = color, fontSize = size, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -740,7 +751,7 @@ fun Tile(title: String, value: String, bg: Color, line: Color, accent: Color, mo
 fun TasksScreen(tasks: List<Task>, actions: Actions) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Bottom) {
-            Text("Tareas", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            ScreenTitle("Tareas", Modifier.weight(1f))
             val pending = pendingCount(tasks)
             Label(if (tasks.isEmpty()) "" else if (pending == 0) "¡Todo listo!" else "$pending pendientes")
         }
@@ -777,22 +788,24 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
             Label("Pomodoro · ${p.today} hoy")
-            Text(PomodoroScheduler.phaseTitle(p.phase), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            ScreenTitle(PomodoroScheduler.phaseTitle(p.phase), size = 36.sp)
         }
         Spacer(Modifier.height(18.dp))
         FocusRing(p, now, color, Modifier.size(260.dp), dancing = actions.music)
         val current = orderedTasks(tasks).firstOrNull { !it.done }
         if (current != null && p.phase == Phase.FOCUS) {
             Spacer(Modifier.height(14.dp))
-            Text(
-                "✓  ${current.text}", color = Ink.VioletSoft, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clip(RoundedCornerShape(17.dp)).background(Ink.VioletDeep).border(1.dp, Ink.VioletLine, RoundedCornerShape(17.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            IconLabel(
+                Icons.Rounded.TaskAlt, current.text, Ink.VioletSoft,
+                Modifier.clip(CircleShape).background(Ink.VioletDeep).padding(horizontal = 14.dp, vertical = 9.dp), 14.sp,
             )
         }
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            PrimaryButton(if (p.phase == Phase.IDLE) "Iniciar" else if (p.isPaused()) "Reanudar" else "Pausa", onClick = start)
+            ExpressiveButton(
+                if (p.phase == Phase.IDLE) "Iniciar" else if (p.isPaused()) "Reanudar" else "Pausa",
+                icon = if (p.phase != Phase.IDLE && !p.isPaused()) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, big = true, onClick = start,
+            )
             if (p.phase != Phase.IDLE) {
                 RoundIcon(Glyph.Skip, "Saltar fase") { actions.skip() }
                 RoundIcon(Glyph.Reset, "Reiniciar") { actions.resetPomodoro() }
@@ -800,8 +813,8 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
         }
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Segment("⚙️ Personalizar", false) { tune = true }
-            Segment("🌙 Modo AOD", false) { aod = true }
+            Pill("Personalizar", false, Icons.Rounded.Tune) { tune = true }
+            Pill("Modo AOD", false, Icons.Rounded.DarkMode) { aod = true }
         }
         Spacer(Modifier.height(16.dp))
         NowPlayingCard(track)
@@ -819,10 +832,25 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
             val stroke = size.minDimension * 0.05f
             val inset = stroke / 2
             drawArc(Ink.Track, 0f, 360f, false, Offset(inset, inset), Size(size.width - stroke, size.height - stroke), style = Stroke(stroke))
-            drawArc(
-                ring, -90f, 360f * p.progress(now), false, Offset(inset, inset), Size(size.width - stroke, size.height - stroke),
-                style = Stroke(stroke, cap = StrokeCap.Round),
-            )
+            // The done part waves, like Android 16's progress rings.
+            val sweep = 360f * p.progress(now)
+            if (sweep > 0.5f) {
+                val c = Offset(size.width / 2f, size.height / 2f)
+                val r0 = (size.minDimension - stroke) / 2f - stroke * 0.35f
+                val amp = stroke * 0.32f
+                val waves = 14
+                val path = androidx.compose.ui.graphics.Path()
+                var a = 0f
+                while (a <= sweep) {
+                    val rad = Math.toRadians((a - 90f).toDouble())
+                    val rr = r0 + amp * kotlin.math.sin(Math.toRadians((a * waves).toDouble())).toFloat()
+                    val x = c.x + rr * kotlin.math.cos(rad).toFloat()
+                    val y = c.y + rr * kotlin.math.sin(rad).toFloat()
+                    if (a == 0f) path.moveTo(x, y) else path.lineTo(x, y)
+                    a += 1.5f
+                }
+                drawPath(path, ring, style = Stroke(stroke * 0.8f, cap = StrokeCap.Round))
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (mochi) {
@@ -849,7 +877,7 @@ fun PcScreen(now: Long) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Column(Modifier.padding(top = 18.dp, start = 6.dp)) {
             Label("Fase 2 · próximamente")
-            Text("Conexión con la PC", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            ScreenTitle("Conexión con la PC", size = 32.sp)
         }
         Spacer(Modifier.height(16.dp))
         Panel(Modifier.fillMaxWidth()) {
@@ -895,9 +923,9 @@ fun DeskScreen(
 ) {
     Row(Modifier.fillMaxSize().background(Ink.Ground).padding(24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Column(
-            Modifier.weight(1.1f).fillMaxHeight().clip(RoundedCornerShape(34.dp))
+            Modifier.weight(1.1f).fillMaxHeight().clip(Squircle(34.dp))
                 .background(Brush.radialGradient(listOf(Ink.VioletDeep, Ink.Card), radius = 1100f))
-                .border(1.dp, Ink.Hairline, RoundedCornerShape(34.dp)).padding(30.dp),
+                .border(1.dp, Ink.Hairline, Squircle(34.dp)).padding(30.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
@@ -912,8 +940,8 @@ fun DeskScreen(
             Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Column(
-            Modifier.weight(1.3f).fillMaxHeight().clip(RoundedCornerShape(34.dp)).background(Ink.Card)
-                .border(1.dp, Ink.Hairline, RoundedCornerShape(34.dp)).padding(26.dp).verticalScroll(rememberScrollState()),
+            Modifier.weight(1.3f).fillMaxHeight().clip(Squircle(34.dp)).background(Ink.Card)
+                .border(1.dp, Ink.Hairline, Squircle(34.dp)).padding(26.dp).verticalScroll(rememberScrollState()),
         ) {
             Text("Hoy", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
@@ -983,24 +1011,10 @@ fun GoogleTasksRow(st: GoogleTasks.Status, connect: () -> Unit, sync: () -> Unit
 }
 
 
-/** Material 3 segmented buttons for a place with two screens. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** A place's screens, as pill chips with icons (PixelPlayer's "Songs · Albums"). */
 @Composable
 fun SubTabs(tabs: List<Tab>, current: Tab, pick: (Tab) -> Unit) {
-    androidx.compose.material3.SingleChoiceSegmentedButtonRow(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp),
-    ) {
-        tabs.forEachIndexed { i, t ->
-            SegmentedButton(
-                selected = t == current,
-                onClick = { pick(t) },
-                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, tabs.size),
-                colors = androidx.compose.material3.SegmentedButtonDefaults.colors(
-                    activeContainerColor = Ink.VioletDeep, activeContentColor = Ink.Text,
-                    inactiveContainerColor = Color.Transparent, inactiveContentColor = Ink.Dim,
-                    activeBorderColor = Ink.Hairline, inactiveBorderColor = Ink.Hairline,
-                ),
-            ) { Text(t.label, fontWeight = FontWeight.SemiBold) }
-        }
+    PillRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp)) {
+        for (t in tabs) Pill(t.label, t == current, t.icon) { if (t != current) pick(t) }
     }
 }

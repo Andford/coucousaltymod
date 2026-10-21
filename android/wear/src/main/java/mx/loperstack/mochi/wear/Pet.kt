@@ -7,6 +7,8 @@
 
 package mx.loperstack.mochi.wear
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -146,7 +148,7 @@ fun WatchPet(snap: Snapshot) {
                     lastShake = t
                     engine.shake()
                     Haptics.spin(context)
-                    pet("¡Me mareaste! 😵‍💫")
+                    pet("¡Me mareaste!")
                 }
             }
             override fun onAccuracyChanged(s: Sensor?, a: Int) {}
@@ -167,7 +169,7 @@ fun WatchPet(snap: Snapshot) {
                 engine.stroke()
                 val t = System.currentTimeMillis()
                 if (t - lastCrownTick > 90) { lastCrownTick = t; Haptics.purr(context, 0.4f) }
-                if (crown > 900f) { crown = 0f; engine.tickle(); Haptics.giggle(context); pet("¡Jajaja! 🤭") }
+                if (crown > 900f) { crown = 0f; engine.tickle(); Haptics.giggle(context); pet("¡Jajaja!") }
                 true
             }
             .focusRequester(focus).focusable()
@@ -196,7 +198,7 @@ fun WatchPet(snap: Snapshot) {
                         val ev = if (waiting) withTimeoutOrNull(left.coerceAtLeast(1L)) { awaitPointerEvent() } else awaitPointerEvent()
                         if (ev == null) {
                             engine.hug(true)
-                            said = "Aww… 💜"
+                            said = "Aww…"
                             hug = scope.launch { while (isActive) { Haptics.heartbeat(context); delay(900) } }
                             continue
                         }
@@ -214,21 +216,21 @@ fun WatchPet(snap: Snapshot) {
                                 flips++
                             }
                             if (d.x != 0f) lastDx = d.x
-                            if (flips >= 6) { flips = 0; engine.tickle(); Haptics.giggle(context); pet("¡Cosquillas! 🤭") }
+                            if (flips >= 6) { flips = 0; engine.tickle(); Haptics.giggle(context); pet("¡Cosquillas!") }
                         }
                         c.consume()
                     }
                     val now = System.currentTimeMillis()
                     when {
-                        hug != null -> { hug?.cancel(); engine.hug(false); pet("Gracias 🤗") }
+                        hug != null -> { hug?.cancel(); engine.hug(false); pet("Gracias") }
                         travel < 10f && onBody -> {
                             if (now - lastTap < 320) {
-                                engine.flip(); Haptics.rise(context); pet("¡Wiii! ✨")
+                                engine.flip(); Haptics.rise(context); pet("¡Wiii!")
                             } else {
                                 val wasDizzy = engine.dizzy.value
                                 engine.slap()
                                 if (!wasDizzy) { if (engine.dizzy.value) Haptics.spin(context) else Haptics.thud(context) }
-                                pet(if (engine.dizzy.value) "😵" else "¡Oye! 😠")
+                                pet(if (engine.dizzy.value) "¡Mareado!" else "¡Oye!")
                                 if (!engine.dizzy.value) {
                                     val side = ((down.position.x - center.x) / (mochiW * 0.5f)).coerceIn(-1f, 1f)
                                     physics = scope.launch { bounce(Offset(-side * 400f, -900f)) }
@@ -239,9 +241,9 @@ fun WatchPet(snap: Snapshot) {
                         travel >= 10f -> {
                             val v = vt.calculateVelocity()
                             if (hypot(v.x, v.y) > 700f) {
-                                pet("¡Allá va! 🚀")
+                                pet("¡Allá va!")
                                 physics = scope.launch { bounce(Offset(v.x, v.y)) }
-                            } else if (onBody) pet("Prrr… 💜")
+                            } else if (onBody) pet("Prrr…")
                         }
                     }
                     if (physics?.isActive != true && pos.value != Offset.Zero && !pos.isRunning) {
@@ -251,6 +253,14 @@ fun WatchPet(snap: Snapshot) {
             },
         contentAlignment = Alignment.Center,
     ) {
+        // A slowly turning cookie behind him (Material 3 Expressive).
+        val turn by androidx.compose.animation.core.rememberInfiniteTransition(label = "c").animateFloat(
+            0f, 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(24_000, easing = androidx.compose.animation.core.LinearEasing)), label = "t",
+        )
+        Box(
+            Modifier.size(150.dp).graphicsLayer { rotationZ = turn }
+                .clip(mx.loperstack.mochi.mochi.PolygonShape(mx.loperstack.mochi.mochi.MShapes.Cookie12)).background(color.copy(alpha = 0.16f)),
+        )
         Mochi(
             Modifier.offset { IntOffset(pos.value.x.roundToInt(), pos.value.y.roundToInt()) }.size(128.dp, 108.dp),
             color = color, engine = engine, greet = true,

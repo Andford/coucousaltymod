@@ -7,6 +7,12 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+
+import mx.loperstack.mochi.mochi.Squircle
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -77,8 +83,10 @@ import kotlin.math.sign
 import kotlin.math.sqrt
 
 private val GESTURES = listOf(
-    "👉 Toca: piquete", "✨ Doble toque: salto", "🤗 Mantén: abrazo", "💜 Acarícialo: ronronea",
-    "🤭 Frota rápido: cosquillas", "🤏 Pellizca: apachúrralo", "🚀 Lánzalo: rebota como pelota", "📳 Agita el teléfono: se marea",
+    Icons.Rounded.TouchApp to "Toca: piquete", Icons.Rounded.AutoAwesome to "Doble toque: salto",
+    Icons.Rounded.VolunteerActivism to "Mantén: abrazo", Icons.Rounded.Favorite to "Acarícialo: ronronea",
+    Icons.Rounded.Swipe to "Frota rápido: cosquillas", Icons.Rounded.Pinch to "Pellizca: apachúrralo",
+    Icons.Rounded.RocketLaunch to "Lánzalo: rebota como pelota", Icons.Rounded.Vibration to "Agita el teléfono: se marea",
 )
 
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -168,7 +176,7 @@ fun PetScreen(color: Color, actions: Actions) {
                     lastShake = t
                     engine.shake()
                     Haptics.spin(context)
-                    pet("¡Me mareaste! 😵‍💫")
+                    pet("¡Me mareaste!")
                 }
             }
             override fun onAccuracyChanged(s: Sensor?, a: Int) {}
@@ -181,18 +189,14 @@ fun PetScreen(color: Color, actions: Actions) {
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp, start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Mimos", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                ScreenTitle("Mimos", size = 36.sp)
                 Text("$count mimos hoy", color = Ink.Dim, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
-            Text(
-                "¿Cómo jugar?", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Ink.VioletSoft,
-                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.VioletDeep)
-                    .clickable { Haptics.click(context); manual = true }.padding(horizontal = 14.dp, vertical = 9.dp),
-            )
+            Pill("¿Cómo jugar?", false, Icons.Rounded.HelpOutline) { manual = true }
         }
         Spacer(Modifier.height(10.dp))
         Box(
-            Modifier.fillMaxWidth().weight(1f).padding(bottom = 12.dp).clip(RoundedCornerShape(36.dp)).background(Ink.Card)
+            Modifier.fillMaxWidth().weight(1f).padding(bottom = 12.dp).clip(Squircle(36.dp)).background(Ink.Card)
                 .pointerInput(Unit) {
                     var lastTap = 0L
                     area = Offset(size.width.toFloat(), size.height.toFloat())
@@ -224,7 +228,7 @@ fun PetScreen(color: Color, actions: Actions) {
                             if (ev == null) {
                                 // Held still on him: a hug, with heartbeats while you hold.
                                 engine.hug(true)
-                                said = "Aww… 💜"
+                                said = "Aww…"
                                 hug = scope.launch { while (isActive) { Haptics.heartbeat(context); delay(900) } }
                                 continue
                             }
@@ -262,7 +266,7 @@ fun PetScreen(color: Color, actions: Actions) {
                                     flips = 0
                                     engine.tickle()
                                     Haptics.giggle(context)
-                                    pet("¡Jajaja, cosquillas! 🤭")
+                                    pet("¡Jajaja, cosquillas!")
                                 }
                             }
                             c.consume()
@@ -273,7 +277,7 @@ fun PetScreen(color: Color, actions: Actions) {
                             hug != null -> {
                                 hug?.cancel()
                                 engine.hug(false)
-                                pet("Gracias por el abrazo 🤗")
+                                pet("Gracias por el abrazo")
                             }
                             pinching -> {
                                 engine.unsqueeze()
@@ -284,12 +288,12 @@ fun PetScreen(color: Color, actions: Actions) {
                                 if (now - lastTap < 320) {
                                     engine.flip()
                                     Haptics.rise(context)
-                                    pet("¡Wiii! ✨")
+                                    pet("¡Wiii!")
                                 } else {
                                     val wasDizzy = engine.dizzy.value
                                     engine.slap()
                                     if (!wasDizzy) { if (engine.dizzy.value) Haptics.spin(context) else Haptics.thud(context) }
-                                    pet(if (engine.dizzy.value) "Demasiados piquetes 😵" else "¡Oye! 😠")
+                                    pet(if (engine.dizzy.value) "Demasiados piquetes" else "¡Oye!")
                                     // …and he hops off the poke, bouncing on the floor.
                                     if (!engine.dizzy.value && physics?.isActive != true) {
                                         val side = ((down.position.x - center.x) / (mochiW * 0.42f)).coerceIn(-1f, 1f)
@@ -301,12 +305,12 @@ fun PetScreen(color: Color, actions: Actions) {
                             travel >= 14f -> {
                                 val v = vt.calculateVelocity()
                                 if (hypot(v.x, v.y) > 1100f) {
-                                    pet("¡Allá va! 🚀")
+                                    pet("¡Allá va!")
                                     Sounds.play("open")
                                     physics?.cancel()
                                     physics = scope.launch { bounce(Offset(v.x, v.y)) }
                                 } else if (onBody) {
-                                    pet("Prrr… 💜")
+                                    pet("Prrr…")
                                 }
                             }
                         }
@@ -326,20 +330,20 @@ fun PetScreen(color: Color, actions: Actions) {
             Text(
                 said, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
-                    .clip(RoundedCornerShape(20.dp)).background(Ink.CardHigh).padding(horizontal = 14.dp, vertical = 8.dp),
+                    .clip(Squircle(20.dp)).background(Ink.CardHigh).padding(horizontal = 14.dp, vertical = 8.dp),
             )
         }
     }
     if (manual) {
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { manual = false }, containerColor = Ink.CardHigh) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-                Text("Cómo jugar con Mochi", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                ScreenTitle("Cómo jugar", size = 30.sp)
                 Spacer(Modifier.height(12.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (g in GESTURES) {
-                        Text(
-                            g, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink.Text,
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Ink.VioletDeep).padding(horizontal = 12.dp, vertical = 9.dp),
+                    for ((icon, g) in GESTURES) {
+                        IconLabel(
+                            icon, g, Ink.Text,
+                            Modifier.clip(CircleShape).background(Ink.VioletDeep).padding(horizontal = 14.dp, vertical = 10.dp), 14.sp,
                         )
                     }
                 }

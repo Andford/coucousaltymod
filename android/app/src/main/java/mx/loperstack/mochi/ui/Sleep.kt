@@ -5,6 +5,12 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+
+import mx.loperstack.mochi.mochi.Squircle
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
@@ -135,7 +141,7 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Sueño", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            ScreenTitle("Sueño", Modifier.weight(1f))
             Label("Meta ${durationText(goal.minutes)}", Ink.Dim)
         }
         Spacer(Modifier.height(14.dp))
@@ -207,7 +213,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
         while (true) androidx.compose.runtime.withFrameMillis { t = (it - t0) / 1000f }
     }
     val fresh = last != null && last.night == dayKey(now)
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(Night1, Night2)))) {
+    Box(Modifier.fillMaxWidth().clip(Squircle(28.dp)).background(Brush.verticalGradient(listOf(Night1, Night2)))) {
         Canvas(Modifier.matchParentSize()) {
             for (st in stars) {
                 val tw = 0.5f + 0.5f * kotlin.math.sin(t * st[4] + st[3])
@@ -243,7 +249,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
                             val c = moodOf(q)?.color?.let { Color(it) } ?: Color.White
                             Text(
                                 label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c,
-                                modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).background(c.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 3.dp),
+                                modifier = Modifier.padding(top = 6.dp).clip(Squircle(10.dp)).background(c.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 3.dp),
                             )
                         }
                     }
@@ -306,7 +312,7 @@ private fun Stages(e: SleepEntry) {
 
 @Composable
 private fun StatBox(value: String, label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(20.dp)).padding(12.dp)) {
+    Column(modifier.clip(Squircle(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, Squircle(20.dp)).padding(12.dp)) {
         Text(value, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
         Label(label, Ink.Dim2, 11.sp)
     }
@@ -344,11 +350,11 @@ private fun NightsChart(nights: List<SleepEntry>, goal: SleepGoal) {
 @Composable
 private fun TipCard(t: SleepTip, highlight: Boolean) {
     Row(
-        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(20.dp))
-            .background(if (highlight) Ink.VioletDeep else Ink.Card).border(1.dp, if (highlight) Ink.VioletLine else Ink.Hairline, RoundedCornerShape(20.dp))
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(Squircle(20.dp))
+            .background(if (highlight) Ink.VioletDeep else Ink.Card).border(1.dp, if (highlight) Ink.VioletLine else Ink.Hairline, Squircle(20.dp))
             .padding(14.dp),
     ) {
-        Text(t.icon, fontSize = 22.sp)
+        ShapeIcon(MIcon.tipIcon(t.icon), shape = if (highlight) MShapes.Sunny else MShapes.Cookie9, size = 42.dp, container = if (highlight) Ink.Violet.copy(alpha = 0.25f) else Ink.VioletDeep)
         Column(Modifier.padding(start = 12.dp)) {
             Text(t.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Ink.Text)
             Spacer(Modifier.height(2.dp))
@@ -369,8 +375,8 @@ private fun GoalPanel(goal: SleepGoal, reminder: Boolean) {
     }
     Panel(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TimeChip("🌙 Dormir", hhmm(goal.bedMin), Modifier.weight(1f)) { pick(goal.bedMin) { save(goal.copy(bedMin = it), reminder) } }
-            TimeChip("☀️ Despertar", hhmm(goal.wakeMin), Modifier.weight(1f)) { pick(goal.wakeMin) { save(goal.copy(wakeMin = it), reminder) } }
+            TimeChip("Dormir", hhmm(goal.bedMin), Modifier.weight(1f), Icons.Rounded.Bedtime) { pick(goal.bedMin) { save(goal.copy(bedMin = it), reminder) } }
+            TimeChip("Despertar", hhmm(goal.wakeMin), Modifier.weight(1f), Icons.Rounded.WbSunny) { pick(goal.wakeMin) { save(goal.copy(wakeMin = it), reminder) } }
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -384,9 +390,9 @@ private fun GoalPanel(goal: SleepGoal, reminder: Boolean) {
 }
 
 @Composable
-private fun TimeChip(label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Ink.CardHigh).clickable(onClick = onClick).padding(14.dp)) {
-        Label(label, Ink.Dim, 12.sp)
+private fun TimeChip(label: String, value: String, modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+    Column(modifier.clip(Squircle(22.dp)).background(Ink.CardHigh).clickable(onClick = onClick).padding(14.dp)) {
+        if (icon != null) IconLabel(icon, label, Ink.Dim, size = 12.sp) else Label(label, Ink.Dim, 12.sp)
         Text(value, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
     }
 }
@@ -395,7 +401,7 @@ private fun TimeChip(label: String, value: String, modifier: Modifier, onClick: 
 private fun NightRow(e: SleepEntry, edit: () -> Unit) {
     val q = moodOf(e.quality)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
+        Modifier.fillMaxWidth().clip(Squircle(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, Squircle(18.dp))
             .clickable(onClick = edit).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -406,7 +412,9 @@ private fun NightRow(e: SleepEntry, edit: () -> Unit) {
             )
             Text("${durationText(e.minutes)}  ·  ${timeOf(e.bed)} → ${timeOf(e.wake)}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             if (e.factors.isNotEmpty()) {
-                Text(e.factors.mapNotNull { id -> SLEEP_FACTORS.firstOrNull { it.first == id }?.second?.substringBefore(" ") }.joinToString(" "), fontSize = 13.sp)
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (id in e.factors) MIcon.sleepFactor[id]?.let { Icon(it, null, tint = Ink.Dim, modifier = Modifier.size(16.dp)) }
+                }
             }
         }
         Column(horizontalAlignment = Alignment.End) {
@@ -470,7 +478,7 @@ private fun LogNightSheet(editing: SleepEntry?, goal: SleepGoal, done: (SleepEnt
                 val m = moodOf(q)!!
                 val on = quality == q
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Color(m.color).copy(alpha = 0.16f) else Color.Transparent)
+                    Modifier.weight(1f).clip(Squircle(14.dp)).background(if (on) Color(m.color).copy(alpha = 0.16f) else Color.Transparent)
                         .clickable { quality = if (on) 0 else q; Haptics.click(context) }.padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -484,16 +492,15 @@ private fun LogNightSheet(editing: SleepEntry?, goal: SleepGoal, done: (SleepEnt
         Spacer(Modifier.height(6.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((id, label) in SLEEP_FACTORS) {
-                Segment(label, id in factors) {
+                Pill(label, id in factors, MIcon.sleepFactor[id]) {
                     factors = if (id in factors) factors - id else factors + id
-                    Haptics.tick(context)
                 }
             }
         }
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = note, onValueChange = { note = it.take(300) }, modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Una nota (sueños, despertares…)", color = Ink.Dim2) }, shape = RoundedCornerShape(16.dp), maxLines = 3,
+            placeholder = { Text("Una nota (sueños, despertares…)", color = Ink.Dim2) }, shape = Squircle(16.dp), maxLines = 3,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
                 focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,

@@ -1,5 +1,6 @@
 package mx.loperstack.mochi.ui
 
+import mx.loperstack.mochi.mochi.Squircle
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -167,20 +168,21 @@ object Glyph {
         return b.build()
     }
 
-    val Home = stroke("home", "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z")
-    val Tasks = stroke("tasks", "M9 11l3 3 8-8", "M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9")
-    val Focus = stroke("focus", "M12 5a8 8 0 1 0 0.01 0z", "M12 9v4l2 2", "M9 2h6")
-    val Breathe = stroke("breathe", "M12 4a8 8 0 1 0 0.01 0z", "M12 8.5a3.5 3.5 0 1 0 0.01 0z")
-    val Diary = stroke("diary", "M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z", "M6 17a2 2 0 0 1 2-2h11", "M10 7h5M10 10h3")
-    val Heart = stroke("heart", "M12 20s-7-4.5-9.3-9A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 9.3 5c-2.3 4.5-9.3 9-9.3 9z")
-    val Moon = stroke("moon", "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z")
-    val Pc = stroke("pc", "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 20h8", "M12 16v4")
-    val Gear = stroke("gear", "M12 9a3 3 0 1 0 0.01 0z", "M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1")
-    val Video = stroke("video", "M15 10l5-3v10l-5-3z", "M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z")
-    val Back = stroke("back", "M15 18l-6-6 6-6")
-    val Skip = stroke("skip", "M5 6l7 6-7 6z", "M13 6l7 6-7 6z")
-    val Reset = stroke("reset", "M20 12a8 8 0 1 1-2.3-5.7", "M20 4v5h-5")
-    val Plus = stroke("plus", "M12 5v14", "M5 12h14")
-    val Close = stroke("close", "M6 6l12 12", "M18 6L6 18")
-    val Calendar = stroke("calendar", "M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z", "M8 3v4M16 3v4M3 10h18")
+    // Material Symbols, rounded (Material 3 Expressive), in place of the mockup's strokes.
+    val Home = androidx.compose.material.icons.Icons.Rounded.Home
+    val Tasks = androidx.compose.material.icons.Icons.Rounded.TaskAlt
+    val Focus = androidx.compose.material.icons.Icons.Rounded.Timer
+    val Breathe = androidx.compose.material.icons.Icons.Rounded.SelfImprovement
+    val Diary = androidx.compose.material.icons.Icons.Rounded.AutoStories
+    val Heart = androidx.compose.material.icons.Icons.Rounded.Favorite
+    val Moon = androidx.compose.material.icons.Icons.Rounded.Bedtime
+    val Pc = androidx.compose.material.icons.Icons.Rounded.Laptop
+    val Gear = androidx.compose.material.icons.Icons.Rounded.Settings
+    val Video = androidx.compose.material.icons.Icons.Rounded.Videocam
+    val Back = androidx.compose.material.icons.Icons.Rounded.ArrowBack
+    val Skip = androidx.compose.material.icons.Icons.Rounded.SkipNext
+    val Reset = androidx.compose.material.icons.Icons.Rounded.Replay
+    val Plus = androidx.compose.material.icons.Icons.Rounded.Add
+    val Close = androidx.compose.material.icons.Icons.Rounded.Close
+    val Calendar = androidx.compose.material.icons.Icons.Rounded.CalendarMonth
 }

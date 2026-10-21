@@ -5,6 +5,10 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+import mx.loperstack.mochi.mochi.Squircle
 import android.content.Context
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -93,14 +97,14 @@ fun Aurora(color: Color, modifier: Modifier = Modifier) {
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(text.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink.Dim2, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+    Text(text, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Ink.VioletSoft, modifier = Modifier.padding(top = 24.dp, bottom = 10.dp, start = 4.dp))
 }
 
 @Composable
 fun NameField(name: String, onName: (String) -> Unit, modifier: Modifier = Modifier) {
     OutlinedTextField(
         value = name, onValueChange = { onName(it.take(30)) }, modifier = modifier.fillMaxWidth(),
-        placeholder = { Text("Tu nombre", color = Ink.Dim2) }, singleLine = true, shape = RoundedCornerShape(18.dp),
+        placeholder = { Text("Tu nombre", color = Ink.Dim2) }, singleLine = true, shape = Squircle(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
             focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
@@ -123,13 +127,13 @@ fun ThemeCards(current: String, onPick: (String) -> Unit) {
         for ((id, label, colors) in options) {
             val on = id == current
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(20.dp))
-                    .border(if (on) 2.dp else 1.dp, if (on) Ink.Violet else Ink.Hairline, RoundedCornerShape(20.dp))
+                Modifier.weight(1f).clip(Squircle(20.dp))
+                    .border(if (on) 2.dp else 1.dp, if (on) Ink.Violet else Ink.Hairline, Squircle(20.dp))
                     .clickable { onPick(id); Sounds.play("pop") }.padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
-                    Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp))
+                    Modifier.fillMaxWidth().height(64.dp).clip(Squircle(14.dp))
                         .background(Brush.linearGradient(listOf(colors[0], colors[2]))),
                     contentAlignment = Alignment.Center,
                 ) { Box(Modifier.size(22.dp).clip(CircleShape).background(colors[1])) }
@@ -146,13 +150,13 @@ suspend fun linkedWatch(context: Context): String? = withContext(Dispatchers.IO)
 }
 
 @Composable
-fun DeviceRow(icon: String, title: String, status: String, ok: Boolean) {
+fun DeviceRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, status: String, ok: Boolean, shape: androidx.graphics.shapes.RoundedPolygon = MShapes.Cookie9) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(18.dp)).background(Ink.Card)
-            .border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp)).padding(14.dp),
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(Squircle(18.dp)).background(Ink.Card)
+            .border(1.dp, Ink.Hairline, Squircle(18.dp)).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(icon, fontSize = 22.sp)
+        ShapeIcon(icon, shape = shape, size = 42.dp, container = if (ok) Ink.VioletDeep else Ink.CardHigh, tint = if (ok) Ink.VioletSoft else Ink.Dim)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Label(status, Ink.Dim, 12.sp)
@@ -170,22 +174,22 @@ fun Devices(google: GoogleTasks.Status) {
     LaunchedEffect(Unit) { watch = linkedWatch(context); checked = true }
     val tablet = context.resources.configuration.smallestScreenWidthDp >= 600
     DeviceRow(
-        "⌚", watch ?: "Reloj",
+        Icons.Rounded.Watch, watch ?: "Reloj",
         when { !checked -> "Buscando…"; watch != null -> "Conectado · pendientes, respirar, ánimo y pulso"; else -> "Sin reloj ahora · abre Mochi en tu Pixel Watch" },
-        watch != null,
+        watch != null, MShapes.Cookie9,
     )
     DeviceRow(
-        if (tablet) "📟" else "📱", if (tablet) "Esta tablet" else "Este teléfono",
-        "Aquí vive tu diario, tu historial y tus widgets", true,
+        if (tablet) Icons.Rounded.TabletAndroid else Icons.Rounded.PhoneAndroid, if (tablet) "Esta tablet" else "Este teléfono",
+        "Aquí vive tu diario, tu historial y tus widgets", true, MShapes.Clover4,
     )
     DeviceRow(
-        if (tablet) "📱" else "📟", if (tablet) "Tu teléfono" else "Tu tablet",
-        if (google.connected) "Las mismas tareas por Google Tasks" else "Conecta Google Tasks para compartir tareas", google.connected,
+        if (tablet) Icons.Rounded.PhoneAndroid else Icons.Rounded.TabletAndroid, if (tablet) "Tu teléfono" else "Tu tablet",
+        if (google.connected) "Las mismas tareas por Google Tasks" else "Conecta Google Tasks para compartir tareas", google.connected, MShapes.Sunny,
     )
     DeviceRow(
-        "💻", "Tu laptop (Coucou)",
+        Icons.Rounded.Laptop, "Tu laptop (Coucou)",
         if (google.connected) "Mismas tareas que la isla · el puente directo llega pronto" else "Con Google Tasks, la isla y Mochi comparten tareas",
-        google.connected,
+        google.connected, MShapes.Flower,
     )
 }
 
@@ -200,7 +204,7 @@ fun SettingsSheet(
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Column(Modifier.padding(horizontal = 24.dp)) {
-            Text("Ajustes", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+            ScreenTitle("Ajustes", size = 34.sp)
             SectionTitle("Tú")
             NameField(name, { name = it; Store.setName(it) })
         }
@@ -291,7 +295,7 @@ fun GoogleSetupHelp() {
     @Composable
     fun Value(label: String, value: String) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Card)
+            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(Squircle(14.dp)).background(Ink.Card)
                 .clickable {
                     clipboard.setText(androidx.compose.ui.text.AnnotatedString(value))
                     android.widget.Toast.makeText(context, "$label copiado", android.widget.Toast.LENGTH_SHORT).show()
@@ -321,21 +325,21 @@ fun OutfitChips(current: String) {
     androidx.compose.foundation.layout.FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Segment("🗓️ Temporada", current == "auto") { Store.setOutfit("auto") }
+        Pill("Temporada", current == "auto", Icons.Rounded.CalendarMonth) { Store.setOutfit("auto") }
         for (o in mx.loperstack.mochi.mochi.Outfit.entries) {
             val icon = when (o) {
-                mx.loperstack.mochi.mochi.Outfit.NONE -> "🚫"
-                mx.loperstack.mochi.mochi.Outfit.WITCH -> "🧙"
-                mx.loperstack.mochi.mochi.Outfit.FLOWERS -> "🌼"
-                mx.loperstack.mochi.mochi.Outfit.SANTA -> "🎅"
-                mx.loperstack.mochi.mochi.Outfit.PARTY -> "🥳"
-                mx.loperstack.mochi.mochi.Outfit.BUNNY -> "🐰"
-                mx.loperstack.mochi.mochi.Outfit.SUNGLASSES -> "😎"
-                mx.loperstack.mochi.mochi.Outfit.BEANIE -> "🧢"
-                mx.loperstack.mochi.mochi.Outfit.CROWN -> "👑"
-                mx.loperstack.mochi.mochi.Outfit.BOW -> "🎀"
+                mx.loperstack.mochi.mochi.Outfit.NONE -> Icons.Rounded.Block
+                mx.loperstack.mochi.mochi.Outfit.WITCH -> Icons.Rounded.AutoFixHigh
+                mx.loperstack.mochi.mochi.Outfit.FLOWERS -> Icons.Rounded.LocalFlorist
+                mx.loperstack.mochi.mochi.Outfit.SANTA -> Icons.Rounded.AcUnit
+                mx.loperstack.mochi.mochi.Outfit.PARTY -> Icons.Rounded.Celebration
+                mx.loperstack.mochi.mochi.Outfit.BUNNY -> Icons.Rounded.CrueltyFree
+                mx.loperstack.mochi.mochi.Outfit.SUNGLASSES -> Icons.Rounded.WbSunny
+                mx.loperstack.mochi.mochi.Outfit.BEANIE -> Icons.Rounded.Checkroom
+                mx.loperstack.mochi.mochi.Outfit.CROWN -> Icons.Rounded.EmojiEvents
+                mx.loperstack.mochi.mochi.Outfit.BOW -> Icons.Rounded.CardGiftcard
             }
-            Segment("$icon ${o.label}", current == o.name) { Store.setOutfit(o.name) }
+            Pill(o.label, current == o.name, icon) { Store.setOutfit(o.name) }
         }
     }
 }
@@ -381,21 +385,13 @@ fun BackupRow() {
     Label("Todo Mochi en un archivo .zip: ajustes, tareas, diario con fotos, ánimo, sueño, respiraciones y rachas. Guárdalo en Drive o donde quieras.", Ink.Dim2, 12.sp)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            "💾 Crear copia", fontWeight = FontWeight.Bold, color = Ink.Ground, fontSize = 14.sp,
-            modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.VioletSoft).clickable {
-                mx.loperstack.mochi.mochi.Haptics.click(context)
-                val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-                save.launch("Mochi-copia-$day.zip")
-            }.padding(horizontal = 16.dp, vertical = 11.dp),
-        )
-        Text(
-            "♻️ Restaurar", fontWeight = FontWeight.Bold, color = Ink.Text, fontSize = 14.sp,
-            modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp)).clickable {
-                mx.loperstack.mochi.mochi.Haptics.click(context)
-                open.launch(arrayOf("application/zip", "application/octet-stream"))
-            }.padding(horizontal = 16.dp, vertical = 11.dp),
-        )
+        ExpressiveButton("Crear copia", icon = Icons.Rounded.Backup) {
+            val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            save.launch("Mochi-copia-$day.zip")
+        }
+        ExpressiveButton("Restaurar", icon = Icons.Rounded.SettingsBackupRestore, container = Ink.CardHigh, content = Ink.Text) {
+            open.launch(arrayOf("application/zip", "application/octet-stream"))
+        }
     }
     confirm?.let { uri ->
         androidx.compose.material3.AlertDialog(

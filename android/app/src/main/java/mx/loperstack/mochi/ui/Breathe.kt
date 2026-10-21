@@ -4,6 +4,11 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import mx.loperstack.mochi.mochi.MShapes
+
+import mx.loperstack.mochi.mochi.Squircle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -100,18 +105,21 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
                 Spacer(Modifier.height(30.dp))
                 Label("Sesión de ${b.minutes} min", Ink.Dim, 14.sp, FontWeight.SemiBold)
                 Spacer(Modifier.weight(0.6f))
-                Mochi(Modifier.width(230.dp).height(190.dp), color = color, breathing = b, jump = actions.jump)
+                Box(contentAlignment = Alignment.Center) {
+                    MorphingBlob(Ink.Violet.copy(alpha = 0.16f), Modifier.size(280.dp), listOf(MShapes.Cookie12, MShapes.Flower, MShapes.Sunny, MShapes.Clover8))
+                    Mochi(Modifier.width(230.dp).height(190.dp), color = color, breathing = b, jump = actions.jump)
+                }
                 Spacer(Modifier.height(40.dp))
                 Text(f.phase.cue(), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
                 Label(b.rhythm())
                 Spacer(Modifier.height(14.dp))
                 when {
-                    liveBpm > 0 -> Text("♥ $liveBpm lpm · tu reloj", color = Pink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    liveBpm > 0 -> IconLabel(Icons.Rounded.Favorite, "$liveBpm lpm · tu reloj", Pink, size = 18.sp)
                     now - (b.startedAt ?: now) < 20_000 -> Label("Abriendo Mochi en tu reloj para medir el pulso…", Ink.Dim2)
                     else -> Unit
                 }
                 Spacer(Modifier.height(20.dp))
-                LinearProgressIndicator(progress = { f.progress }, modifier = Modifier.width(280.dp).height(6.dp).clip(CircleShape), color = Ink.Violet, trackColor = Ink.Track)
+                WavyProgress(f.progress, Modifier.width(280.dp), color = Ink.Violet)
                 Row(Modifier.width(280.dp).padding(top = 8.dp)) {
                     Label("${f.breaths} respiraciones", modifier = Modifier.weight(1f))
                     Label("Quedan ${clock(f.left)}")
@@ -128,7 +136,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Respira con Mochi", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp))
+        ScreenTitle("Respira con Mochi", Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), size = 36.sp)
         Spacer(Modifier.height(12.dp))
         Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true, sigh = true)
         Spacer(Modifier.height(10.dp))
@@ -228,7 +236,7 @@ fun History(sessions: List<BreathSession>) {
 @Composable
 private fun Stat(value: String, label: String, color: Color, modifier: Modifier) {
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(20.dp)).padding(14.dp),
+        modifier.clip(Squircle(20.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, Squircle(20.dp)).padding(14.dp),
     ) {
         Text(value, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = color)
         Label(label, Ink.Dim2, 12.sp)
@@ -247,7 +255,7 @@ private fun WeekBars(perDay: IntArray, now: Long, start: Long) {
                 Spacer(Modifier.height(4.dp))
                 Box(
                     Modifier.width(26.dp).height((6 + 100f * perDay[i] / maxMin).dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(Squircle(8.dp))
                         .background(if (perDay[i] > 0) Ink.Violet else Ink.Track),
                 )
                 Spacer(Modifier.height(6.dp))
@@ -283,7 +291,7 @@ private fun PulseChart(list: List<BreathSession>) {
 @Composable
 private fun SessionRow(s: BreathSession, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp))
+        Modifier.fillMaxWidth().clip(Squircle(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, Squircle(18.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -296,7 +304,7 @@ private fun SessionRow(s: BreathSession, onClick: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             if (s.hrStart > 0 && s.hrEnd > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("♥ ${s.hrStart} → ${s.hrEnd} lpm", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Pink)
+                    IconLabel(Icons.Rounded.Favorite, "${s.hrStart} → ${s.hrEnd} lpm", Pink, size = 15.sp)
                     if (s.hrMin > 0) Text("   mín ${s.hrMin}", fontSize = 13.sp, color = Ink.Dim2)
                 }
             } else {
@@ -308,13 +316,13 @@ private fun SessionRow(s: BreathSession, onClick: () -> Unit) {
             if (drop >= 0.02f) {
                 Text(
                     "−${(drop * 100).toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink.Green,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Ink.Green.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier = Modifier.clip(Squircle(10.dp)).background(Ink.Green.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp),
                 )
                 Spacer(Modifier.height(6.dp))
             }
             Text(
                 if (s.device == "watch") "Reloj" else "Teléfono", fontSize = 12.sp, color = Ink.VioletSoft,
-                modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Ink.VioletDeep).padding(horizontal = 8.dp, vertical = 3.dp),
+                modifier = Modifier.clip(Squircle(10.dp)).background(Ink.VioletDeep).padding(horizontal = 8.dp, vertical = 3.dp),
             )
         }
     }
@@ -341,10 +349,10 @@ fun SessionDetail(s: BreathSession) {
             return@Column
         }
         // The monitor.
-        Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF07110B))) {
+        Box(Modifier.fillMaxWidth().height(150.dp).clip(Squircle(20.dp)).background(Color(0xFF07110B))) {
             mx.loperstack.mochi.charts.Cardiogram(mx.loperstack.mochi.charts.beatIntervals(s), Modifier.matchParentSize().padding(vertical = 10.dp))
             Text(
-                "♥ ${stats.avgBpm} lpm", color = Color(0xFF4ADE80), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                "${stats.avgBpm} lpm", color = Color(0xFF4ADE80), fontSize = 15.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
             )
         }
@@ -389,7 +397,7 @@ fun SessionDetail(s: BreathSession) {
 
 @Composable
 private fun StatCell(value: String, label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, RoundedCornerShape(18.dp)).padding(12.dp)) {
+    Column(modifier.clip(Squircle(18.dp)).background(Ink.Card).border(1.dp, Ink.Hairline, Squircle(18.dp)).padding(12.dp)) {
         Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink.Text)
         Label(label, Ink.Dim2, 11.sp)
     }
@@ -425,7 +433,7 @@ private fun BreathPicker(actions: Actions) {
             for (p in mx.loperstack.mochi.wellness.BREATH_PATTERNS) {
                 Segment(p.name, data.breathPattern == p.id) { Store.setBreath(p.id, data.breathCustom, data.breathMinutes) }
             }
-            Segment("✏️ A tu medida", data.breathPattern == "custom") { Store.setBreath("custom", data.breathCustom, data.breathMinutes); custom = true }
+            Pill("A tu medida", data.breathPattern == "custom", Icons.Rounded.Edit) { Store.setBreath("custom", data.breathCustom, data.breathMinutes); custom = true }
         }
         Spacer(Modifier.height(10.dp))
         RhythmBar(preview)

@@ -269,7 +269,7 @@ class LogicTest {
         assertEquals(Outfit.FLOWERS, on(11, 2))
         assertEquals(Outfit.SANTA, on(12, 20))
         assertEquals(Outfit.PARTY, on(1, 1))
-        assertEquals(Outfit.BUNNY, on(4, 5)) // Easter 2026
+        assertEquals(Outfit.BOW, on(4, 5)) // Easter 2026: a bow (Tokkip has his own ears)
         assertEquals(Outfit.NONE, on(3, 10))
         assertEquals(Outfit.CROWN, Outfit.resolve("CROWN"))
     }

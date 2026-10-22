@@ -135,6 +135,7 @@ private fun toast(context: Context, text: String) = Toast.makeText(context, text
 @Composable
 fun rememberDiaryImage(name: String?, maxPx: Int): Bitmap? {
     val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { mx.loperstack.mochi.mochi.Sounds.play("page") }
     val state = produceState<Bitmap?>(null, name, maxPx) {
         value = if (name == null) null else withContext(Dispatchers.IO) { DiaryImages.load(context, name, maxPx) }
     }

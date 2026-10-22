@@ -90,6 +90,14 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
             }
         }
     }
+    // A soft flute for each turn: up as you breathe in, down as you breathe out.
+    LaunchedEffect(f.phase, active) {
+        if (active && !f.done) when (f.phase) {
+            mx.loperstack.mochi.wellness.BreathPhase.IN -> mx.loperstack.mochi.mochi.Sounds.play("breath_in")
+            mx.loperstack.mochi.wellness.BreathPhase.OUT -> mx.loperstack.mochi.mochi.Sounds.play("breath_out")
+            else -> Unit
+        }
+    }
     val hr by WearSync.heartRate.collectAsState()
     val liveBpm = if (active && hr.at >= (b.startedAt ?: Long.MAX_VALUE) && now - hr.at < 15_000) hr.bpm else 0
     LaunchedEffect(hr) { if (active && hr.at >= (b.startedAt ?: Long.MAX_VALUE)) actions.heartRate(hr.bpm) }

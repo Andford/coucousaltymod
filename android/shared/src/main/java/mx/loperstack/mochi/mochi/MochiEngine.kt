@@ -373,7 +373,8 @@ class MochiEngine {
         anim(P.SY, listOf(k(1.14f, 800, Ease.inOut), k(1.14f, 250, Ease.lin), k(0.93f, 900, Ease.inOut), k(1f, 400, Ease.back)))
         anim(P.SX, listOf(k(1.08f, 800, Ease.inOut), k(1.08f, 250, Ease.lin), k(1.04f, 900, Ease.inOut), k(1f, 400, Ease.back)))
         anim(P.OY, listOf(k(-0.05f, 800, Ease.inOut), k(-0.05f, 250, Ease.lin), k(0.03f, 900, Ease.inOut), k(0f, 400, Ease.back)))
-        after(1050) { Sounds.play("peek") }
+        // He breathes in and out on a little flute.
+        Sounds.play("flute_sigh")
         wake()
     }
 
@@ -438,6 +439,9 @@ class MochiEngine {
     }
 
     /** The "coucou" wave (BotEngine.greet). */
+    /** Says hello; `sound` lets each screen have its own (a lullaby in Sueño). */
+    var greetSound = "greet"
+
     fun greet() {
         val t = now()
         val tok = ++greetToken
@@ -451,7 +455,7 @@ class MochiEngine {
             anim(P.HANDS, listOf(k(1f, 280, Ease.out)))
             anim(P.SY, listOf(k(0.95f, 100, Ease.out), k(1f, 260, Ease.back)))
             anim(P.SX, listOf(k(1.04f, 100, Ease.out), k(1f, 260, Ease.back)))
-            Sounds.play("greet")
+            Sounds.play(greetSound)
         }
         after(550) { if (greetToken == tok) blink() }
         after(1500) { if (greetToken == tok) blink() }

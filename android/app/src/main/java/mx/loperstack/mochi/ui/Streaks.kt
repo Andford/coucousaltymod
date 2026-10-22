@@ -90,6 +90,7 @@ import java.util.UUID
 @Composable
 fun StreaksScreen(habits: List<Habit>, color: Color, actions: Actions) {
     val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { Sounds.play("spark") }
     val now = rememberNow(60_000)
     var editing by remember { mutableStateOf<Habit?>(null) }
     val cal = remember(now / 3_600_000) { Calendar.getInstance() }

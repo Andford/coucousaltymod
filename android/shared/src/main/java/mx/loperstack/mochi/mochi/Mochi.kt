@@ -102,6 +102,8 @@ fun Mochi(
     engine: MochiEngine? = null,
     /** A long sigh when he appears (the breathing screen). */
     sigh: Boolean = false,
+    /** The sound of his hello (each screen can have its own). */
+    greetSound: String = "greet",
 ) {
     val own = remember { MochiEngine() }
     val engine = engine ?: own
@@ -112,6 +114,7 @@ fun Mochi(
 
     LaunchedEffect(engine) {
         engine.configure(color, mood, breathing, dancing, face, wear)
+        engine.greetSound = greetSound
         if (greet) engine.greet()
         if (sigh) { kotlinx.coroutines.delay(350); engine.sigh() }
         var last = System.nanoTime()

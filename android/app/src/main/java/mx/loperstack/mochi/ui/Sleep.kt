@@ -254,7 +254,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
                         }
                     }
                 }
-                Mochi(Modifier.width(120.dp).height(100.dp), color = color, mood = if (last == null) Mood.SLEEPY else Mood.IDLE, greet = true)
+                Mochi(Modifier.width(120.dp).height(100.dp), color = color, mood = if (last == null) Mood.SLEEPY else Mood.IDLE, greet = true, greetSound = "lullaby")
             }
             if (last != null && (last.deepMin + last.remMin) > 0) {
                 Spacer(Modifier.height(12.dp))

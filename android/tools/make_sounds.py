@@ -70,3 +70,41 @@ save("work", seq(tone(A5, A5, 0.06, "soft"), tone(D6, D6, 0.14, "soft", d=0.06),
 save("sleep", tone(600, 300, 0.7, "sine", d=0.35), 0.35)
 save("yawn", tone(500, 260, 0.6, "soft", d=0.3, vib=0.02), 0.4)
 print("ok")
+
+# ── Section sounds: a little flute for Respirar, a music box for Sueño ──────
+def flute(f0, f1, dur, vol=1.0):
+    """A soft breathy flute note gliding from f0 to f1, swelling in and out."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    glide = f0 * (f1 / f0) ** (np.clip(t / dur, 0, 1) ** 0.8)
+    vib = 1 + 0.006 * np.sin(2 * np.pi * 5.2 * t) * np.clip((t - .15) / .3, 0, 1)
+    ph = 2 * np.pi * np.cumsum(glide * vib) / SR
+    tone_ = np.sin(ph) + 0.18 * np.sin(2 * ph) + 0.06 * np.sin(3 * ph)
+    breath = np.random.RandomState(5).normal(0, 1, n)
+    breath = np.convolve(breath, np.ones(4) / 4, mode="same") * 0.12
+    swell = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 1.2
+    return (tone_ + breath) * swell * vol
+
+# Entering Respirar: Tokkip breathes in (rising) and out (falling).
+save("flute_sigh", np.concatenate([flute(G5 / 2 * 2, C6, 0.95), np.zeros(int(SR * .05)), flute(C6, E5, 1.35)]), 0.4)
+# During a session, a quiet note for each turn.
+save("breath_in", flute(E5, A5, 1.1), 0.28)
+save("breath_out", flute(A5, D5 if False else 587.3, 1.4), 0.25)
+
+def musicbox(f, dur=1.2):
+    n = int(SR * dur); t = np.arange(n) / SR
+    s = np.sin(2 * np.pi * f * t) + 0.35 * np.sin(2 * np.pi * f * 3.01 * t) * np.exp(-t * 9) + 0.15 * np.sin(2 * np.pi * f * 5.4 * t) * np.exp(-t * 14)
+    return s * np.exp(-t * 3.2) * np.clip(t / .003, 0, 1)
+
+def notes(seq_, step):
+    total = int(SR * (step * len(seq_) + 1.4)); o = np.zeros(total)
+    for i, f in enumerate(seq_):
+        s = musicbox(f); a = int(SR * step * i); o[a:a + len(s)] += s
+    return o
+
+# Entering Sueño: a little lullaby on a music box.
+save("lullaby", notes([G6, E6, C6, D6, G5 * 2 * .75 if False else 1174.7 * .75 * 1.333, C6], 0.2), 0.38)
+# Entering Diario: a soft pluck, like turning a page.
+save("page", notes([C6, G6], 0.08), 0.3)
+# Entering Rachas: a twinkle.
+save("spark", notes([E6, G6, C6 * 2], 0.06), 0.3)
+print("ok+")

@@ -4,6 +4,7 @@
 
 package mx.loperstack.mochi.ui
 
+import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import mx.loperstack.mochi.mochi.MShapes
@@ -78,9 +79,19 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
         Sounds.play("blip")
         if (step < STEPS) step++ else done()
     }
+    // A gentle tune the first time: it fades in, and fades out when you're done.
+    var music by rememberSaveable { mutableStateOf(data.soundOn) }
+    androidx.compose.runtime.DisposableEffect(music) {
+        if (music) WelcomeMusic.start(context)
+        onDispose { WelcomeMusic.stop() }
+    }
 
     Box(Modifier.fillMaxSize().background(Ink.Ground)) {
         Aurora(color, Modifier.fillMaxSize())
+        CircleButton(
+            if (music) Icons.Rounded.MusicNote else Icons.Rounded.MusicOff, if (music) "Silenciar la música" else "Poner música",
+            Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(16.dp), size = 44.dp,
+        ) { music = !music }
         Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 24.dp)) {
             // Progress: a dot per step, the current one long.
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
@@ -218,5 +229,49 @@ private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
         }
         if (granted) androidx.compose.material3.Icon(Icons.Rounded.CheckCircle, "Listo", tint = Ink.Green, modifier = Modifier.size(26.dp))
         else OutlinedButton(onClick = ask) { Text("Permitir", color = Ink.Text) }
+    }
+}
+
+/** The welcome tune (tools/make_music.py): loops softly, fades in and out. */
+object WelcomeMusic {
+    private var player: android.media.MediaPlayer? = null
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var vol = 0f
+
+    fun start(context: Context) {
+        if (player != null) return
+        val p = runCatching { android.media.MediaPlayer.create(context.applicationContext, mx.loperstack.mochi.shared.R.raw.welcome_lofi) }.getOrNull() ?: return
+        p.isLooping = true
+        vol = 0f; p.setVolume(0f, 0f); p.start()
+        player = p
+        ramp(0.55f)
+    }
+
+    fun stop() {
+        val p = player ?: return
+        player = null
+        handler.removeCallbacksAndMessages(null)
+        // Fade out over a second, then let go.
+        var v = vol
+        val step = object : Runnable {
+            override fun run() {
+                v -= 0.05f
+                runCatching { p.setVolume(v.coerceAtLeast(0f), v.coerceAtLeast(0f)) }
+                if (v > 0f) handler.postDelayed(this, 50) else runCatching { p.stop(); p.release() }
+            }
+        }
+        handler.post(step)
+    }
+
+    private fun ramp(target: Float) {
+        val step = object : Runnable {
+            override fun run() {
+                val p = player ?: return
+                vol = (vol + 0.02f).coerceAtMost(target)
+                runCatching { p.setVolume(vol, vol) }
+                if (vol < target) handler.postDelayed(this, 60)
+            }
+        }
+        handler.post(step)
     }
 }

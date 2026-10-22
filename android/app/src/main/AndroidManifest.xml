@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Google Tasks. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android Auto: Tokkip draws its own screen on the car's display. -->
+    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
     <!-- Your Pixel Watch's nights, from Health Connect (read only). -->
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
 
@@ -254,5 +257,23 @@
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/mochi" />
             </intent-filter>
         </service>
+        <!-- Tokkip in the car (Android Auto). Registered as "navigation" because
+             only those apps may draw freely; personal sideloaded use only. -->
+        <service
+            android:name=".car.TokkipCarService"
+            android:exported="true"
+            android:label="Tokkip"
+            android:icon="@mipmap/ic_launcher">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.NAVIGATION" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
     </application>
 </manifest>

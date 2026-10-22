@@ -12,8 +12,8 @@ android {
         applicationId = "mx.loperstack.mochi"
         minSdk = 31
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.1.0"
+        versionCode = 15
+        versionName = "1.2.0"
     }
 
     // One stable key for every CI build, so a new APK installs over the old one
@@ -76,6 +76,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
     implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.car.app:app:1.4.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("androidx.health.connect:connect-client:1.1.0-alpha11")
     implementation("com.google.guava:guava:33.3.1-android")

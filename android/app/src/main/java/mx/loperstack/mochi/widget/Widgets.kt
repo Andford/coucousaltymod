@@ -380,7 +380,7 @@ class TasksWidget : GlanceAppWidget() {
 private fun TasksContent(context: Context, tasks: List<Pair<String, String>>, image: ImageProvider) {
     Column(card(Mood2.TASKS).padding(12.dp)) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Image(image, contentDescription = "Mochi", modifier = GlanceModifier.size(30.dp, 25.dp))
+            Image(image, contentDescription = "Tokkip", modifier = GlanceModifier.size(30.dp, 25.dp))
             Spacer(GlanceModifier.width(6.dp))
             Text(
                 "Pendientes · ${tasks.size}", modifier = GlanceModifier.defaultWeight().clickable(openApp(context, "tasks")),
@@ -628,7 +628,7 @@ class CompanionWidget : GlanceAppWidget() {
             }
             hour in 5..11 && lastNight != null -> "Anoche" to "Dormiste ${lastNight.minutes / 60} h ${"%02d".format(lastNight.minutes % 60)}"
             hour >= 20 -> "Antes de dormir" to "¿Qué fue lo mejor de tu día?"
-            allDone -> "Hoy" to "¡Todo listo! Mochi está orgulloso"
+            allDone -> "Hoy" to "¡Todo listo! Tokkip está orgulloso"
             else -> "Hoy" to "Un paso a la vez"
         }
         provideContent {

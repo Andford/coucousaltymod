@@ -84,6 +84,10 @@ object MochiStyle {
     var outfit by androidx.compose.runtime.mutableStateOf(Outfit.NONE)
     /** How you slept last night: he shows it. */
     var rest by androidx.compose.runtime.mutableStateOf(Rest.UNKNOWN)
+    /** Tokkip's species, skin and accent (ears, eyes, mouth, tail). */
+    var species by androidx.compose.runtime.mutableStateOf(Species.CONEJO)
+    var skin by androidx.compose.runtime.mutableStateOf(Skin.LISA)
+    var accent by androidx.compose.runtime.mutableStateOf(Color(0xFF3F9E9A))
 }
 
 /** Mochi's wardrobe, drawn flat (2D). The names are stored in the preferences. */
@@ -112,7 +116,7 @@ enum class Outfit(val label: String) {
             val easter = java.util.Calendar.getInstance().apply { clear(); set(y, em - 1, ed) }
             val today = java.util.Calendar.getInstance().apply { clear(); set(y, m - 1, d) }
             val delta = ((today.timeInMillis - easter.timeInMillis) / 86_400_000.0).let { kotlin.math.round(it).toInt() }
-            if (delta in -2..1) return BUNNY
+            if (delta in -2..1) return BOW
             if ((m == 6 && d >= 21) || m == 7 || m == 8) return SUNGLASSES
             return NONE
         }
@@ -755,27 +759,71 @@ class MochiEngine {
         textAlign = Paint.Align.CENTER
     }
 
-    /** Draws Mochi to fill the scope's width (keep it about 1.2 : 1). */
+    // Tokkip's soft state between frames.
+    private var earDroop = 0f
+    private var hugLevel = 0f
+    private var prevOy = 0f
+
+    /** Draws Tokkip to fill the scope's width (keep it about 1.2 : 1). */
     fun draw(ds: DrawScope) = with(ds) {
         val w = size.width
         val h = size.height
         val r = min(w * 0.3f, h * 0.36f)
-        val rx = r * 1.14f
-        val ry = r * 0.88f
+        val u = r * 0.0082f // studio units → pixels
         val cx = w / 2f + this@MochiEngine[P.OX] * r
-        val cy = h / 2f + this@MochiEngine[P.OY] * r + r * 0.06f
+        val cy = h / 2f + this@MochiEngine[P.OY] * r + r * 0.16f
         val sx = this@MochiEngine[P.SX]
         val sy = this@MochiEngine[P.SY]
         val tilt = this@MochiEngine[P.TILT]
+        val n = now()
+        val t = (n - t0).toFloat()
+
+        // The face he's making, and what follows from it.
+        var shape = eyeOverride ?: if (dizzy.value) Eye.SPIRAL else Eye.PILL
+        if (danceLevel > 0.15f && shape == Eye.PILL && !dizzy.value) shape = Eye.HAPPY
+        val tired = rest == Rest.TIRED && !dizzy.value
+        if (tired && shape == Eye.PILL) shape = Eye.TIRED
+        if (isBreathing && shape == Eye.PILL) shape = Eye.CLOSED
+        val mouth = when (shape) {
+            Eye.PILL, Eye.DOT -> if (rest == Rest.GREAT) Mouth.BIG else Mouth.SMILE
+            Eye.HAPPY -> if (danceLevel > 0.15f) Mouth.OPEN else Mouth.BIG
+            Eye.WIDE -> Mouth.O
+            Eye.CLOSED -> if (isBreathing) Mouth.FLAT else Mouth.SLEEP_O
+            Eye.SPIRAL -> Mouth.WAVY
+            Eye.HEART -> Mouth.CAT
+            Eye.STAR -> Mouth.BIG
+            Eye.TIRED, Eye.FLAT -> Mouth.FLAT
+            Eye.LINE -> Mouth.FROWN
+            Eye.WINK -> Mouth.TONGUE
+        }
+        val droopTarget = when (shape) {
+            Eye.CLOSED -> if (isBreathing) 10f else 60f; Eye.TIRED -> 40f; Eye.SPIRAL -> 30f; Eye.LINE -> 18f
+            Eye.WIDE -> -14f; Eye.HAPPY -> -8f; Eye.STAR -> -12f; Eye.HEART -> -4f; else -> 0f
+        }
+        earDroop += (droopTarget - earDroop) * 0.12f
+        val hugging = eyeOverride == Eye.HEART && eyeOverrideUntil == INF
+        hugLevel += ((if (hugging) 1f else 0f) - hugLevel) * 0.15f
+        val waving = waveStart > 0 && n >= waveStart && n < waveUntil
+        val oyNow = this@MochiEngine[P.OY] * 100f
+        val bounce = oyNow - prevOy
+        prevOy = oyNow
+        val happy = shape == Eye.HAPPY || shape == Eye.HEART || shape == Eye.STAR || danceLevel > 0.15f || this@MochiEngine[P.BLUSH] > 0.4f
+        val danceSway = if (danceLevel > 0.001f) sin(t * 6f) * 14f * danceLevel else 0f
+        val waveEar = if (waving && MochiStyle.species != Species.ROBOT) 28f * sin((n - waveStart).toFloat() * 14f) else 0f
+        val yaw = this@MochiEngine[P.YAW]
+        val pose = TokkipPose(
+            MochiStyle.species, MochiStyle.skin, flatFill(), MochiStyle.accent, t,
+            earL = danceSway + tilt * 30f, earR = -danceSway + waveEar + tilt * 30f,
+            droop = earDroop, happy = happy, wave = if (waving) (n - waveStart).toFloat() else -1f, bounce = bounce,
+        )
 
         // The breath grows him from his base, up to 16 % wider and 20 % taller.
         val f = (breathFill.coerceIn(0f, 1f) * breathLevel.coerceIn(0f, 1f))
         val px = cx
-        val py = cy + r * 0.88f
+        val py = cy + 120f * u
         withTransform({
             if (danceLevel > 0.001f) {
-                // danceTransform (core/anim on the PC): sway, hop, tilt and a squash on landing.
-                val beat = (((now() - t0) * 112.0) / 60.0).toFloat()
+                val beat = (((n - t0) * 112.0) / 60.0).toFloat()
                 val hop = abs(sin(PI.toFloat() * beat))
                 val land = (1f - hop).pow(6)
                 translate(px + 0.08f * r * sin(PI.toFloat() * beat) * danceLevel, py - 0.2f * r * hop * danceLevel)
@@ -783,34 +831,67 @@ class MochiEngine {
                 scale(1f + 0.045f * land * danceLevel, 1f - 0.06f * land * danceLevel, pivot = Offset.Zero)
                 translate(-px, -py)
             }
-            if (f > 0.001f) scale(1f + 0.16f * f, 1f + 0.2f * f, pivot = Offset(px, py))
+            if (f > 0.001f) scale(1f + 0.12f * f, 1f + 0.16f * f, pivot = Offset(px, py))
         }) {
-            drawHands(r, rx, ry, cx, cy)
             withTransform({
                 translate(cx, cy)
                 if (tilt != 0f) rotate(deg(tilt), pivot = Offset.Zero)
-                scale(sx, sy, pivot = Offset.Zero)
+                scale(sx * u, sy * u, pivot = Offset.Zero)
+                translate(0f, -15f)
             }) {
-                val path = body(rx, ry)
-                drawBody(path, r, rx, ry)
-                val blush = max(max(this@MochiEngine[P.BLUSH], tint * 0.5f), if (rest == Rest.GREAT) 0.55f else 0f)
-                if (blush > 0.01f) {
-                    clipPath(path) {
-                        val yo = sin(this@MochiEngine[P.YAW]) * rx * 0.8f
-                        for (sd in SIDES) {
-                            drawOval(
-                                Color(1f, 120 / 255f, 150 / 255f, 0.5f * blush),
-                                topLeft = Offset(sd * rx * 0.55f + yo - r * 0.17f, ry * 0.2f - r * 0.1f),
-                                size = Size(r * 0.34f, r * 0.2f),
-                            )
+                with(TokkipArt) {
+                    back(pose)
+                    body(pose)
+                    // Face: eyes look where he looks.
+                    withTransform({ translate(sin(yaw) * 14f, 20f - sin(this@MochiEngine[P.PITCH]) * 10f) }) {
+                        val cheeks = max(max(this@MochiEngine[P.BLUSH], tint * 0.3f), if (rest == Rest.GREAT) 0.55f else 0.35f)
+                        blush(pose, cheeks)
+                        inkColor = TokkipArt.ink(pose)
+                        val es = this@MochiEngine[P.ES]
+                        val list = SIDES.map { sd -> EyePos(sd * 46f, -6f, 1f, 1f, sd) }
+                        for (e in list) {
+                            eyeGlow(pose, e.x, e.y)
+                            withTransform({ translate(e.x, e.y) }) {
+                                drawTokkipEye(shape, 24f * es, 26f * es, e.side)
+                                if (tired) drawArc(
+                                    Color(0x665B4B8A), startAngle = 20f, sweepAngle = 140f, useCenter = false,
+                                    topLeft = Offset(-16f, 6f), size = Size(32f, 16f), style = Stroke(width = 4.5f, cap = StrokeCap.Round),
+                                )
+                            }
                         }
+                        nose(pose)
+                        mouth(pose, mouth)
+                        if (mood == Mood.FOCUS && !isBreathing && !dizzy.value && !(wear && MochiStyle.outfit == Outfit.SUNGLASSES)) drawGlasses(list, 95f, 100f)
+                        if (wear && MochiStyle.outfit == Outfit.SUNGLASSES) drawSunglasses(list, 22f, 22f)
                     }
+                    if (wear) {
+                        val top = TokkipArt.hatTop(MochiStyle.species)
+                        drawOutfit(MochiStyle.outfit, 95f, TokkipArt.hatHalfWidth(MochiStyle.species), top)
+                    }
+                    front(pose, hugLevel)
                 }
-                drawEyes(path, r, rx, ry)
-                if (wear) drawOutfit(MochiStyle.outfit, r, rx, ry)
             }
         }
-        drawParticles(r, cx, cy)
+        drawParticles(r, cx, cy - 20f * u)
+    }
+
+    private var inkColor = INK
+
+    /** Tokkip's eyes: round dots that blink, and every other face of Mochi's set. */
+    private fun DrawScope.drawTokkipEye(shape: Eye, w: Float, h: Float, sd: Float) {
+        val open = this@MochiEngine[P.OPEN]
+        when (shape) {
+            Eye.PILL -> {
+                val hh = max(w * open, w * 0.22f)
+                if (open < 0.35f) drawLine(inkColor, Offset(-w / 2f, 0f), Offset(w / 2f, 0f), w * 0.25f, StrokeCap.Round)
+                else drawOval(inkColor, Offset(-w / 2f, -hh / 2f), Size(w, hh))
+            }
+            Eye.WIDE -> {
+                drawCircle(inkColor, w * 0.62f, Offset.Zero)
+                drawCircle(Color.White, w * 0.2f, Offset(-w * 0.16f, -w * 0.2f))
+            }
+            else -> drawEyeShape(shape, w, h, sd)
+        }
     }
 
     /** The flat style's fill: white stays white, a colour fills the body. */
@@ -889,14 +970,14 @@ class MochiEngine {
         }
     }
 
-    private fun DrawScope.roundRect(x: Float, y: Float, w: Float, h: Float, rr: Float, color: Color = INK) {
+    private fun DrawScope.roundRect(x: Float, y: Float, w: Float, h: Float, rr: Float, color: Color = inkColor) {
         val c = max(0f, min(rr, min(w / 2f, h / 2f)))
         drawRoundRect(color, topLeft = Offset(x, y), size = Size(w, h), cornerRadius = CornerRadius(c, c))
     }
 
     private fun DrawScope.arc(cxA: Float, cyA: Float, radius: Float, fromRad: Float, toRad: Float, width: Float) {
         drawArc(
-            INK, startAngle = deg(fromRad), sweepAngle = deg(toRad - fromRad), useCenter = false,
+            inkColor, startAngle = deg(fromRad), sweepAngle = deg(toRad - fromRad), useCenter = false,
             topLeft = Offset(cxA - radius, cyA - radius), size = Size(radius * 2, radius * 2),
             style = Stroke(width = width, cap = StrokeCap.Round),
         )
@@ -911,7 +992,7 @@ class MochiEngine {
                 val hh = max(h * this@MochiEngine[P.OPEN], w * 0.3f)
                 roundRect(-w / 2f, -hh / 2f, w, hh, min(w / 2f, hh / 2f))
             }
-            Eye.DOT -> drawCircle(INK, radius = w * 0.45f, center = Offset.Zero)
+            Eye.DOT -> drawCircle(inkColor, radius = w * 0.45f, center = Offset.Zero)
             Eye.LINE -> withTransform({ rotate(deg(-sd * 0.2f), pivot = Offset.Zero) }) {
                 roundRect(-w * 0.78f, -w * 0.21f, w * 1.56f, w * 0.42f, w * 0.21f)
             }
@@ -930,7 +1011,7 @@ class MochiEngine {
                     if (first) { p.moveTo(px, py); first = false } else p.lineTo(px, py)
                     a += 0.2f
                 }
-                drawPath(p, INK, style = Stroke(width = w * 0.22f, cap = StrokeCap.Round))
+                drawPath(p, inkColor, style = Stroke(width = w * 0.22f, cap = StrokeCap.Round))
             }
             Eye.HEART -> drawPath(heartPath(w * 1.2f), HEART)
             Eye.STAR -> withTransform({ rotate(deg(t * 1.5f * sd), pivot = Offset.Zero) }) {
@@ -1117,7 +1198,7 @@ class MochiEngine {
 
     /** Hats and the rest, in the body's own space (they tilt and squash with him). */
     private fun DrawScope.drawOutfit(o: Outfit, r: Float, rx: Float, ry: Float) {
-        if (o == Outfit.NONE || o == Outfit.SUNGLASSES) return
+        if (o == Outfit.NONE || o == Outfit.SUNGLASSES || o == Outfit.BUNNY) return
         val hx = sin(this@MochiEngine[P.YAW]) * rx * 0.25f
         val top = -ry
         when (o) {

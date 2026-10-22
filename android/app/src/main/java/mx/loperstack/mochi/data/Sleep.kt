@@ -132,7 +132,7 @@ data class SleepTip(val icon: String, val title: String, val text: String)
 /** Tips that fit your last nights (at most three), most useful first. */
 fun personalTips(list: List<SleepEntry>, goal: SleepGoal): List<SleepTip> {
     val s = sleepStats(list, goal) ?: return listOf(
-        SleepTip("start", "Empieza tu registro", "Anota cómo dormiste unas noches y Mochi te dirá qué ajustar."),
+        SleepTip("start", "Empieza tu registro", "Anota cómo dormiste unas noches y Tokkip te dirá qué ajustar."),
     )
     val out = mutableListOf<SleepTip>()
     if (s.avgMin < goal.minutes - 30) {
@@ -161,7 +161,7 @@ fun personalTips(list: List<SleepEntry>, goal: SleepGoal): List<SleepTip> {
                 "pantalla" -> SleepTip("pantalla", "La pantalla te quita descanso", "Deja el teléfono 30–60 min antes de dormir; si lo usas, brillo bajo y modo oscuro.")
                 "cena" -> SleepTip("cena", "Cenas pesadas = peor noche", "Cena 2–3 h antes de acostarte y algo ligero.")
                 "alcohol" -> SleepTip("alcohol", "El alcohol fragmenta tu sueño", "Aunque ayuda a dormirse, rompe el sueño profundo de la segunda mitad de la noche.")
-                "estres" -> SleepTip("breathe", "El estrés llega contigo a la cama", "Escribe en el diario lo que te ronda y haz 5 min de respiración con Mochi antes de dormir.")
+                "estres" -> SleepTip("breathe", "El estrés llega contigo a la cama", "Escribe en el diario lo que te ronda y haz 5 min de respiración con Tokkip antes de dormir.")
                 "siesta" -> SleepTip("siesta", "Las siestas te restan sueño", "Si la necesitas, que sea de 20 min y antes de las 3 de la tarde.")
                 "ruido" -> SleepTip("ruido", "El ruido te despierta", "Prueba tapones, ruido blanco o un ventilador; un cuarto fresco y oscuro ayuda.")
                 else -> SleepTip("ejercicio", "El ejercicio tarde te activa", "Muévete, pero termina el ejercicio intenso 3 h antes de dormir.")

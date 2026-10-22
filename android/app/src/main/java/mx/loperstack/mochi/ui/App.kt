@@ -169,7 +169,7 @@ private val NAV_ITEMS = listOf(
     NavItem("Tareas", Icons.Outlined.OTaskAlt, Icons.Rounded.TaskAlt),
     NavItem("Diario", Icons.Outlined.OAutoStories, Icons.Rounded.AutoStories),
     NavItem("Bienestar", Icons.Outlined.OSpa, Icons.Rounded.Spa),
-    NavItem("Mochi", Icons.Outlined.OFavoriteBorder, Icons.Rounded.Favorite),
+    NavItem("Tokkip", Icons.Outlined.OFavoriteBorder, Icons.Rounded.Favorite),
 )
 
 /** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
@@ -178,7 +178,7 @@ enum class Group(val label: String, val tabs: List<Tab>) {
     TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
     DIARY("Diario", listOf(Tab.DIARY)),
     CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
-    PET("Mochi", listOf(Tab.PET));
+    PET("Tokkip", listOf(Tab.PET));
 
     companion object {
         fun of(tab: Tab) = entries.first { tab in it.tabs }
@@ -657,17 +657,17 @@ fun HomeScreen(
                 dancing = actions.music,
             )
             }
-            if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Mochi baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
+            if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Tokkip baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
             when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
-                mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Mochi anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
-                mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Mochi está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
+                mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Tokkip anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
+                mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Tokkip está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
                 else -> Unit
             }
             Spacer(Modifier.height(10.dp))
             when {
                 !calendarOk -> {
                     Text("Tu agenda aquí", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-                    Label("Mochi lee los calendarios de este teléfono, Google Calendar incluido.", Ink.Dim)
+                    Label("Tokkip lee los calendarios de este teléfono, Google Calendar incluido.", Ink.Dim)
                     Spacer(Modifier.height(10.dp))
                     PrimaryButton("Ver mi agenda", Modifier.align(Alignment.CenterHorizontally), onClick = askCalendar)
                 }
@@ -940,7 +940,7 @@ fun DeskScreen(
                 mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
                 interactive = true, greet = true, dancing = actions.music,
             )
-            Label("Toca a Mochi", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Label("Toca a Tokkip", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Column(
             Modifier.weight(1.3f).fillMaxHeight().clip(Squircle(34.dp)).background(Ink.Card)

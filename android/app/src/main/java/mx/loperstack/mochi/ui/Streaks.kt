@@ -160,7 +160,7 @@ private fun EmptyStreaks(create: () -> Unit) {
         ShapeIcon(Icons.Rounded.LocalFireDepartment, shape = MShapes.Sunny, container = Color(0xFFFB923C).copy(alpha = 0.22f), tint = Color(0xFFFB923C), size = 60.dp, spin = true)
         Spacer(Modifier.height(6.dp))
         Text("Empieza tu primera racha", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Label("Tomar agua, leer, caminar, meditar… Elige los días y, si quieres, una hora para que Mochi te lo recuerde con ánimo.", Ink.Dim2)
+        Label("Tomar agua, leer, caminar, meditar… Elige los días y, si quieres, una hora para que Tokkip te lo recuerde con ánimo.", Ink.Dim2)
     }
 }
 
@@ -306,7 +306,7 @@ private fun HabitEditor(start: Habit, isNew: Boolean, close: () -> Unit) {
                 },
             )
             Spacer(Modifier.height(10.dp))
-            ToggleRow("Recordatorio", "Mochi te avisa a esa hora con ánimo, si aún no lo marcas", h.remind) { h = h.copy(remind = it) }
+            ToggleRow("Recordatorio", "Tokkip te avisa a esa hora con ánimo, si aún no lo marcas", h.remind) { h = h.copy(remind = it) }
         }
         Spacer(Modifier.height(22.dp))
         PrimaryButton(if (isNew) "Crear racha" else "Guardar", Modifier.fillMaxWidth(), Color(h.color), Color(0xFF1F1A2E)) {
@@ -353,7 +353,7 @@ fun NotificationSettings(n: NotifySettings) {
             Icon(Icons.Rounded.NotificationsActive, null, tint = Ink.Text, modifier = Modifier.size(24.dp))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text("Permitir notificaciones", fontWeight = FontWeight.Bold)
-                Label("Para que Mochi te escriba", Ink.Dim)
+                Label("Para que Tokkip te escriba", Ink.Dim)
             }
             Text("Permitir", color = Ink.Text, fontWeight = FontWeight.Bold)
         }

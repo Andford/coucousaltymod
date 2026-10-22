@@ -105,6 +105,7 @@ object WearSync {
             flat = d.mochiFlat,
             focusMin = d.pomodoroConfig.focusMin, breakMin = d.pomodoroConfig.breakMin,
             outfit = mx.loperstack.mochi.mochi.Outfit.resolve(d.outfit).name,
+            species = d.species, skin = d.skin, accent = d.accent,
             sessions = d.sessions.takeLast(7),
             nights = d.sleep.takeLast(7).map { NightLite(it.night, it.minutes, it.quality, it.bed, it.wake) },
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,

@@ -98,7 +98,7 @@ fun NowPlayingCard(track: NowPlaying.Track?) {
             ShapeIcon(Icons.Rounded.MusicNote, shape = MShapes.Cookie12, size = 44.dp)
             Column(Modifier.padding(start = 12.dp).weight(1f)) {
                 Text("Ver lo que suena", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Label("Permite a Mochi ver la música (acceso a notificaciones → Mochi)", Ink.Dim2, 12.sp)
+                Label("Permite a Tokkip ver la música (acceso a notificaciones → Tokkip)", Ink.Dim2, 12.sp)
             }
             Text("Permitir", color = Ink.VioletSoft, fontWeight = FontWeight.Bold)
         }

@@ -12,14 +12,16 @@ RES = os.path.join(os.path.dirname(__file__), '..', 'src', 'main', 'res')
 # ── Colours (Material You-ish pairs: accent, dark container) ─────────────────
 THEMES = [("lavanda", "#C4B5FD", "#2A2440"), ("rosa", "#F9A8D4", "#3A1F2E"), ("menta", "#86EFAC", "#15301F"),
           ("cielo", "#93C5FD", "#172A40"), ("durazno", "#FDBA74", "#3A2615")]
-MOCHIS = [("blanco", "#F5F6F8", "#6E7080"), ("lila", "#DDD6FE", "#6D5BB0"), ("rosa", "#FBCFE8", "#B0577F"),
-          ("menta", "#BBF7D0", "#3F8A5C"), ("cielo", "#BFDBFE", "#4A6FA8"), ("durazno", "#FED7AA", "#B0703A")]
+# Tokkip: body colour and its ear/eye accent.
+MOCHIS = [("crema", "#F7EAD3", "#3F9E9A"), ("blanco", "#F5F6F8", "#3F72C2"), ("lila", "#E4DAFB", "#8A6CD1"),
+          ("menta", "#CDEFD9", "#4C9A5F"), ("cielo", "#CFE3F8", "#3F72C2"), ("durazno", "#FBD9BF", "#E46F5C")]
 
 # ── Mochi geometry (450 × 450) ────────────────────────────────────────────────
-MX, MY, MW, MH = 140, 238, 170, 128          # body box
-EYE_W, EYE_H = 18, 26
-EYE_L, EYE_R, EYE_Y = MX + 48, MX + MW - 48 - EYE_W, MY + 44
+MX, MY, MW, MH = 157, 252, 136, 136          # body box (Tokkip, the bunny)
+EYE_W, EYE_H = 20, 20
+EYE_L, EYE_R, EYE_Y = MX + 26, MX + MW - 26 - EYE_W, MY + 52
 C = lambda k, i: f"[CONFIGURATION.{k}.{i}]"
+INK = "[CONFIGURATION.mochi.1]"
 BOB = "4 * sin(6.28318 * ((([SECOND] % 4) * 1000 + [MILLISECOND]) / 4000.0))"
 SPIN = "(((([MINUTE] % 2) * 60 + [SECOND]) * 1000 + [MILLISECOND]) / 120000.0) * 360"
 
@@ -37,11 +39,11 @@ def eyes(kind):
     out = []
     for ex in (EYE_L, EYE_R):
         if kind == "open":
-            out.append(f'<Ellipse x="{ex}" y="{EYE_Y}" width="{EYE_W}" height="{EYE_H}"><Fill color="#1B1A22"/></Ellipse>')
+            out.append(f'<Ellipse x="{ex}" y="{EYE_Y}" width="{EYE_W}" height="{EYE_H}"><Fill color="{INK}"/></Ellipse>')
         elif kind == "closed":
-            out.append(f'<Line startX="{ex - 2}" startY="{EYE_Y + 16}" endX="{ex + EYE_W + 2}" endY="{EYE_Y + 16}"><Stroke color="#1B1A22" thickness="5" cap="ROUND"/></Line>')
+            out.append(f'<Line startX="{ex - 2}" startY="{EYE_Y + 16}" endX="{ex + EYE_W + 2}" endY="{EYE_Y + 16}"><Stroke color="{INK}" thickness="5" cap="ROUND"/></Line>')
         else:
-            out.append(f'<Arc centerX="{ex + EYE_W / 2}" centerY="{EYE_Y + 18}" width="{EYE_W + 8}" height="{EYE_W + 8}" startAngle="-70" endAngle="70"><Stroke color="#1B1A22" thickness="5" cap="ROUND"/></Arc>')
+            out.append(f'<Arc centerX="{ex + EYE_W / 2}" centerY="{EYE_Y + 18}" width="{EYE_W + 8}" height="{EYE_W + 8}" startAngle="-70" endAngle="70"><Stroke color="{INK}" thickness="5" cap="ROUND"/></Arc>')
     return f'<PartDraw x="0" y="0" width="450" height="450">{"".join(out)}</PartDraw>'
 
 def complication(slot, x, y, name, default, dtype):
@@ -66,13 +68,20 @@ def complication(slot, x, y, name, default, dtype):
 def watchface():
     opts = lambda arr: ''.join(f'<ColorOption id="{i}" displayName="{n}" colors="{a} {b}"/>' for i, (n, a, b) in enumerate(arr))
     body = (f'<PartDraw x="0" y="0" width="450" height="450">'
-            f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="62" cornerRadiusY="56"><Fill color="{C("mochi", 0)}"/></RoundRectangle>'
-            f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="62" cornerRadiusY="56"><Stroke color="{C("mochi", 1)}" thickness="4"/></RoundRectangle>'
-            f'<Ellipse x="{EYE_L - 22}" y="{EYE_Y + 30}" width="30" height="14"><Fill color="#55F472B6"/></Ellipse>'
-            f'<Ellipse x="{EYE_R + 10}" y="{EYE_Y + 30}" width="30" height="14"><Fill color="#55F472B6"/></Ellipse>'
+            f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="38" cornerRadiusY="38"><Fill color="{C("mochi", 0)}"/></RoundRectangle>'
+            f'<Ellipse x="{EYE_L - 22}" y="{EYE_Y + 26}" width="26" height="13"><Fill color="#66F07A8C"/></Ellipse>'
+            f'<Ellipse x="{EYE_R + 16}" y="{EYE_Y + 26}" width="26" height="13"><Fill color="#66F07A8C"/></Ellipse>'
+            f'<Arc centerX="{MX + MW / 2}" centerY="{EYE_Y + 22}" width="28" height="28" startAngle="125" endAngle="235"><Stroke color="{INK}" thickness="5" cap="ROUND"/></Arc>'
             f'</PartDraw>')
+    # Long ears behind the head, with their accent inside.
+    ears = ""
+    for sd in (-1, 1):
+        ex = MX + MW / 2 + sd * 34 - 16
+        ears += (f'<PartDraw x="{int(ex)}" y="{MY - 84}" width="32" height="104" angle="{sd * 10}" pivotX="0.5" pivotY="1">'
+                 f'<Ellipse x="0" y="0" width="32" height="104"><Fill color="{C("mochi", 0)}"/></Ellipse>'
+                 f'<Ellipse x="9" y="12" width="14" height="74"><Fill color="{INK}"/></Ellipse></PartDraw>')
     ambient_body = (f'<PartDraw x="0" y="0" width="450" height="450">'
-                    f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="62" cornerRadiusY="56"><Stroke color="#9A9AA6" thickness="4"/></RoundRectangle>'
+                    f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="38" cornerRadiusY="38"><Stroke color="#9A9AA6" thickness="4"/></RoundRectangle>'
                     f'</PartDraw>')
     sleepy = "([HOUR_0_23] &gt;= 23) || ([HOUR_0_23] &lt; 6)"
     happy = "[STEP_PERCENT] &gt;= 100"
@@ -94,7 +103,7 @@ def watchface():
                  f'<Transform target="endAngle" value="125 + clamp([STEP_PERCENT], 0, 100) / 100.0 * 110"/></Arc>'
                  f'</PartDraw>')
     return f'''<?xml version="1.0" encoding="UTF-8"?>
-<!-- Mochi · Material 3 Expressive. Generated by tools/make_watchface.py — edit that, not this. -->
+<!-- Tokkip · Material 3 Expressive. Generated by tools/make_watchface.py — edit that, not this. -->
 <WatchFace width="450" height="450">
   <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
   <Metadata key="PREVIEW_TIME" value="10:08:32"/>
@@ -105,14 +114,14 @@ def watchface():
   <Scene backgroundColor="#FF000000">
     <!-- The date, small, above. -->
     <Group name="date" x="0" y="0" width="450" height="450">
-      {text(0, 34, 450, 34, "%s", ['icuText(&quot;EEE d&quot;)'], 24, "SEMI_BOLD", C("theme", 0))}
+      {text(0, 22, 450, 34, "%s", ['icuText(&quot;EEE d&quot;)'], 24, "SEMI_BOLD", C("theme", 0))}
     </Group>
     <!-- The time: hour in the accent, minutes in white, big and bold. -->
     <DigitalClock x="0" y="0" width="450" height="450">
-      <TimeText format="hh" hourFormat="SYNC_TO_DEVICE" align="END" x="20" y="78" width="192" height="130">
+      <TimeText format="hh" hourFormat="SYNC_TO_DEVICE" align="END" x="20" y="56" width="192" height="130">
         <Font family="SYNC_TO_DEVICE" size="122" weight="BLACK" color="{C("theme", 0)}"/>
       </TimeText>
-      <TimeText format="mm" align="START" x="238" y="78" width="192" height="130">
+      <TimeText format="mm" align="START" x="238" y="56" width="192" height="130">
         <Font family="SYNC_TO_DEVICE" size="122" weight="BLACK" color="#FFFFFFFF"/>
       </TimeText>
     </DigitalClock>
@@ -122,12 +131,13 @@ def watchface():
       <Transform target="angle" value="{SPIN}"/>
       <Image resource="cookie"/>
     </PartImage>
-    <!-- Mochi, breathing; tap him to open Mochi. -->
+    <!-- Tokkip, breathing; tap him to open the app. -->
     <Group name="mochi" x="0" y="0" width="450" height="450">
       <Launch target="mx.loperstack.mochi/mx.loperstack.mochi.wear.WearActivity"/>
       <Transform target="y" value="{BOB}"/>
       <Group name="mochi_color" x="0" y="0" width="450" height="450">
         <Variant mode="AMBIENT" target="alpha" value="0"/>
+        {ears}
         {body}
       </Group>
       <Group name="mochi_ambient" x="0" y="0" width="450" height="450" alpha="0">
@@ -177,19 +187,29 @@ def preview(path):
         small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24 * k)
     except OSError:
         big = small = ImageFont.load_default()
-    d.text((225 * k, 50 * k), "mié 21", fill=acc, font=small, anchor="mt")
-    d.text((212 * k, 140 * k), "10", fill=acc, font=big, anchor="rm")
-    d.text((238 * k, 140 * k), "08", fill="#FFFFFF", font=big, anchor="lm")
+    d.text((225 * k, 38 * k), "mié 21", fill=acc, font=small, anchor="mt")
+    d.text((212 * k, 118 * k), "10", fill=acc, font=big, anchor="rm")
+    d.text((238 * k, 118 * k), "08", fill="#FFFFFF", font=big, anchor="lm")
     ck = Image.open(os.path.join(RES, "drawable", "cookie.png")).resize((240 * k, 240 * k))
     tint = Image.new("RGBA", ck.size, cont)
     tint.putalpha(ck.getchannel("A"))
     img.paste(tint, (105 * k, 182 * k), tint)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([MX * k, MY * k, (MX + MW) * k, (MY + MH) * k], radius=58 * k, fill=body, outline=line, width=4 * k)
+    for sd in (-1, 1):
+        ear = Image.new("RGBA", (32 * k, 104 * k), (0, 0, 0, 0)); ed = ImageDraw.Draw(ear)
+        ed.ellipse([0, 0, 32 * k, 104 * k], fill=body); ed.ellipse([9 * k, 12 * k, 23 * k, 86 * k], fill=line)
+        big_ear = Image.new("RGBA", (32 * k, 208 * k), (0, 0, 0, 0)); big_ear.paste(ear, (0, 0))
+        r = big_ear.rotate(-sd * 10, resample=Image.BICUBIC, center=(16 * k, 104 * k))
+        ex = MX + MW / 2 + sd * 34 - 16
+        img.paste(r, (int(ex * k), int((MY - 84) * k)), r)
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([MX * k, MY * k, (MX + MW) * k, (MY + MH) * k], radius=38 * k, fill=body)
     for ex in (EYE_L, EYE_R):
-        d.ellipse([ex * k, EYE_Y * k, (ex + EYE_W) * k, (EYE_Y + EYE_H) * k], fill="#1B1A22")
-    d.ellipse([(EYE_L - 22) * k, (EYE_Y + 30) * k, (EYE_L + 8) * k, (EYE_Y + 44) * k], fill="#F7C6DD")
-    d.ellipse([(EYE_R + 10) * k, (EYE_Y + 30) * k, (EYE_R + 40) * k, (EYE_Y + 44) * k], fill="#F7C6DD")
+        d.ellipse([ex * k, EYE_Y * k, (ex + EYE_W) * k, (EYE_Y + EYE_H) * k], fill=line)
+    d.ellipse([(EYE_L - 22) * k, (EYE_Y + 26) * k, (EYE_L + 4) * k, (EYE_Y + 39) * k], fill="#F5B8C2")
+    d.ellipse([(EYE_R + 16) * k, (EYE_Y + 26) * k, (EYE_R + 42) * k, (EYE_Y + 39) * k], fill="#F5B8C2")
+    cxm = MX + MW / 2
+    d.arc([(cxm - 14) * k, (EYE_Y + 8) * k, (cxm + 14) * k, (EYE_Y + 36) * k], 35, 145, fill=line, width=5 * k)
     d.arc([12 * k, 12 * k, 438 * k, 438 * k], 35, 145, fill=cont, width=12 * k)
     d.arc([12 * k, 12 * k, 438 * k, 438 * k], 35, 95, fill=acc, width=12 * k)
     for cx in (34 + 46, 324 + 46):

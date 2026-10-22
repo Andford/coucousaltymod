@@ -1,4 +1,4 @@
-// "El color de Mochi": 36 ready colours, your Pixel's own colour, and any
+// "El color de Tokkip": 36 ready colours, your Pixel's own colour, and any
 // colour at all with the hue, vividness and brightness sliders.
 
 package mx.loperstack.mochi.ui
@@ -87,7 +87,7 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
     fun pickHsv() = onPick(argbOf(fromHsv(hue, sat, value)))
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("El color de Mochi", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text("El color de Tokkip", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
         Box(
             Modifier.width(170.dp).height(140.dp).clip(Squircle(36.dp))
@@ -146,7 +146,7 @@ fun ColorPicker(current: Long, color: Color, onPick: (Long) -> Unit) {
             Text("#%06X".format(argbOf(color) and 0xFFFFFF), color = Ink.Dim, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(6.dp))
-        Label("Blanco es el Mochi de la PC; los demás colores lo tiñen.", Ink.Dim2)
+        Label("Blanco es el Tokkip de la PC; los demás colores lo tiñen.", Ink.Dim2)
     }
 }
 

@@ -73,7 +73,7 @@
         <service
             android:name=".MoodTileService"
             android:exported="true"
-            android:label="Ánimo de Mochi"
+            android:label="Ánimo de Tokkip"
             android:icon="@drawable/ic_stat_mochi"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
             <intent-filter>
@@ -98,7 +98,7 @@
         <service
             android:name=".PendingComplicationService"
             android:exported="true"
-            android:label="Pendientes de Mochi"
+            android:label="Pendientes de Tokkip"
             android:icon="@drawable/ic_stat_mochi"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>

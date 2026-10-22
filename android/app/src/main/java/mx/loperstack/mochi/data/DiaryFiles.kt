@@ -105,7 +105,7 @@ object DiaryExport {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$title.png")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Mochi")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Tokkip")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val cr = context.contentResolver
@@ -154,7 +154,7 @@ object DiaryExport {
             page = doc.startPage(PdfDocument.PageInfo.Builder(w, h, pageNo).create())
             canvas = page!!.canvas
             y = margin
-            canvas!!.drawText("Mochi · diario", margin, h - 24f, small)
+            canvas!!.drawText("Tokkip · diario", margin, h - 24f, small)
             canvas!!.drawText("$pageNo", w - margin, h - 24f, small.apply { textAlign = Paint.Align.RIGHT })
             small.textAlign = Paint.Align.LEFT
         }

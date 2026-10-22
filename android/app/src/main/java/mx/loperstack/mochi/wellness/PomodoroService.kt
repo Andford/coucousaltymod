@@ -94,7 +94,7 @@ object PomodoroScheduler {
         if (p.isRunning()) {
             val endsAt = p.endsAt ?: return
             builder.setContentTitle(title)
-                .setContentText(if (p.phase == Phase.FOCUS) "Mochi se puso los lentes" else "Estírate, toma agua")
+                .setContentText(if (p.phase == Phase.FOCUS) "Tokkip se puso los lentes" else "Estírate, toma agua")
                 .setWhen(endsAt)
                 .setShowWhen(true)
                 .setUsesChronometer(true)

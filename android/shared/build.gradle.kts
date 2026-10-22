@@ -20,19 +20,8 @@ android {
     buildFeatures {
         compose = true
     }
-    // Mochi's sounds are the PC's own WAVs (NotchBuddy/Resources/sounds), copied in
-    // at build time rather than kept twice in the repo. Personal use only: see
-    // LICENSE-ASSETS.md at the root.
-    sourceSets.getByName("main").res.srcDir(layout.buildDirectory.dir("generated/sounds"))
 }
 
-val copySounds = tasks.register<Copy>("copySounds") {
-    from(rootDir.resolve("../NotchBuddy/Resources/sounds"))
-    include("*.wav")
-    exclude("greeting.wav")
-    into(layout.buildDirectory.dir("generated/sounds/raw"))
-}
-tasks.named("preBuild") { dependsOn(copySounds) }
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

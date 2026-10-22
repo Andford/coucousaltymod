@@ -57,7 +57,7 @@ class MochiTileService : TileService() {
             column.addContent(text(whenText, 12f, 0xFFC4B5FD.toInt(), bold = true))
             column.addContent(text(next.title, 15f, 0xFFFFFFFF.toInt(), bold = true, lines = 2))
         } else {
-            column.addContent(text(if (snap.at == 0L) "Abre Mochi en tu teléfono" else "Nada más por hoy", 13f, 0xFFA5A9B1.toInt()))
+            column.addContent(text(if (snap.at == 0L) "Abre Tokkip en tu teléfono" else "Nada más por hoy", 13f, 0xFFA5A9B1.toInt()))
         }
         column.addContent(spacer(8f))
         column.addContent(

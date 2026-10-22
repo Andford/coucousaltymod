@@ -1,4 +1,4 @@
-// Mochi's sounds — the PC's own (NotchBuddy/Resources/sounds), played with a
+// Tokkip's own sounds (tools/make_sounds.py, synthesised), played with a
 // SoundPool so they start instantly, on the phone and on the watch alike.
 
 package mx.loperstack.mochi.mochi

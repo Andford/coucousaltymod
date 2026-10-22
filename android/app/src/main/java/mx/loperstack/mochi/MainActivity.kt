@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Store.init(this)
+        mx.loperstack.mochi.data.AppIcon.apply(this, Store.state.value.species)
         GoogleTasks.init(this)
         Sounds.init(this)
         Sounds.enabled = Store.state.value.soundOn

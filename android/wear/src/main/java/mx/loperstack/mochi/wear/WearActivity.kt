@@ -264,7 +264,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     onClick = { go("pet") },
                     icon = { Icon(Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
                     label = { Text("Mimos") },
-                    secondaryLabel = { Text("Juega y apapacha a Mochi") },
+                    secondaryLabel = { Text("Juega y apapacha a Tokkip") },
                     colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -352,7 +352,7 @@ fun NextEvent(snap: Snapshot) {
             Text(next.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
     } else {
-        Text(if (snap.at == 0L) "Abre Mochi en tu teléfono" else "Nada más por hoy", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center)
+        Text(if (snap.at == 0L) "Abre Tokkip en tu teléfono" else "Nada más por hoy", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -568,7 +568,7 @@ fun Breathe(snap: Snapshot, go: (String) -> Unit = {}) {
                     }
                 }
             }
-            item { Text("Respira con Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item { Text("Respira con Tokkip", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             item {
                 Chip(
                     onClick = { go("history") },

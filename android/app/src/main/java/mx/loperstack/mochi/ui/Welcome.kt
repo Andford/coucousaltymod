@@ -108,7 +108,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                             Spacer(Modifier.height(40.dp))
                             Mochi(Modifier.width(240.dp).height(200.dp), color = color, interactive = true, greet = true)
                             Spacer(Modifier.height(24.dp))
-                            Title("¡Hola! Soy Mochi")
+                            Title("¡Hola! Soy Tokkip")
                             Body("Tu compañero en el reloj, el teléfono, la tablet y la laptop. Vamos a dejarlo a tu gusto: toma un minuto.")
                         }
                         1 -> {
@@ -120,7 +120,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                             NameField(name, { name = it })
                         }
                         2 -> {
-                            Title("Tu Mochi, tu color")
+                            Title("Tu Tokkip, tu color")
                             Body("Elige uno de los 36, el de tu Pixel o cualquiera a tu gusto.")
                             Spacer(Modifier.height(8.dp))
                             ColorPicker(data.mochiColor, color) { Store.setColor(it) }
@@ -135,7 +135,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                         }
                         4 -> {
                             Title("Tu mini ecosistema")
-                            Body("Mochi te acompaña en todos tus dispositivos.")
+                            Body("Tokkip te acompaña en todos tus dispositivos.")
                             Spacer(Modifier.height(14.dp))
                             Devices(google)
                             Spacer(Modifier.height(14.dp))
@@ -153,7 +153,7 @@ fun Welcome(data: AppData, google: GoogleTasks.Status, actions: Actions, connect
                             Mochi(Modifier.width(240.dp).height(200.dp), color = color, jump = actions.jump, face = MochiEngine.Eye.STAR)
                             Spacer(Modifier.height(24.dp))
                             Title(if (name.isBlank()) "¡Todo listo!" else "¡Todo listo, ${name.trim()}!")
-                            Body("Toca a Mochi cuando quieras. Tres veces seguidas… mejor no.")
+                            Body("Toca a Tokkip cuando quieras. Tres veces seguidas… mejor no.")
                         }
                     }
                 }
@@ -194,7 +194,7 @@ private fun Permissions() {
     val askCal = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r -> calendar = r.values.all { it } }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notify = it }
 
-    Text("Lo que Mochi necesita", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+    Text("Lo que Tokkip necesita", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
     Text("Puedes cambiarlo cuando quieras.", fontSize = 16.sp, color = Ink.Dim, modifier = Modifier.padding(top = 8.dp, bottom = 18.dp))
     PermissionRow(Icons.Rounded.CalendarMonth, "Tu calendario", "Tu agenda en Inicio y eventos nuevos en Google Calendar", calendar) {
         askCal.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))

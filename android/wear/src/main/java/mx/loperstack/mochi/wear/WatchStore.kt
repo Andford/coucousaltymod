@@ -170,6 +170,9 @@ object WatchStore {
         val s = _state.value
         mx.loperstack.mochi.wellness.PomodoroConfig.current = mx.loperstack.mochi.wellness.PomodoroConfig.current.copy(focusMin = s.focusMin, breakMin = s.breakMin)
         mx.loperstack.mochi.mochi.MochiStyle.outfit = mx.loperstack.mochi.mochi.Outfit.of(s.outfit) ?: mx.loperstack.mochi.mochi.Outfit.NONE
+        mx.loperstack.mochi.mochi.MochiStyle.species = mx.loperstack.mochi.mochi.Species.of(s.species)
+        mx.loperstack.mochi.mochi.MochiStyle.skin = mx.loperstack.mochi.mochi.Skin.of(s.skin)
+        mx.loperstack.mochi.mochi.MochiStyle.accent = androidx.compose.ui.graphics.Color(s.accent)
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         mx.loperstack.mochi.mochi.MochiStyle.rest = when {
             s.sleepNight != today || s.sleepMin <= 0 -> mx.loperstack.mochi.mochi.Rest.UNKNOWN
@@ -209,7 +212,7 @@ object WatchStore {
         nm.createNotificationChannel(NotificationChannel(CHANNEL_BREATHE, "Respirar con el teléfono", NotificationManager.IMPORTANCE_HIGH))
         val n = NotificationCompat.Builder(context, CHANNEL_BREATHE)
             .setSmallIcon(mx.loperstack.mochi.shared.R.drawable.ic_stat_mochi)
-            .setContentTitle("Respira con Mochi")
+            .setContentTitle("Respira con Tokkip")
             .setContentText("${b.minutes} min · toca para medir tu pulso")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)

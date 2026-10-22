@@ -51,6 +51,10 @@ data class AppData(
     val mochiFlat: Boolean = true,
     /** "auto" (the season's hat), "NONE", or an Outfit name. */
     val outfit: String = "auto",
+    /** Tokkip: species, skin and accent colour. */
+    val species: String = "CONEJO",
+    val skin: String = "LISA",
+    val accent: Long = 0xFF3F9E9A,
     /** Respirar: a pattern id (BREATH_PATTERNS) or "custom", the custom rhythm and the usual length. */
     val breathPattern: String = "calma",
     val breathCustom: List<Double> = listOf(4.0, 2.0, 6.0, 0.0),
@@ -146,6 +150,9 @@ object Store {
             bedReminder = prefs.getBoolean("bedReminder", false),
             mochiFlat = prefs.getBoolean("mochiFlat", true),
             outfit = prefs.getString("outfit", "auto") ?: "auto",
+            species = prefs.getString("species", "CONEJO") ?: "CONEJO",
+            skin = prefs.getString("skin", "LISA") ?: "LISA",
+            accent = prefs.getLong("accent", 0xFF3F9E9A),
             breathPattern = prefs.getString("breathPattern", "calma") ?: "calma",
             breathCustom = (prefs.getString("breathCustom", null) ?: "4,2,6,0").split(",").mapNotNull { it.toDoubleOrNull() }
                 .takeIf { it.size == 4 } ?: listOf(4.0, 2.0, 6.0, 0.0),
@@ -302,6 +309,19 @@ object Store {
         mx.loperstack.mochi.mochi.MochiStyle.flat = d.mochiFlat
         mx.loperstack.mochi.mochi.MochiStyle.outfit = mx.loperstack.mochi.mochi.Outfit.resolve(d.outfit)
         mx.loperstack.mochi.mochi.MochiStyle.rest = restLevel(d.sleep, System.currentTimeMillis())
+        mx.loperstack.mochi.mochi.MochiStyle.species = mx.loperstack.mochi.mochi.Species.of(d.species)
+        mx.loperstack.mochi.mochi.MochiStyle.skin = mx.loperstack.mochi.mochi.Skin.of(d.skin)
+        mx.loperstack.mochi.mochi.MochiStyle.accent = androidx.compose.ui.graphics.Color(d.accent)
+    }
+
+    /** Tokkip's look: species (also switches the app icon), skin and accent. */
+    fun setTokkip(species: String = _state.value.species, skin: String = _state.value.skin, accent: Long = _state.value.accent) {
+        val iconChanged = species != _state.value.species
+        _state.value = _state.value.copy(species = species, skin = skin, accent = accent)
+        prefs.edit().putString("species", species).putString("skin", skin).putLong("accent", accent).apply()
+        applyLook()
+        changed()
+        if (iconChanged) AppIcon.apply(app, species)
     }
 
     fun setMochiFlat(flat: Boolean) {

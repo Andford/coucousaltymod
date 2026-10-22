@@ -121,7 +121,7 @@ fun ThemeCards(current: String, onPick: (String) -> Unit) {
     val options = listOf(
         Triple("pixel", "Como mi Pixel", listOf(light.surface, light.primary, dark.surface)),
         Triple("pixelDark", "Pixel oscuro", listOf(dark.surface, dark.primary, dark.primaryContainer)),
-        Triple("mochi", "Mochi clásico", listOf(Color(0xFF0B0C0E), Color(0xFFA78BFA), Color(0xFF17181C))),
+        Triple("mochi", "Tokkip clásico", listOf(Color(0xFF0B0C0E), Color(0xFFA78BFA), Color(0xFF17181C))),
     )
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         for ((id, label, colors) in options) {
@@ -175,7 +175,7 @@ fun Devices(google: GoogleTasks.Status) {
     val tablet = context.resources.configuration.smallestScreenWidthDp >= 600
     DeviceRow(
         Icons.Rounded.Watch, watch ?: "Reloj",
-        when { !checked -> "Buscando…"; watch != null -> "Conectado · pendientes, respirar, ánimo y pulso"; else -> "Sin reloj ahora · abre Mochi en tu Pixel Watch" },
+        when { !checked -> "Buscando…"; watch != null -> "Conectado · pendientes, respirar, ánimo y pulso"; else -> "Sin reloj ahora · abre Tokkip en tu Pixel Watch" },
         watch != null, MShapes.Cookie9,
     )
     DeviceRow(
@@ -188,7 +188,7 @@ fun Devices(google: GoogleTasks.Status) {
     )
     DeviceRow(
         Icons.Rounded.Laptop, "Tu laptop (Coucou)",
-        if (google.connected) "Mismas tareas que la isla · el puente directo llega pronto" else "Con Google Tasks, la isla y Mochi comparten tareas",
+        if (google.connected) "Mismas tareas que la isla · el puente directo llega pronto" else "Con Google Tasks, la isla y Tokkip comparten tareas",
         google.connected, MShapes.Flower,
     )
 }
@@ -211,11 +211,8 @@ fun SettingsSheet(
         Spacer(Modifier.height(18.dp))
         ColorPicker(data.mochiColor, color) { Store.setColor(it) }
         Column(Modifier.padding(horizontal = 24.dp)) {
-            SectionTitle("Estilo de Mochi")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Segment("2D plano", data.mochiFlat) { Store.setMochiFlat(true) }
-                Segment("Como la PC (degradado)", !data.mochiFlat) { Store.setMochiFlat(false) }
-            }
+            SectionTitle("Tokkip")
+            TokkipPicker(data)
             SectionTitle("Gorritos y accesorios")
             val season = remember { mx.loperstack.mochi.mochi.Outfit.seasonal(java.util.Calendar.getInstance()) }
             Label(
@@ -229,7 +226,7 @@ fun SettingsSheet(
             SectionTitle("Sonidos")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Sonidos de Mochi", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("Sonidos de Tokkip", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Label("Los mismos de la PC, en el teléfono y el reloj", Ink.Dim2)
                 }
                 Switch(
@@ -238,7 +235,7 @@ fun SettingsSheet(
                 )
             }
             SectionTitle("Vibración")
-            ToggleRow("Vibración háptica", "Al tocar a Mochi, los botones y al cambiar de pestaña (también en el reloj)", data.haptics) {
+            ToggleRow("Vibración háptica", "Al tocar a Tokkip, los botones y al cambiar de pestaña (también en el reloj)", data.haptics) {
                 Store.setHaptics(it)
                 mx.loperstack.mochi.mochi.Haptics.enabled = it
                 if (it) mx.loperstack.mochi.mochi.Haptics.click(context)
@@ -326,7 +323,7 @@ fun OutfitChips(current: String) {
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Pill("Temporada", current == "auto", Icons.Rounded.CalendarMonth) { Store.setOutfit("auto") }
-        for (o in mx.loperstack.mochi.mochi.Outfit.entries) {
+        for (o in mx.loperstack.mochi.mochi.Outfit.entries.filter { it != mx.loperstack.mochi.mochi.Outfit.BUNNY }) {
             val icon = when (o) {
                 mx.loperstack.mochi.mochi.Outfit.NONE -> Icons.Rounded.Block
                 mx.loperstack.mochi.mochi.Outfit.WITCH -> Icons.Rounded.AutoFixHigh
@@ -382,12 +379,12 @@ fun BackupRow() {
     val open = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) confirm = uri }
-    Label("Todo Mochi en un archivo .zip: ajustes, tareas, diario con fotos, ánimo, sueño, respiraciones y rachas. Guárdalo en Drive o donde quieras.", Ink.Dim2, 12.sp)
+    Label("Todo Tokkip en un archivo .zip: ajustes, tareas, diario con fotos, ánimo, sueño, respiraciones y rachas. Guárdalo en Drive o donde quieras.", Ink.Dim2, 12.sp)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ExpressiveButton("Crear copia", icon = Icons.Rounded.Backup) {
             val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-            save.launch("Mochi-copia-$day.zip")
+            save.launch("Tokkip-copia-$day.zip")
         }
         ExpressiveButton("Restaurar", icon = Icons.Rounded.SettingsBackupRestore, container = Ink.CardHigh, content = Ink.Text) {
             open.launch(arrayOf("application/zip", "application/octet-stream"))
@@ -397,18 +394,60 @@ fun BackupRow() {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirm = null },
             title = { Text("¿Restaurar la copia?") },
-            text = { Text("Lo que tienes ahora en Mochi se reemplaza por lo de la copia.") },
+            text = { Text("Lo que tienes ahora en Tokkip se reemplaza por lo de la copia.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     confirm = null
                     scope.launch {
                         val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.restore(context, uri) }
-                        toast(if (ok) "Copia restaurada ✓" else "Ese archivo no es una copia de Mochi")
+                        toast(if (ok) "Copia restaurada ✓" else "Ese archivo no es una copia de Tokkip")
                         if (ok) mx.loperstack.mochi.mochi.Haptics.success(context)
                     }
                 }) { Text("Restaurar") }
             },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = null }) { Text("Cancelar") } },
         )
+    }
+}
+
+private val ACCENTS = listOf(0xFF3F9E9A, 0xFFE46F5C, 0xFF8A6CD1, 0xFF4C9A5F, 0xFF3F72C2, 0xFFC99A2E, 0xFFD2577F, 0xFF2BB3C0)
+
+/** Ajustes → Tokkip: species (the app icon follows it), skin and accent colour. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun TokkipPicker(data: AppData) {
+    val context = LocalContext.current
+    Label("Especie · el ícono de la app cambia con ella", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(8.dp))
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (sp in mx.loperstack.mochi.mochi.Species.entries) {
+            val icon = when (sp) {
+                mx.loperstack.mochi.mochi.Species.CONEJO -> Icons.Rounded.CrueltyFree
+                mx.loperstack.mochi.mochi.Species.GATO -> Icons.Rounded.Pets
+                mx.loperstack.mochi.mochi.Species.PERRO -> Icons.Rounded.Pets
+                mx.loperstack.mochi.mochi.Species.ROBOT -> Icons.Rounded.SmartToy
+            }
+            Pill(sp.label, data.species == sp.name, icon) { Store.setTokkip(species = sp.name); mx.loperstack.mochi.mochi.Haptics.success(context) }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Label("Piel", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (sk in mx.loperstack.mochi.mochi.Skin.entries) {
+            Pill(sk.label, data.skin == sk.name, if (sk == mx.loperstack.mochi.mochi.Skin.ENSUENO) Icons.Rounded.AutoAwesome else Icons.Rounded.Circle) { Store.setTokkip(skin = sk.name) }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Label("Acento · orejas, ojos y boca", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        for (c in ACCENTS) {
+            Box(
+                Modifier.size(34.dp).clip(CircleShape).background(Color(c))
+                    .border(3.dp, if (data.accent == c) Ink.Text else Color.Transparent, CircleShape)
+                    .clickable { mx.loperstack.mochi.mochi.Haptics.tick(context); Store.setTokkip(accent = c) },
+            )
+        }
     }
 }

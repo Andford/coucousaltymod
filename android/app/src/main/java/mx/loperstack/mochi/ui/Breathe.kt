@@ -115,7 +115,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
                 Spacer(Modifier.height(14.dp))
                 when {
                     liveBpm > 0 -> IconLabel(Icons.Rounded.Favorite, "$liveBpm lpm · tu reloj", Pink, size = 18.sp)
-                    now - (b.startedAt ?: now) < 20_000 -> Label("Abriendo Mochi en tu reloj para medir el pulso…", Ink.Dim2)
+                    now - (b.startedAt ?: now) < 20_000 -> Label("Abriendo Tokkip en tu reloj para medir el pulso…", Ink.Dim2)
                     else -> Unit
                 }
                 Spacer(Modifier.height(20.dp))
@@ -136,7 +136,7 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ScreenTitle("Respira con Mochi", Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), size = 36.sp)
+        ScreenTitle("Respira con Tokkip", Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), size = 36.sp)
         Spacer(Modifier.height(36.dp))
         Mochi(Modifier.width(190.dp).height(156.dp), color = color, jump = actions.jump, interactive = true, sigh = true)
         Spacer(Modifier.height(10.dp))
@@ -448,7 +448,7 @@ private fun BreathPicker(actions: Actions) {
         Spacer(Modifier.height(16.dp))
         PrimaryButton("Empezar · ${data.breathMinutes} min", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) { actions.startBreathing(data.breathMinutes) }
         Spacer(Modifier.height(8.dp))
-        Label("Mochi crece al inhalar y se encoge al exhalar. Con el reloj puesto mide tu pulso y vibra en cada fase.", Ink.Dim2, 12.sp)
+        Label("Tokkip crece al inhalar y se encoge al exhalar. Con el reloj puesto mide tu pulso y vibra en cada fase.", Ink.Dim2, 12.sp)
     }
     if (custom) {
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { custom = false }, containerColor = Ink.CardHigh) {

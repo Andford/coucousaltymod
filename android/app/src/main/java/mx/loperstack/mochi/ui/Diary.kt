@@ -110,7 +110,7 @@ private val Mono = FontFamily.Monospace
 
 private fun moodLine(mood: Int) = when (mood) {
     5 -> "¡Día brillante! Guárdalo bien."
-    4 -> "Qué bueno. Mochi está contento contigo."
+    4 -> "Qué bueno. Tokkip está contento contigo."
     3 -> "Un día tranquilo también cuenta."
     2 -> "Ánimo. Escribir lo que pesa ayuda."
     1 -> "Lo siento. ¿Respiramos un minuto juntos?"
@@ -175,7 +175,7 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val restored = withContext(Dispatchers.IO) { DiaryExport.restore(context, uri) }
-            if (restored == null) toast(context, "Ese archivo no es una copia de Mochi")
+            if (restored == null) toast(context, "Ese archivo no es una copia de Tokkip")
             else {
                 Store.setLogs(mergeLogs(Store.state.value.logs, restored))
                 toast(context, "Copia restaurada: ${restored.size} días")
@@ -206,8 +206,8 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
             Box {
                 IconButton(onClick = { menu = true }) { Text("⋯", fontSize = 22.sp, color = Ink.Dim) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Exportar en PDF") }, onClick = { menu = false; savePdf.launch("Mochi-diario-$today.pdf") })
-                    DropdownMenuItem(text = { Text("Copia de seguridad (.zip)") }, onClick = { menu = false; saveZip.launch("Mochi-diario-$today.zip") })
+                    DropdownMenuItem(text = { Text("Exportar en PDF") }, onClick = { menu = false; savePdf.launch("Tokkip-diario-$today.pdf") })
+                    DropdownMenuItem(text = { Text("Copia de seguridad (.zip)") }, onClick = { menu = false; saveZip.launch("Tokkip-diario-$today.zip") })
                     DropdownMenuItem(text = { Text("Restaurar una copia") }, onClick = { menu = false; openZip.launch(arrayOf("application/zip", "application/octet-stream")) })
                 }
             }
@@ -399,7 +399,7 @@ private fun DayCardDialog(log: DayLog, number: Int, color: Color, name: String, 
     val scope = rememberCoroutineScope()
     val layer = rememberGraphicsLayer()
     var busy by remember { mutableStateOf(false) }
-    val title = "Mochi-${log.day}"
+    val title = "Tokkip-${log.day}"
 
     fun render(then: (Bitmap) -> Unit) {
         if (busy) return
@@ -427,7 +427,7 @@ private fun DayCardDialog(log: DayLog, number: Int, color: Color, name: String, 
                 PrimaryButton("Guardar en Galería", color = Color.White, textColor = Color(0xFF0B0C0E)) {
                     render { b ->
                         val ok = DiaryExport.saveToGallery(context, b, title)
-                        toast(context, if (ok) "Guardada en Imágenes › Mochi" else "No se pudo guardar")
+                        toast(context, if (ok) "Guardada en Imágenes › Tokkip" else "No se pudo guardar")
                         if (ok) Sounds.play("approve")
                     }
                 }
@@ -495,7 +495,7 @@ private fun DayCard(log: DayLog, number: Int, color: Color, name: String) {
         }
         Spacer(Modifier.height(16.dp))
         Text(
-            if (name.isBlank()) "Mochi" else "El diario de $name · Mochi", fontSize = 11.sp, color = Color(0xFF6B7079),
+            if (name.isBlank()) "Tokkip" else "El diario de $name · Tokkip", fontSize = 11.sp, color = Color(0xFF6B7079),
             textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth(),
         )
     }

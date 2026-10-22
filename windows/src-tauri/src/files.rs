@@ -48,6 +48,14 @@ pub fn allow_dropped<I: IntoIterator<Item = String>>(paths: I) {
     list.drain(..excess);
 }
 
+/// True when `path` was delivered by a drop in the last couple of minutes,
+/// without using it up: the clipboard shelf keeps a dropped file's path.
+pub fn was_dropped(path: &str) -> bool {
+    let list = DROPPED.lock().unwrap_or_else(|e| e.into_inner());
+    let now = std::time::Instant::now();
+    list.iter().any(|(p, at)| p == path && now.duration_since(*at) < DROP_VALID_FOR)
+}
+
 /// True (once) when `path` was delivered by a drop in the last couple of minutes.
 fn take_dropped(path: &str) -> bool {
     let mut list = DROPPED.lock().unwrap_or_else(|e| e.into_inner());
@@ -66,6 +74,12 @@ pub fn ingest(source: &str) -> Result<DroppedFile, String> {
     if !take_dropped(source) {
         return Err(crate::i18n::t("Only files dropped on the island can be added."));
     }
+    ingest_trusted(source)
+}
+
+/// Copies a file into the inbox for the chat. Only for paths Tokkip already
+/// holds itself (a clipboard item), never for a path the page hands over.
+pub fn ingest_trusted(source: &str) -> Result<DroppedFile, String> {
     let src = Path::new(source);
     let meta = std::fs::metadata(src)
         .map_err(|e| crate::i18n::tf("Cannot read {path}: {error}", &[("path", source), ("error", &e.to_string())]))?;

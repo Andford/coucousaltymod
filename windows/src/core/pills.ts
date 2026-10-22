@@ -15,8 +15,7 @@ export type PillCategory = "workspace" | "agent" | "ai" | "service";
 
 /** Section titles (English keys, shown with `t()`), in display order. */
 export const PILL_CATEGORIES: { id: PillCategory; title: string }[] = [
-  { id: "workspace", title: N_("Where you code") },
-  { id: "agent", title: N_("Agents") },
+  { id: "workspace", title: "Tokkip" },
   { id: "ai", title: N_("AI for the chat") },
   { id: "service", title: N_("Services") },
 ];
@@ -56,7 +55,6 @@ export interface PillDefinition {
 
 export type HostOs = "windows" | "linux";
 
-const hooks: PillConnect = { kind: "hooks" };
 const key = (k: string): PillConnect => ({ kind: "key", key: k });
 const none: PillConnect = { kind: "none" };
 const server = (field: "ollamaUrl" | "lmstudioUrl"): PillConnect => ({ kind: "server", field });
@@ -71,35 +69,12 @@ const ACCENT = {
 };
 
 export const PILL_CATALOG: readonly PillDefinition[] = [
-  // ── Where you code ─────────────────────────────────────────────────────────
-  { id: "integration_claude", name: "VS Code", color: "#F5F6F8", category: "workspace",
-    subtitle: N_("Integration"), source: "claudeCode", support: "yes", connect: hooks },
-  // Claude Code in Cursor's terminal: the same hooks as Claude Code.
-  { id: "agent_cursor", name: "Cursor", color: "#C0C4CC", category: "workspace",
-    subtitle: N_("Integration"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_antigravity", name: "Antigravity", color: "#E879F9", category: "workspace",
-    subtitle: N_("Integration"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_codex", name: "Codex", color: "#2DD4BF", category: "workspace",
-    subtitle: N_("Integration"), source: "agent", support: "yes", connect: hooks },
-  // ── Agents ─────────────────────────────────────────────────────────────────
-  { id: "agent_gemini", name: "Gemini CLI", color: "#8AB4F8", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_copilot", name: "Copilot CLI", color: "#818CF8", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_muse", name: "Muse Code", color: "#38BDF8", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  // A plugin that starts the relay, written from Settings → Agents (agents.rs).
-  { id: "agent_opencode", name: "OpenCode", color: "#4ADE80", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_amp", name: "Amp", color: "#F59E0B", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  { id: "agent_hermes", name: "Hermes", color: "#C084FC", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
-  // Claude Code sessions run from the Claude desktop app: the relay tags them
-  // from CLAUDE_CODE_ENTRYPOINT, so there is nothing to install. The app has no
-  // Linux build.
-  { id: "agent_claude-desktop", name: "Claude Desktop", color: "#D97757", category: "agent",
-    subtitle: N_("Agent"), source: "agent", support: "windows", connect: none },
+  // ── Tokkip ─────────────────────────────────────────────────────────────────
+  // Tokkip: your day (reminders, Google Tasks and Calendar, Pomodoro and
+  // breathing — core/wellness.ts) is the main pill. The ID is Coucou's
+  // Bienestar pill's, kept so stored settings and tasks carry over.
+  { id: "integration_wellness", name: "Hoy", color: "#A78BFA", category: "workspace",
+    subtitle: N_("Wellness"), source: "n8n", support: "yes", connect: none },
   // ── AI for the chat ────────────────────────────────────────────────────────
   { id: "ai_anthropic", name: "Anthropic", color: ACCENT.anthropic, category: "ai",
     subtitle: N_("Chat"), source: "n8n", support: "yes", connect: key("anthropic-api-key") },
@@ -114,34 +89,16 @@ export const PILL_CATALOG: readonly PillDefinition[] = [
   { id: "ai_lmstudio", name: "LM Studio", color: ACCENT.lmstudio, category: "ai",
     subtitle: N_("Chat"), source: "n8n", support: "yes", connect: server("lmstudioUrl") },
   // ── Services ───────────────────────────────────────────────────────────────
-  { id: "integration_resend", name: "Resend", color: "#22C55E", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("resend-api-key") },
-  { id: "integration_n8n", name: "n8n", color: "#F29B38", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("n8n-api-key") },
-  { id: "integration_vercel", name: "Vercel", color: "#7C5CFF", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("vercel-token") },
   { id: "integration_github", name: "GitHub", color: "#F4505E", category: "service",
     subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("github-token") },
-  { id: "integration_notion", name: "Notion", color: "#8C8C8C", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("notion-api-key") },
-  { id: "integration_calcom", name: "Cal.com", color: "#C9956A", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("calcom-api-key") },
-  { id: "integration_stripe", name: "Stripe", color: "#0570DE", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "yes", connect: key("stripe-api-key") },
-  { id: "integration_music", name: "Apple Music", color: "#FA2D48", category: "service",
-    subtitle: N_("Integration"), source: "n8n", support: "no", connect: none },
   // Spotify's MPRIS interface on the session bus on Linux (src-tauri/src/spotify.rs),
   // the system media controls on Windows (src-tauri/src/spotify_win.rs).
   { id: "integration_spotify", name: "Spotify", color: "#1DB954", category: "service",
     subtitle: N_("Integration"), source: "n8n", support: "yes", connect: none },
-  // coucousaltymod: tasks, Pomodoro and guided breathing, all local
-  // (core/wellness.ts). Not on the Mac.
-  { id: "integration_wellness", name: "Bienestar", color: "#A78BFA", category: "service",
-    subtitle: N_("Wellness"), source: "n8n", support: "yes", connect: none },
 ];
 
 /** The always-on pill unless the user picks another workspace tool. */
-export const DEFAULT_MAIN_PILL = "integration_claude";
+export const DEFAULT_MAIN_PILL = "integration_wellness";
 
 /** How many declared pills may sit next to the main one. */
 export const MAX_DECLARED = 4;

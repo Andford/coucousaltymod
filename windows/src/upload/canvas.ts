@@ -6,6 +6,7 @@
 // exactly as on macOS, because this canvas draws its own.
 
 import { State } from "../core/state";
+import { drawBack, inkOf, loadLook } from "../mochi/tokkip";
 import { SCRIPT_FONTS } from "../core/fonts";
 import { N_, isRtl, t } from "../i18n/i18n";
 import {
@@ -368,13 +369,34 @@ export class UploadCanvas {
     ctx.rotate(f.tilt);
     ctx.scale(f.sx, f.sy);
 
+    // Tokkip's ears and tail, fading out as he turns into the box.
+    const look = loadLook();
+    const earsAlpha = Math.max(0, 1 - mc * 1.6);
+    if (earsAlpha > 0.01) {
+      const u = R / 100;
+      const ryNow = R * (0.97 - 0.03 * mc);
+      ctx.save();
+      ctx.scale(u, u);
+      ctx.translate(0, -ryNow / u + 90);
+      drawBack(ctx, look, {
+        t: performance.now() / 1000, earL: 0, earR: 0, droop: 0, happy: true, oy: 0, wave: 0, waveT: 0, alpha: earsAlpha,
+      });
+      ctx.restore();
+    }
+    INK_NOW = inkOf(look);
+
     const { rx, ry } = bodyPath(ctx, f.morph, R);
 
-    // Body.
+    // Body, in Tokkip's colour.
     const bg = ctx.createLinearGradient(rx * 0.7, -ry * 0.9, -rx * 0.8, ry * 0.9);
-    bg.addColorStop(0, "#EDEDEF");
-    bg.addColorStop(1, "#C4C5CA");
+    bg.addColorStop(0, look.body);
+    bg.addColorStop(1, look.body);
     ctx.fillStyle = bg;
+    ctx.fill();
+    const lightG = ctx.createLinearGradient(0, -ry, 0, ry);
+    lightG.addColorStop(0, "rgba(255,255,255,0.18)");
+    lightG.addColorStop(1, "rgba(0,0,0,0.06)");
+    ctx.fillStyle = lightG;
     ctx.fill();
 
     // Edge shadow.
@@ -522,10 +544,13 @@ export class UploadCanvas {
 
 const INK = "#0E0F12";
 
+/** Tokkip's eye colour this frame (his look's ink). */
+let INK_NOW = INK;
+
 function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number, h: number) {
   switch (shape) {
     case "pill":
-      ctx.fillStyle = INK;
+      ctx.fillStyle = INK_NOW;
       rr(ctx, -w / 2, -h / 2, w, h, w / 2);
       ctx.fill();
       break;
@@ -539,7 +564,7 @@ function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number
       ctx.lineTo(w / 2, hh / 2 - w / 2);
       ctx.arc(0, hh / 2 - w / 2, w / 2, 0, Math.PI, false);
       ctx.closePath();
-      ctx.fillStyle = INK;
+      ctx.fillStyle = INK_NOW;
       ctx.fill();
       break;
     }
@@ -547,7 +572,7 @@ function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number
     case "content":
       ctx.beginPath();
       ctx.arc(0, -h * 0.12, w * 0.85, Math.PI * 0.15, Math.PI * 0.85, false);
-      ctx.strokeStyle = INK;
+      ctx.strokeStyle = INK_NOW;
       ctx.lineWidth = w * 0.5;
       ctx.lineCap = "round";
       ctx.stroke();

@@ -3,6 +3,10 @@
 // a quick little hand, then comes back and settles in the compact island.
 // Everything is laid out in the same 640×150 reference space as on macOS.
 
+import {
+  DEFAULT_LOOK, bodyPath as tokkipBody, cheekOf, drawBack, drawBody as drawTokkipBody, drawFaceUnder, drawMouth, drawNose,
+  inkOf, loadLook, mouthY, type TokkipLook,
+} from "./tokkip";
 import { closeCurve } from "../core/anim";
 import { Sound } from "../core/sound";
 import { COMPACT_W, NOTCH_H, NOTCH_W } from "../core/layout";
@@ -382,14 +386,19 @@ function mochiPath(hw: number, hh: number): Path2D {
   return p;
 }
 
-/** White body gradient. A canvas gradient pads past its ends, so the corners are never left unpainted. */
+/** Tokkip's look for the whole greeting (read once per frame: it is cheap). */
+let LOOK: TokkipLook = DEFAULT_LOOK;
+
+/** Body colour fill (the hands): Tokkip's own colour with a soft top light. */
 function whiteFill(
   x: CanvasRenderingContext2D, path: Path2D,
   x0: number, y0: number, x1: number, y1: number,
 ) {
+  x.fillStyle = LOOK.body;
+  x.fill(path);
   const g = x.createLinearGradient(x0, y0, x1, y1);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
+  g.addColorStop(0, "rgba(255,255,255,0.16)");
+  g.addColorStop(1, "rgba(0,0,0,0.05)");
   x.fillStyle = g;
   x.fill(path);
 }
@@ -416,8 +425,10 @@ function drawHandR(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose)
   x.rotate(h.ang);
   rr(x, -h.L / 2, -h.T / 2, h.L, h.T, h.T / 2);
   const g = x.createLinearGradient(h.L / 2, -h.T / 2, -h.L / 2, h.T / 2);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
+  x.fillStyle = LOOK.body;
+  x.fill();
+  g.addColorStop(0, "rgba(255,255,255,0.16)");
+  g.addColorStop(1, "rgba(0,0,0,0.05)");
   x.fillStyle = g;
   x.fill();
   x.strokeStyle = "rgba(0,0,0,0.08)";
@@ -427,6 +438,7 @@ function drawHandR(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose)
 }
 
 function drawMochi(x: CanvasRenderingContext2D, p: Pose) {
+  LOOK = loadLook();
   const hh = p.hb / 2;
   const hw = hh * ASP;
   if (hh <= 0.4) return;
@@ -456,8 +468,35 @@ function drawMochi(x: CanvasRenderingContext2D, p: Pose) {
   drawHandL(x, hw, hh, p);
   drawHandR(x, hw, hh, p);
 
-  const body = mochiPath(hw, hh);
-  whiteFill(x, body, hw * 0.6, -hh, -hw * 0.6, hh);
+  // Tokkip: ears, tail and body in studio units (tokkip.ts), the face below in
+  // the greeting's own units so its eye animation keeps working.
+  const u = hh / 105;
+  const toStudio = new DOMMatrix().scale(u, u).translate(0, -15);
+  const body = new Path2D();
+  body.addPath(tokkipBody(LOOK.species), toStudio);
+  x.save();
+  x.scale(u, u);
+  x.translate(0, -15);
+  const pose = {
+    t: performance.now() / 1000, earL: 0, earR: p.handR > 0.5 ? 14 : 0, droop: p.eye === "content" ? 12 : 0,
+    happy: p.eye === "happy", oy: 0, wave: 0, waveT: 0, alpha: 1,
+  };
+  drawBack(x, LOOK, pose);
+  drawTokkipBody(x, LOOK, pose);
+  x.save();
+  x.clip(tokkipBody(LOOK.species));
+  x.translate(0, 20);
+  drawFaceUnder(x, LOOK);
+  x.fillStyle = cheekOf(LOOK, 0.4);
+  for (const sd of [-1, 1]) {
+    x.beginPath();
+    x.ellipse(sd * 70, 18, 17, 9, 0, 0, Math.PI * 2);
+    x.fill();
+  }
+  drawNose(x, LOOK);
+  drawMouth(x, p.eye === "happy" ? "big" : "smile", inkOf(LOOK), pose.t, mouthY(LOOK.species));
+  x.restore();
+  x.restore();
 
   if (p.tint > 0) {
     const g = x.createLinearGradient(0, hh, 0, -hh * 0.1);
@@ -470,8 +509,8 @@ function drawMochi(x: CanvasRenderingContext2D, p: Pose) {
   // Eyes
   x.save();
   x.clip(body);
-  x.fillStyle = "#16171A";
-  x.strokeStyle = "#16171A";
+  x.fillStyle = inkOf(LOOK);
+  x.strokeStyle = inkOf(LOOK);
   const er = p.hb * 0.06;
   const sp = p.hb * 0.19;
   const lx = p.lookX * hw * 0.42;

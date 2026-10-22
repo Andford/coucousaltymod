@@ -60,8 +60,10 @@ const fn action(id: &'static str, keys: &'static str, on: bool, ported: bool) ->
 pub const ACTIONS: &[ActionDef] = &[
     action("toggleIsland", "Ctrl+Alt+N", false, true),
     action("openChat", "Ctrl+Alt+Space", true, true),
-    action("goToAlert", "Ctrl+Alt+A", true, true),
-    action("jumpToTerminal", "Ctrl+Alt+T", true, true),
+    // Tokkip has no agents: no permission to jump to.
+    action("goToAlert", "Ctrl+Alt+A", true, false),
+    // Tokkip has no Claude Code sessions: no terminal to bring forward.
+    action("jumpToTerminal", "Ctrl+Alt+T", true, false),
     // Dragging Mochi onto a window is not in this version.
     action("attachFrontWindow", "Ctrl+Alt+F", true, false),
     action("nextPill", "Ctrl+Alt+Right", true, true),
@@ -69,6 +71,8 @@ pub const ACTIONS: &[ActionDef] = &[
     action("muteToggle", "Ctrl+Alt+S", true, true),
     action("desktopToggle", "Ctrl+Alt+D", true, true),
     action("wardrobeToggle", "Ctrl+Alt+G", true, true),
+    // Tokkip: the smart clipboard. AltGr+V types nothing on the layouts above.
+    action("clipboardToggle", "Ctrl+Alt+V", true, true),
 ];
 
 pub fn find(id: &str) -> Option<&'static ActionDef> {
@@ -92,6 +96,7 @@ pub fn description(id: &str) -> &'static str {
         "muteToggle" => n_("Mute or unmute Mochi"),
         "desktopToggle" => n_("Send Mochi to the desktop"),
         "wardrobeToggle" => n_("Open the wardrobe"),
+        "clipboardToggle" => n_("Open the clipboard"),
         _ => "Coucou",
     }
 }
@@ -630,12 +635,12 @@ mod wayland {
         #[test]
         fn the_desktop_answer_marks_each_shortcut() {
             let mut r = report();
-            let answer = [bound("openChat", Some("Ctrl+Alt+Space")), bound("goToAlert", None)];
+            let answer = [bound("openChat", Some("Ctrl+Alt+Space")), bound("clipboardToggle", None)];
             mark_bound(&mut r, Some(&answer));
             assert_eq!(of(&r, "openChat").status, Status::Active);
             assert_eq!(of(&r, "openChat").trigger.as_deref(), Some("Ctrl+Alt+Space"));
-            assert_eq!(of(&r, "goToAlert").status, Status::Active);
-            assert_eq!(of(&r, "goToAlert").trigger, None);
+            assert_eq!(of(&r, "clipboardToggle").status, Status::Active);
+            assert_eq!(of(&r, "clipboardToggle").trigger, None);
             // Left out of the answer.
             assert_eq!(of(&r, "muteToggle").status, Status::Refused);
             assert_eq!(of(&r, "desktopToggle").status, Status::Refused);
@@ -688,9 +693,9 @@ mod wayland {
 mod tests {
     use super::*;
 
-    const MAC_IDS: [&str; 10] = [
+    const MAC_IDS: [&str; 11] = [
         "toggleIsland", "openChat", "goToAlert", "jumpToTerminal", "attachFrontWindow",
-        "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle",
+        "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle", "clipboardToggle",
     ];
 
     fn never(_: &Shortcut) -> Option<String> {
@@ -735,7 +740,7 @@ mod tests {
     fn the_action_not_ported_yet_is_reserved_not_registered() {
         let plan = plan(&Bindings::new(), never);
         for (def, outcome) in plan {
-            let reserved = def.id == "attachFrontWindow";
+            let reserved = matches!(def.id, "attachFrontWindow" | "goToAlert" | "jumpToTerminal");
             assert_eq!(def.ported, !reserved);
             match outcome {
                 Ok(_) => assert!(def.ported && def.enabled_by_default, "{}", def.id),
@@ -787,35 +792,35 @@ mod tests {
     #[test]
     fn a_combination_used_twice_is_registered_once() {
         let mut stored = Bindings::new();
-        let same = Binding { keys: "Ctrl+Alt+A".into(), enabled: true };
-        stored.insert("jumpToTerminal".into(), same.clone());
+        let same = Binding { keys: "Ctrl+Alt+S".into(), enabled: true };
+        stored.insert("desktopToggle".into(), same.clone());
         let plan = plan(&stored, never);
-        let alert = plan.iter().find(|(d, _)| d.id == "goToAlert").unwrap();
-        let term = plan.iter().find(|(d, _)| d.id == "jumpToTerminal").unwrap();
+        let alert = plan.iter().find(|(d, _)| d.id == "muteToggle").unwrap();
+        let term = plan.iter().find(|(d, _)| d.id == "desktopToggle").unwrap();
         assert!(alert.1.is_ok());
         assert_eq!(term.1.as_ref().unwrap_err().status, Status::Duplicate);
 
         // Same key, other modifiers: not a duplicate.
-        stored.insert("jumpToTerminal".into(), Binding { keys: "Ctrl+Shift+A".into(), enabled: true });
+        stored.insert("desktopToggle".into(), Binding { keys: "Ctrl+Shift+S".into(), enabled: true });
         let plan = super::plan(&stored, never);
         assert!(plan.iter().all(|(d, o)| o.is_ok() || !d.ported || d.id == "toggleIsland"));
 
         // A disabled action doesn't hold its keys.
-        stored.insert("goToAlert".into(), Binding { keys: "Ctrl+Alt+A".into(), enabled: false });
-        stored.insert("jumpToTerminal".into(), same);
+        stored.insert("muteToggle".into(), Binding { keys: "Ctrl+Alt+S".into(), enabled: false });
+        stored.insert("desktopToggle".into(), same);
         let plan = super::plan(&stored, never);
-        let term = plan.iter().find(|(d, _)| d.id == "jumpToTerminal").unwrap();
+        let term = plan.iter().find(|(d, _)| d.id == "desktopToggle").unwrap();
         assert!(term.1.is_ok());
     }
 
     #[test]
     fn a_combination_that_types_a_character_is_not_registered() {
-        let euro = |s: &Shortcut| (s.key == Code::KeyA).then(|| "ą".to_string());
-        let plan = plan(&Bindings::new(), euro);
-        let alert = plan.iter().find(|(d, _)| d.id == "goToAlert").unwrap();
-        let refused = alert.1.as_ref().unwrap_err();
+        let polish = |s: &Shortcut| (s.key == Code::KeyS).then(|| "ś".to_string());
+        let plan = plan(&Bindings::new(), polish);
+        let mute = plan.iter().find(|(d, _)| d.id == "muteToggle").unwrap();
+        let refused = mute.1.as_ref().unwrap_err();
         assert_eq!(refused.status, Status::TypesCharacter);
-        assert_eq!(refused.typed.as_deref(), Some("ą"));
+        assert_eq!(refused.typed.as_deref(), Some("ś"));
     }
 
     #[test]

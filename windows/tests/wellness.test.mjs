@@ -195,7 +195,7 @@ test("the card shows the tab picked, and a running breath above all", () => {
   Wellness.breathing = { ...IDLE_BREATHING };
   Wellness.tab = "breathe";
   card.sync();
-  assert.ok(card.el.textContent.includes("Respira con Mochi"));
+  assert.ok(card.el.textContent.includes("Respira con Tokkip"));
   assert.ok(card.el.textContent.includes("5 min"));
 });
 

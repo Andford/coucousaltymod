@@ -10,6 +10,7 @@
 import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge";
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
+import { loadLook, onLookChange } from "../mochi/tokkip";
 import { BotEngine } from "../mochi/engine";
 import {
   DESKTOP_EVENTS, DOUBLE_CLICK_MS, DRAG_THRESHOLD, PANEL_SIZE, agentActive, gaze, isOverBody,
@@ -62,6 +63,11 @@ class DesktopMochi {
   private pokeTimer: number | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
+    // Tokkip's look, kept in step with Settings (same origin, shared storage).
+    this.engine.look = loadLook();
+    onLookChange((look) => {
+      this.engine.look = look;
+    });
     this.canvas = canvas;
     const dpr = this.dpr();
     canvas.width = Math.round(PANEL_SIZE * dpr);

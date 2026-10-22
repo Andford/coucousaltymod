@@ -86,7 +86,7 @@ export function buildUploading(): ViewHost {
 
 export function buildChoose(actions: ViewActions): ViewHost {
   const title = h("div", { class: "title" });
-  const sub = h("div", { class: "sub", text: tl("What do you want to do with it?") });
+  const sub = h("div", { class: "sub", text: tl("Saved on your clipboard shelf. Want to ask about it?") });
   const row = h(
     "div",
     { class: "actions" },
@@ -94,6 +94,14 @@ export function buildChoose(actions: ViewActions): ViewHost {
       class: "btn primary",
       text: tl("Ask a question"),
       onclick: () => actions.setView("prompt"),
+    }),
+    h("button", {
+      class: "btn secondary",
+      text: tl("See clipboard"),
+      onclick: () => {
+        actions.cancelDrop();
+        actions.setView("clipboard");
+      },
     }),
     h("button", {
       class: "btn secondary",

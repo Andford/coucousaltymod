@@ -52,7 +52,6 @@ function refreshGitHubWhenShown() {
  * pill fed by hook events (Mac #183), nothing at all for Claude Desktop.
  */
 export async function refreshConfigured() {
-  const hooks = (await Bridge.agentHooksStatus()) ?? null;
   for (const def of availablePills(State.os)) {
     let configured: boolean;
     switch (def.connect.kind) {
@@ -62,8 +61,8 @@ export async function refreshConfigured() {
       case "hooks":
         // Without an answer from Rust (a plain browser), the Claude Code pill
         // falls back to what the settings say about its hooks.
-        configured = hooks?.[def.id] ??
-          (def.id === "integration_claude" ? State.settings.hooksInstalled : false);
+        // Tokkip has no agent hooks.
+        configured = false;
         break;
       case "server":
         // A local model server counts once the chat is connected to it.
@@ -79,16 +78,8 @@ export async function refreshConfigured() {
   State.notify();
 }
 
-/** Only the hook-driven pills, for when the island opens: a few small file reads. */
-export async function refreshHookPills() {
-  const hooks = await Bridge.agentHooksStatus();
-  if (!hooks) return;
-  for (const [id, present] of Object.entries(hooks)) {
-    const info = State.integrations[id] ?? { data: {}, error: null, loaded: false, configured: false };
-    State.integrations[id] = { ...info, configured: present };
-  }
-  State.notify();
-}
+/** Tokkip has no hook-driven pills: nothing to refresh when the island opens. */
+export async function refreshHookPills() {}
 
 function handle(island: Island, update: IntegrationUpdate) {
   if (State.paused) return;

@@ -1,3 +1,8 @@
+// Tokkip's engine — a port of Coucou's BotEngine.swift to Canvas 2D. The motion
+// (tweens, emotes, particles, outfits) is Mochi's; the character drawn is
+// Tokkip (tokkip.ts): the main one and the desktop one. Pill minis keep the
+// small blob in the pill's colour.
+//
 // Mochi — direct port of NotchBuddy/Sources/App/BotEngine.swift to Canvas 2D.
 // Same constants, same tweens, same easings, same particles. The only intentional
 // difference is the `happy`/`wink` eye arc, which follows the prototype
@@ -9,6 +14,10 @@ import { Sound } from "../core/sound";
 import type { BotEmoteName, BotStateName } from "../core/layout";
 import { PUMPKIN_BODY, drawOutfitBehind, drawOutfitFront, makeHead } from "./outfits";
 import type { Outfit } from "./wardrobe";
+import {
+  DEFAULT_LOOK, bodyPath as tokkipBody, cheekOf, drawBack, drawBody, drawFaceUnder, drawMouth, drawNose,
+  drawRobotHands, inkOf, mouthY, type MouthKind, type TokkipLook, type TokkipPose,
+} from "./tokkip";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -207,6 +216,8 @@ export class BotEngine {
   isMini = false;
   /** Solid body colour for mini bots / integration pills (null = Mochi gradient). */
   bodyColor: RGB | null = null;
+  /** Tokkip's species, skin and colours (the main character; minis ignore it). */
+  look: TokkipLook = DEFAULT_LOOK;
 
   // Animated state (BotEngine `s`)
   yaw = 0; pitch = 0; roll = 0; tilt = 0; open = 1;
@@ -551,7 +562,8 @@ export class BotEngine {
 
   /** Wearing something visible: the body then turns as one piece when it rolls. */
   private get rigidRoll(): boolean {
-    return !this.isMini && this.outfit !== "none" && this.outfitPresence > 0.05;
+    // Tokkip always turns as one piece: his ears and face go round with him.
+    return !this.isMini;
   }
 
   /** True while anything is still moving — lets the island stop its RAF loop. */
@@ -829,6 +841,273 @@ export class BotEngine {
    * `w`×`h` CSS pixels (the caller has already applied the DPR transform).
    */
   draw(x: CanvasRenderingContext2D, W: number, H: number) {
+    // Tokkip, unless the body is turning into the drop box (that part is Mochi's).
+    if (!this.isMini && this.morph <= 0.02) {
+      this.drawTokkip(x, W, H);
+      return;
+    }
+    const keepColor = this.bodyColor;
+    if (!this.isMini) this.bodyColor = hexToRGB(this.look.body);
+    this.drawClassic(x, W, H);
+    this.bodyColor = keepColor;
+  }
+
+  // ── Tokkip ──────────────────────────────────────────────────────────────────
+
+  /** The eye shape this frame: the emote, the state, dancing, the drop box. */
+  private currentEye(): EyeShape {
+    let shape: EyeShape = this.eyeOverride ?? this.cfg.eye;
+    if (this.isDancing && this.dancingLevel > 0.15 && !this.isMini && (this.state === "idle" || this.state === "finished")) {
+      shape = "happy";
+    }
+    if (this.morph > 0.5) {
+      if (this.isChewing) shape = "happy";
+      else if (this.slotHTarget > 0.05 || this.slotH > 0.1) shape = "cup";
+    }
+    return shape;
+  }
+
+  /** Ears down when sleepy or upset, up when something needs you. */
+  private earDroop(shape: EyeShape): number {
+    switch (this.state) {
+      case "sleeping": return 48;
+      case "error": case "ratelimit": return 26;
+      case "dizzy": return 32;
+      case "approval": case "question": return -10;
+      case "finished": return -6;
+    }
+    if (shape === "closed") return this.isBreathing ? 10 - this.breathFill * 18 : 30;
+    if (shape === "wide") return -14;
+    if (shape === "tired") return 38;
+    return 0;
+  }
+
+  private mouthFor(shape: EyeShape): MouthKind {
+    switch (shape) {
+      case "happy": return this.isDancing && this.dancingLevel > 0.15 ? "open" : "big";
+      case "wide": case "cup": return "o";
+      case "closed": return this.isBreathing ? (this.breathFill > 0.5 ? "o" : "flat") : "sleepO";
+      case "spiral": return "wavy";
+      case "heart": return "cat";
+      case "star": return "big";
+      case "tired": case "line": case "flat": return "flat";
+      case "wink": return "tongue";
+      default: return this.state === "error" ? "frown" : "smile";
+    }
+  }
+
+  /** One of Tokkip's eyes, centred on (0, 0) in face space. */
+  private tokkipEye(x: CanvasRenderingContext2D, shape: EyeShape, sd: number, ink: string, t: number) {
+    x.fillStyle = ink;
+    x.strokeStyle = ink;
+    x.lineCap = "round";
+    x.lineWidth = 6;
+    const blinkLine = () => {
+      x.beginPath();
+      x.moveTo(-12, 0);
+      x.lineTo(12, 0);
+      x.stroke();
+    };
+    switch (shape) {
+      case "pill":
+      case "dot": {
+        const r = shape === "dot" ? 10 : 12;
+        if (this.open < 0.35) return blinkLine();
+        x.beginPath();
+        x.ellipse(0, 0, r, r * Math.min(1, this.open), 0, 0, Math.PI * 2);
+        x.fill();
+        if (this.look.species === "mapache") {
+          x.fillStyle = "rgba(255,255,255,.9)";
+          x.beginPath();
+          x.arc(-4, -5, 3.6, 0, Math.PI * 2);
+          x.fill();
+        }
+        return;
+      }
+      case "wide":
+      case "cup":
+        x.beginPath();
+        x.arc(0, 0, 15, 0, Math.PI * 2);
+        x.fill();
+        x.fillStyle = "#fff";
+        x.beginPath();
+        x.arc(-4, -5, 5, 0, Math.PI * 2);
+        x.fill();
+        return;
+      case "line":
+      case "flat":
+        return blinkLine();
+      case "happy":
+        x.beginPath();
+        x.arc(0, 8, 13, Math.PI * 1.15, Math.PI * 1.85);
+        x.stroke();
+        return;
+      case "closed":
+        x.beginPath();
+        x.arc(0, -2, 12, Math.PI * 0.15, Math.PI * 0.85);
+        x.stroke();
+        return;
+      case "spiral":
+        x.lineWidth = 3.5;
+        x.beginPath();
+        for (let a = 0; a < 14; a += 0.25) {
+          const r = a * 1.05;
+          x.lineTo(Math.cos(a + t * 8 * sd) * r, Math.sin(a + t * 8 * sd) * r);
+        }
+        x.stroke();
+        return;
+      case "heart":
+        x.fillStyle = "#E2466E";
+        x.save();
+        x.translate(0, 2);
+        x.scale(1.35, 1.35);
+        x.beginPath();
+        x.moveTo(0, 6);
+        x.bezierCurveTo(-14, -4, -8, -16, 0, -8);
+        x.bezierCurveTo(8, -16, 14, -4, 0, 6);
+        x.fill();
+        x.restore();
+        return;
+      case "star":
+        x.fillStyle = "#F2B42B";
+        x.save();
+        x.rotate(t * 2 * sd);
+        starPath(x, 15, 15 * 0.45);
+        x.fill();
+        x.restore();
+        return;
+      case "tired":
+        x.beginPath();
+        x.arc(0, 2, 11, 0, Math.PI);
+        x.fill();
+        x.lineWidth = 4;
+        x.beginPath();
+        x.moveTo(-13, 1);
+        x.lineTo(13, 1);
+        x.stroke();
+        return;
+      case "wink":
+        if (sd > 0) {
+          x.beginPath();
+          x.arc(0, 8, 13, Math.PI * 1.15, Math.PI * 1.85);
+          x.stroke();
+        } else {
+          x.beginPath();
+          x.arc(0, 0, 12, 0, Math.PI * 2);
+          x.fill();
+        }
+        return;
+    }
+  }
+
+  private drawTokkip(x: CanvasRenderingContext2D, W: number, H: number) {
+    const R = W * 0.3;
+    const cx = W / 2 + this.ox * R;
+    const cy = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06;
+    // Studio units → pixels, and the studio's y shift that puts his head where
+    // Mochi's was (ears and hats then have the canvas's overhang above).
+    const u = R * 0.0095;
+    const OFF = -8;
+    const n = now();
+    const t = n - this.t0;
+    const look = this.look;
+    const shape = this.currentEye();
+    const waving = n >= this.waveStart && this.waveStart > 0 && n < this.waveUntil;
+    const waveT = n - this.waveStart;
+    const dance = this.isDancing ? this.dancingLevel : 0;
+    const sway = Math.sin(t * 6) * 14 * dance;
+    const waveEar = waving ? 26 * Math.sin(waveT * 22) * Math.max(0, 1 - waveT / 1.2) : 0;
+    const pose: TokkipPose = {
+      t,
+      earL: sway,
+      earR: -sway + waveEar,
+      droop: this.earDroop(shape),
+      happy: dance > 0.15 || shape === "happy" || shape === "heart" || shape === "star",
+      oy: (this.oy * R) / u,
+      wave: waving ? Math.min(1, waveT / 0.18) : 0,
+      waveT,
+      alpha: 1,
+    };
+
+    x.save();
+    if (Math.abs(this.roll) > 0.001) {
+      x.translate(cx, cy);
+      x.rotate(this.roll);
+      x.translate(-cx, -cy);
+    }
+    // Mochi's round hands come out to wave; the robot has his own.
+    if (look.species !== "robot") this.drawHandsBehind(x, R, R * 1.0, R * 0.95, cx, cy);
+
+    x.save();
+    x.translate(cx, cy);
+    if (this.tilt !== 0) x.rotate(this.tilt);
+    x.scale(this.sx, this.sy);
+
+    const dressed = this.outfit !== "none";
+    const head = dressed ? makeHead(R, this.yaw, this.pitch, this.physDx, this.physDy) : null;
+    const outfitState = { presence: this.outfitPresence, morph: this.morph };
+    if (head) drawOutfitBehind(x, this.outfit, head, outfitState);
+
+    x.save();
+    x.scale(u, u);
+    x.translate(0, OFF);
+    drawBack(x, look, pose);
+    drawBody(x, look, pose);
+
+    // The face follows where he looks (the engine's yaw and pitch).
+    const fx = Math.sin(this.yaw) * 62;
+    const fy = -Math.sin(this.pitch) * 40;
+    const body = tokkipBody(look.species);
+    x.save();
+    x.clip(body);
+    x.translate(fx, 20 + fy);
+    drawFaceUnder(x, look);
+
+    const blush = Math.max(this.blush, this.tint * 0.5);
+    x.fillStyle = cheekOf(look, Math.min(0.75, 0.3 + blush * 0.45));
+    const robot = look.species === "robot";
+    if (robot) {
+      x.shadowColor = "#F37A9A";
+      x.shadowBlur = 10;
+    }
+    for (const sd of [-1, 1]) {
+      x.beginPath();
+      if (robot) x.roundRect(sd * 60 - 10, 22, 20, 8, 4);
+      else x.ellipse(sd * 70, 18, 17, 9, 0, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.shadowBlur = 0;
+
+    const ink = inkOf(look);
+    if (robot) {
+      x.shadowColor = ink;
+      x.shadowBlur = 14;
+    }
+    for (const sd of [-1, 1]) {
+      x.save();
+      x.translate(sd * 46, -6);
+      x.scale(this.es, this.es);
+      this.tokkipEye(x, shape, sd, ink, t);
+      x.restore();
+    }
+    drawNose(x, look);
+    drawMouth(x, this.mouthFor(shape), look.species === "mapache" ? "#3A2E2C" : ink, t, mouthY(look.species));
+    x.shadowBlur = 0;
+    x.restore(); // face
+
+    drawRobotHands(x, look, pose);
+    x.restore(); // studio units
+
+    if (head) drawOutfitFront(x, this.outfit, head, outfitState);
+    x.restore();
+    x.restore();
+
+    if (this.badge && this.badgeS > 0.01) this.drawBadge(x, this.badge, R, cx, cy);
+    this.drawParticles(x, R, cx, cy);
+  }
+
+  /** Coucou's Mochi: the pill minis, and the main body while it is the drop box. */
+  private drawClassic(x: CanvasRenderingContext2D, W: number, H: number) {
     const R = W * 0.3;
     const rx = R * 1.14;
     const ry = R * 0.88;

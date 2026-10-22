@@ -3,7 +3,7 @@
 // integrations land here too in a later stage.
 
 import "./settings.css";
-import { Bridge, onEvent, type HookPreview, type HookStatus, type ShortcutsReport } from "../core/bridge";
+import { Bridge, onEvent, type ShortcutsReport } from "../core/bridge";
 import { CUSTOM_SERVER_KEY, providerDef, urlExposure } from "../core/providers";
 import {
   ISLAND_SHORTCUTS, SHORTCUTS, SHORTCUT_TEXT, activeKeys, displayKeys, duplicates, effective,
@@ -16,9 +16,10 @@ import {
   sanitizeDeclared, toggleDeclared, type PillDefinition,
 } from "../core/pills";
 import { h, clear } from "../views/dom";
-import { agentsSection } from "./agents";
+import { BotEngine } from "../mochi/engine";
+import { DEFAULT_LOOK, SPECIES, loadLook, saveLook, type Skin, type TokkipLook } from "../mochi/tokkip";
 import { colorDot } from "./colors";
-import { renderDiff, statusDot } from "./parts";
+import { statusDot } from "./parts";
 import {
   LANGUAGES, N_, isRtl, onLanguageChange, resolveLanguage, setLanguage, systemLanguages, t, tn,
 } from "../i18n/i18n";
@@ -56,267 +57,6 @@ function toggle(on: boolean, onChange: (v: boolean) => void): HTMLElement {
 }
 
 // ── Changes to Claude Code's settings.json ────────────────────────────────────
-
-/** One kind of change to ~/.claude/settings.json, with the words that go with it. */
-interface Change {
-  preview: (install: boolean) => Promise<HookPreview | null>;
-  apply: (install: boolean, fingerprint: string) => Promise<string | null>;
-  installText: string;
-  removeText: string;
-  installButton: string;
-  removeButton: string;
-  /** The note once written; `backup` is "" when there was no file to back up. */
-  done: (backup: string) => string;
-}
-
-const HOOKS_CHANGE: Change = {
-  preview: Bridge.hooksPreview,
-  apply: Bridge.hooksApply,
-  get installText() { return t("This is exactly what will change in your settings.json. Your own hooks are left untouched."); },
-  get removeText() { return t("This removes Coucou's entries only. Your own hooks are left untouched."); },
-  get installButton() { return t("Back up and write"); },
-  get removeButton() { return t("Back up and remove"); },
-  done: (backup) => backup
-    ? t("Done. Previous settings saved as {backup}. Open a new Claude Code session to pick the hooks up.", { backup })
-    : t("Done. Open a new Claude Code session to pick the hooks up."),
-};
-
-const STATUS_LINE_CHANGE: Change = {
-  preview: Bridge.statusLinePreview,
-  apply: Bridge.statusLineApply,
-  get installText() { return t("This is exactly what will change: only the status line. If you already have one it keeps working, Coucou's relay runs it for you."); },
-  get removeText() { return t("This puts your previous status line back, or removes the entry if there was none."); },
-  get installButton() { return t("Back up and write"); },
-  get removeButton() { return t("Back up and remove"); },
-  done: (backup) => backup
-    ? t("Done. Previous settings saved as {backup}. The numbers appear after the next reply of a Claude Code session.", { backup })
-    : t("Done. The numbers appear after the next reply of a Claude Code session."),
-};
-
-/**
- * Shows the diff of a change in `body` and writes it only after an explicit
- * click, and only if settings.json still matches the diff that was shown.
- * `back` redraws the section; `applied` runs a moment after a successful write.
- */
-async function reviewChange(
-  body: HTMLElement,
-  change: Change,
-  install: boolean,
-  back: () => void,
-  applied: () => void,
-) {
-  let preview;
-  try {
-    preview = await change.preview(install);
-  } catch (err) {
-    // An unreadable or invalid settings.json stops here rather than being
-    // treated as empty and written over.
-    clear(body);
-    body.append(
-      h("div", { class: "notice err", text: String(err).replace(/^Error:\s*/, "") }),
-      h("div", { class: "row" }, h("button", { text: t("Back"), onclick: back })),
-    );
-    return;
-  }
-  if (!preview) return;
-  clear(body);
-  body.append(
-    h("div", { class: "hint", text: install ? change.installText : change.removeText }),
-    renderDiff(preview.diff),
-    h("div", { class: "row" },
-      h("span", {
-        class: "path",
-        text: preview.backup
-          ? t("Backup → {path}", { path: preview.backup })
-          : t("No settings.json yet — nothing to back up."),
-      }),
-    ),
-  );
-  const confirm = h("button", {
-    class: install ? "primary" : "danger",
-    text: install ? change.installButton : change.removeButton,
-  });
-  confirm.addEventListener("click", async () => {
-    confirm.disabled = true;
-    try {
-      const backup = await change.apply(install, preview.fingerprint);
-      clear(body);
-      body.append(h("div", { class: "notice ok", text: change.done(backup ?? "") }));
-      window.setTimeout(applied, 2600);
-    } catch (err) {
-      confirm.disabled = false;
-      body.append(h("div", { class: "notice err", text: t("Could not write: {error}", { error: String(err) }) }));
-    }
-  });
-  body.append(h("div", { class: "row" }, confirm, h("button", { text: t("Cancel"), onclick: back })));
-}
-
-// ── Claude Code section ───────────────────────────────────────────────────────
-
-function claudeSection(status: HookStatus): HTMLElement {
-  const body = h("div", { style: "display:flex;flex-direction:column;gap:12px" });
-  const section = h(
-    "section",
-    {},
-    h("h2", {}, statusDot(status.installed), h("span", { text: "Claude Code" })),
-    body,
-  );
-
-  const redraw = () => {
-    clear(body);
-    draw();
-  };
-  const rebuild = async () => {
-    const fresh = await Bridge.hooksStatus();
-    if (fresh) Object.assign(status, fresh);
-    redraw();
-    const head = section.querySelector("h2")!;
-    clear(head);
-    head.append(statusDot(status.installed), h("span", { text: "Claude Code" }));
-  };
-
-  function draw() {
-    body.append(
-      h("div", {
-        class: "hint",
-        text: status.installed
-          ? t("Coucou is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there.")
-          : t("Install the hooks to see your Claude Code sessions in the island and approve permissions without leaving what you are doing."),
-      }),
-      h("div", { class: "row" },
-        h("label", { text: "settings.json" }),
-        h("span", { class: "path", text: status.settingsPath }),
-      ),
-      h("div", { class: "row" },
-        h("label", { text: t("Relay") }),
-        h("span", { class: "path", text: status.hookPath }),
-        statusDot(status.hookReady),
-      ),
-    );
-
-    if (!status.hookReady) {
-      body.append(h("div", {
-        class: "notice warn",
-        text: t("coucou-hook.exe is not in place yet. Restart Coucou; if it still fails, build it with `cargo build -p coucou-hook`."),
-      }));
-    }
-
-    const actions = h("div", { class: "row" });
-    const install = h("button", {
-      class: "primary",
-      text: status.installed ? t("Reinstall hooks…") : t("Install hooks…"),
-      onclick: () => void reviewChange(body, HOOKS_CHANGE, true, redraw, () => void rebuild()),
-    });
-    // Writing hook commands that point at a relay which isn't there would give
-    // every Claude Code session a broken hook and nothing to show for it.
-    if (!status.hookReady) {
-      install.disabled = true;
-      install.title = t("The relay isn't installed yet.");
-    }
-    actions.append(install);
-    if (status.installed) {
-      actions.append(h("button", {
-        class: "danger",
-        text: t("Uninstall hooks…"),
-        onclick: () => void reviewChange(body, HOOKS_CHANGE, false, redraw, () => void rebuild()),
-      }));
-    }
-    body.append(actions);
-  }
-
-  draw();
-  return section;
-}
-
-// ── Plan usage section ────────────────────────────────────────────────────────
-
-/**
- * The 5-hour and weekly limits in the island's header. They come from Claude
- * Code's status line, so the relay has to be the status line first: turning the
- * switch on without it starts the install, and the switch only stays on once
- * that has been confirmed. A status line the user had keeps working.
- */
-const PLAN_SETTINGS_TEXT = {
-  get claude() { return t("Shows your Claude plan usage (5-hour and weekly limits) in the island's header. Coucou adds a status line relay in ~/.claude/settings.json. If you already have a status line, it keeps working as before. Pro and Max plans only."); },
-  get showClaude() { return t("Show in notch"); },
-  get codex() { return t("Shows your Codex plan usage (weekly limit and free resets left) in the island's header. Coucou asks the Codex CLI (codex app-server) when the pill shows; nothing is installed. Codex must be signed in with ChatGPT."); },
-  get showCodex() { return t("Show Codex plan in the notch"); },
-};
-
-function planSection(status: HookStatus): HTMLElement {
-  const body = h("div", { style: "display:flex;flex-direction:column;gap:12px" });
-  const section = h("section", {}, h("h2", {}, h("span", { text: t("Plan usage") })), body);
-
-  const redraw = () => {
-    clear(body);
-    draw();
-  };
-  const rebuild = async () => {
-    const fresh = await Bridge.hooksStatus();
-    if (fresh) Object.assign(status, fresh);
-    settings.planRelayInstalled = status.planRelayInstalled;
-    // Cancelled or failed: a switch that was waiting for the install falls back.
-    if (!status.planRelayInstalled) settings.showPlanInNotch = false;
-    redraw();
-  };
-
-  function draw() {
-    // The switch shows "on" while the install it asked for is being reviewed.
-    const sw = toggle(settings.showPlanInNotch, (on) => {
-      if (!on) {
-        settings.showPlanInNotch = false;
-        void save();
-      } else if (status.planRelayInstalled) {
-        settings.showPlanInNotch = true;
-        void save();
-      } else {
-        // Turned on before the relay is in: install it first; it stays on once confirmed.
-        void reviewChange(body, STATUS_LINE_CHANGE, true, () => void rebuild(), () => {
-          settings.planRelayInstalled = true;
-          settings.showPlanInNotch = true;
-          void save().then(rebuild);
-        });
-      }
-    });
-    body.append(
-      h("div", {
-        class: "hint",
-        text: PLAN_SETTINGS_TEXT.claude,
-      }),
-      h("div", { class: "row" }, h("label", { text: PLAN_SETTINGS_TEXT.showClaude }), sw),
-      h("div", { class: "row" },
-        h("label", { text: t("Relay") }),
-        statusDot(status.planRelayInstalled),
-        h("span", { class: "hint", text: status.planRelayInstalled ? t("installed") : t("not installed") }),
-        status.planRelayInstalled
-          ? h("button", {
-              class: "danger",
-              text: t("Uninstall relay…"),
-              onclick: () => void reviewChange(body, STATUS_LINE_CHANGE, false, redraw, () => void rebuild()),
-            })
-          : h("button", {
-              class: "primary",
-              text: t("Install relay…"),
-              onclick: () => void reviewChange(body, STATUS_LINE_CHANGE, true, redraw, () => void rebuild()),
-            }),
-      ),
-      // Codex: nothing to install, Coucou asks the Codex CLI when the pill shows.
-      h("div", { class: "hint", text: PLAN_SETTINGS_TEXT.codex }),
-      h("div", { class: "row" },
-        h("label", { text: PLAN_SETTINGS_TEXT.showCodex }),
-        toggle(settings.showCodexPlanInNotch, (on) => {
-          settings.showCodexPlanInNotch = on;
-          void save();
-        }),
-      ),
-    );
-  }
-
-  draw();
-  return section;
-}
-
-// ── Claude API section ────────────────────────────────────────────────────────
 
 const MODELS: [string, string][] = [
   ["claude-opus-5", "Claude Opus 5"],
@@ -755,24 +495,9 @@ interface IntegrationDef {
 }
 
 const INTEGRATIONS: IntegrationDef[] = [
-  { id: "integration_stripe", name: "Stripe", color: "#0570DE",
-    fields: [{ key: "stripe-api-key", label: N_("Secret key"), placeholder: "sk_live_…", secret: true }] },
   { id: "integration_github", name: "GitHub", color: "#F4505E",
     fields: [{ key: "github-token", label: N_("Token"), placeholder: "ghp_…", secret: true }],
     hint: N_("Classic token with the repo scope, or fine-grained with read access to Pull requests, Commit statuses and Actions.") },
-  { id: "integration_vercel", name: "Vercel", color: "#7C5CFF",
-    fields: [{ key: "vercel-token", label: N_("Token"), placeholder: "…", secret: true }] },
-  { id: "integration_n8n", name: "n8n", color: "#F29B38",
-    fields: [
-      { key: "n8n-url", label: N_("Instance URL"), placeholder: "https://n8n.example.com", secret: false },
-      { key: "n8n-api-key", label: N_("API key"), placeholder: "…", secret: true },
-    ] },
-  { id: "integration_resend", name: "Resend", color: "#22C55E",
-    fields: [{ key: "resend-api-key", label: N_("API key"), placeholder: "re_…", secret: true }] },
-  { id: "integration_notion", name: "Notion", color: "#8C8C8C",
-    fields: [{ key: "notion-api-key", label: N_("Integration token"), placeholder: "ntn_…", secret: true }] },
-  { id: "integration_calcom", name: "Cal.com", color: "#C9956A",
-    fields: [{ key: "calcom-api-key", label: N_("API key"), placeholder: "cal_…", secret: true }] },
   // Nothing to enter: Spotify is read over D-Bus on Linux, through the system
   // media controls on Windows (see core/pills.ts).
   { id: "integration_spotify", name: "Spotify", color: "#1DB954", fields: [] },
@@ -1007,7 +732,6 @@ function generalSection(): HTMLElement {
       h("label", { text: t("Launch at startup") }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
     ),
-    ...recapRows(),
     languageRow(),
   );
 }
@@ -1246,48 +970,112 @@ function shortcutsSection(initial: ShortcutsReport | null): HTMLElement {
 }
 
 /** Settings → General → Weekly recap. The prefs live with the history in Rust. */
-function recapRows(): HTMLElement[] {
-  const T = {
-    label: t("Weekly recap"),
-    keep: t("Keep a history of my coding sessions"),
-    clear: t("Clear history"),
-    cleared: t("History cleared."),
-    about: t("Counts and project names only — never commands, files or prompts. Kept on this computer for 12 weeks."),
+// ── Tokkip's look ─────────────────────────────────────────────────────────────
+
+const LOOK_TEXT = {
+  species: N_("Species"),
+  skin: N_("Skin"),
+  body: N_("Body"),
+  accent: N_("Accent"),
+  ink: N_("Eyes and mouth"),
+  cheek: N_("Cheeks"),
+  auto: N_("Auto"),
+  plain: N_("Plain"),
+  dreamy: N_("Dreamy"),
+  hint: N_("Tokkip looks like this on the island and on your desktop. Click him to say hi."),
+  conejo: N_("Bunny"),
+  gato: N_("Kitten"),
+  perro: N_("Puppy"),
+  robot: N_("Robot"),
+  mapache: N_("Raccoon"),
+};
+
+/** Ready-made colours, then any colour with the picker. */
+const ACCENTS = ["#3F9E9A", "#E07A5F", "#7B6CD9", "#E2466E", "#3D8BD9", "#F2B42B", "#4E9A5B", "#2F3440"];
+const BODIES = ["#F7EAD3", "#FFFFFF", "#F6D7DF", "#DCEFE8", "#E3DCF5", "#C9D3DE", "#9AA6B2", "#F2C9A0"];
+
+function tokkipSection(): HTMLElement {
+  let look = loadLook();
+  const engine = new BotEngine();
+  engine.look = look;
+  const canvas = h("canvas", { class: "tk-preview", title: t(LOOK_TEXT.hint) }) as HTMLCanvasElement;
+  const SIZE = 150;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = SIZE * dpr;
+  canvas.height = SIZE * dpr;
+  canvas.style.width = `${SIZE}px`;
+  canvas.style.height = `${SIZE}px`;
+  canvas.addEventListener("click", () => engine.greet());
+  let last = performance.now();
+  const frame = (nowMs: number) => {
+    if (!canvas.isConnected) return;
+    const ctx = canvas.getContext("2d");
+    if (ctx && document.visibilityState === "visible") {
+      engine.update(Math.min(0.05, (nowMs - last) / 1000));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      engine.particleOverhang = 40;
+      engine.draw(ctx, SIZE * 0.72, SIZE);
+    }
+    last = nowMs;
+    requestAnimationFrame(frame);
   };
-  const feedback = h("span", { class: "hint" });
-  const sw = toggle(true, (v) => { void Bridge.recapSetEnabled(v); });
-  void Bridge.recapPrefs().then((prefs) => {
-    if (prefs) sw.classList.toggle("on", prefs.enabled);
-  });
-  const clearBtn = h("button", {
-    class: "danger",
-    text: T.clear,
-    onclick: async () => {
-      clearBtn.disabled = true;
-      await Bridge.recapClear();
-      feedback.textContent = T.cleared;
-      window.setTimeout(() => {
-        clearBtn.disabled = false;
-        feedback.textContent = "";
-      }, 2400);
-    },
-  }) as HTMLButtonElement;
-  return [
-    h("div", { class: "row" },
-      h("label", { text: T.label }),
-      sw,
-      h("span", { class: "hint", text: T.keep }),
-    ),
-    h("div", { class: "row" },
-      h("label", {}),
-      clearBtn,
-      feedback,
-    ),
-    h("div", { class: "row" },
-      h("label", {}),
-      h("span", { class: "hint", style: "flex:1 1 0;min-width:0", text: T.about }),
-    ),
-  ];
+  requestAnimationFrame(frame);
+
+  const body = h("div", { class: "tk-controls" });
+  const set = (patch: Partial<TokkipLook>) => {
+    look = { ...look, ...patch };
+    engine.look = look;
+    saveLook(look);
+    draw();
+  };
+
+  function chipRow<T extends string>(items: { id: T; label: string }[], current: T, pick: (v: T) => void) {
+    return h("div", { class: "tk-chips" }, ...items.map((it) =>
+      h("button", { class: "tk-chip" + (it.id === current ? " on" : ""), text: t(it.label), onclick: () => pick(it.id) })));
+  }
+
+  function colorRow(label: string, value: string, palette: string[] | null, pick: (v: string) => void, auto: boolean) {
+    const input = h("input", { type: "color", value: value || "#3f9e9a", class: "tk-color" }) as HTMLInputElement;
+    input.addEventListener("input", () => pick(input.value.toUpperCase()));
+    const row = h("div", { class: "row" }, h("label", { text: t(label) }));
+    if (auto) {
+      row.append(h("button", { class: "tk-chip" + (value === "" ? " on" : ""), text: t(LOOK_TEXT.auto), onclick: () => pick("") }));
+    }
+    for (const c of palette ?? []) {
+      row.append(h("button", {
+        class: "tk-swatch" + (c.toUpperCase() === value.toUpperCase() ? " on" : ""),
+        style: `background:${c}`,
+        title: c,
+        onclick: () => pick(c),
+      }));
+    }
+    row.append(input);
+    return row;
+  }
+
+  function draw() {
+    clear(body);
+    body.append(
+      h("div", { class: "row" }, h("label", { text: t(LOOK_TEXT.species) }),
+        chipRow(SPECIES.map((sp) => ({ id: sp.id, label: LOOK_TEXT[sp.id] })), look.species, (v) => { set({ species: v }); engine.greet(); })),
+      h("div", { class: "row" }, h("label", { text: t(LOOK_TEXT.skin) }),
+        chipRow([{ id: "lisa" as Skin, label: LOOK_TEXT.plain }, { id: "ensueno" as Skin, label: LOOK_TEXT.dreamy }], look.skin, (v) => set({ skin: v }))),
+      colorRow(LOOK_TEXT.body, look.body, BODIES, (v) => set({ body: v || DEFAULT_LOOK.body }), false),
+      colorRow(LOOK_TEXT.accent, look.accent, ACCENTS, (v) => set({ accent: v || DEFAULT_LOOK.accent }), false),
+      colorRow(LOOK_TEXT.ink, look.ink, null, (v) => set({ ink: v }), true),
+      colorRow(LOOK_TEXT.cheek, look.cheek, null, (v) => set({ cheek: v }), true),
+    );
+  }
+  draw();
+
+  return h(
+    "section",
+    {},
+    h("h2", {}, h("span", { text: "Tokkip" })),
+    h("div", { class: "tk-wrap" }, canvas, body),
+    h("div", { class: "hint", text: t(LOOK_TEXT.hint) }),
+  );
 }
 
 // ── Language ──────────────────────────────────────────────────────────────────
@@ -1361,24 +1149,16 @@ async function main() {
 
 /** Reads what the sections show and draws them all. */
 async function render() {
-  const status = (await Bridge.hooksStatus()) ?? {
-    installed: false, planRelayInstalled: false, settingsPath: "", hookPath: "", hookReady: false,
-  };
-  const agents = await Bridge.agentHooksList();
-
   const hasKey = (await Bridge.secretPresent("anthropic-api-key")) ?? false;
   const shortcutReport = await Bridge.shortcutsStatus();
 
-  const keys = [
-    "stripe-api-key", "github-token", "vercel-token",
-    "n8n-url", "n8n-api-key", "resend-api-key", "notion-api-key", "calcom-api-key",
-  ];
+  const keys = ["github-token"];
   const present: Record<string, boolean> = {};
   for (const k of keys) present[k] = (await Bridge.secretPresent(k)) ?? false;
 
   // A main pill this build can run, and no pill declared twice.
   settings = { ...settings, ...sanitizeDeclared(settings) };
-  const connected: Record<string, boolean> = { ...((await Bridge.agentHooksStatus()) ?? {}) };
+  const connected: Record<string, boolean> = {};
   for (const def of availablePills()) {
     if (def.connect.kind === "key") {
       connected[def.id] = present[def.connect.key] ?? (await Bridge.secretPresent(def.connect.key)) ?? false;
@@ -1403,10 +1183,8 @@ async function render() {
   shortcutsListener = null;
   clear(root);
   root.append(
-    h("h1", {}, h("span", { text: "Coucou" }), h("span", { class: "version", text: version })),
-    claudeSection(status),
-    agentsSection(agents),
-    planSection(status),
+    h("h1", {}, h("span", { text: "Tokkip" }), h("span", { class: "version", text: version })),
+    tokkipSection(),
     apiSection(hasKey),
     chatProvidersSection(chatKeys, keyChanged),
     localSection(customKey),

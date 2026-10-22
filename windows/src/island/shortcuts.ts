@@ -13,7 +13,6 @@ import { cyclePill, islandKeyAction, navigate, pillByNumber, type IslandKeyActio
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
 
-const CLAUDE_DESKTOP_ID = "agent_claude-desktop";
 
 /** What the shortcuts need from the island. */
 export interface ShortcutHost {
@@ -88,16 +87,16 @@ export function runGlobalShortcut(host: ShortcutHost, action: string, resume: ()
       break;
     }
 
-    // The Mac brings the terminal app forward; here it is the existing "Open
-    // terminal": the session's own window when it was found, else its folder
-    // in VS Code; the Claude app for a Claude Desktop session.
-    case "jumpToTerminal": {
-      const task = State.focusTask;
-      if (task?.id === CLAUDE_DESKTOP_ID) void Bridge.openClaudeDesktop();
-      else void Bridge.openSession(task?.sessionId ?? null, task?.sessionCwd ?? null);
-      if (State.mode === "expanded") host.collapse();
+    // Tokkip: the clipboard shelf; again to fold it.
+    case "clipboardToggle":
+      if (State.mode === "expanded" && State.view === "clipboard") {
+        host.collapse();
+        break;
+      }
+      resume();
+      Sound.play("blip");
+      host.alert("clipboard");
       break;
-    }
 
     case "nextPill":
     case "prevPill":

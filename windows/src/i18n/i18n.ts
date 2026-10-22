@@ -122,9 +122,16 @@ export function applyDocumentLanguage() {
   if (root.dataset) root.dataset.dir = isRtl() ? "rtl" : "ltr";
 }
 
+/** Tokkip: the texts inherited from Coucou say Mochi and Coucou; he is Tokkip. */
+export function brand(text: string): string {
+  return text.replace(/Mochi|Coucou/g, "Tokkip");
+}
+
 function interpolate(text: string, vars?: Vars): string {
-  if (!vars) return text;
-  return text.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m));
+  // The template is renamed, never what is filled into it.
+  const named = brand(text);
+  if (!vars) return named;
+  return named.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m));
 }
 
 function pluralRule(lang: Language, count: number): Intl.LDMLPluralRule {

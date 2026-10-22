@@ -31,10 +31,13 @@ use ::windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use super::LocalTime;
-use crate::session_window::{self, Proc};
+/// A running process: its parent and its executable's name.
+struct Proc {
+    #[allow(dead_code)]
+    parent: u32,
+    exe: String,
+}
 
-/// File name of the Claude Code relay.
-pub const HOOK_EXE: &str = "coucou-hook.exe";
 
 /// Environment variable holding the home directory.
 pub const HOME_VAR: &str = "USERPROFILE";
@@ -350,17 +353,7 @@ pub fn set_pointer_watch(_active: bool) {}
 /// `set_position` already places a Win32 window on the right display.
 pub fn pin_to_monitor(_win: &WebviewWindow, _x: i32, _y: i32) {}
 
-// ── Session windows ("Open terminal") ─────────────────────────────────────────
-//
-// See session_window.rs: the relay's ancestors lead to the terminal or editor
-// window a Claude Code session runs in.
-
-/// The process on the other end of a relay connection.
-pub fn pipe_client_pid(handle: RawHandle) -> Option<u32> {
-    let mut pid = 0u32;
-    unsafe { GetNamedPipeClientProcessId(HANDLE(handle), &mut pid).ok()? };
-    (pid != 0).then_some(pid)
-}
+// ── Other apps' windows (Spotify) ─────────────────────────────────────────────
 
 /// Every process, by ID: its parent and its executable's name.
 fn process_table() -> HashMap<u32, Proc> {
@@ -386,11 +379,6 @@ fn process_table() -> HashMap<u32, Proc> {
         let _ = CloseHandle(snapshot);
     }
     out
-}
-
-/// The ancestors of a process, nearest first, below the desktop shell.
-pub fn process_ancestors(pid: u32) -> Vec<u32> {
-    session_window::ancestors(&process_table(), pid)
 }
 
 /// Visible top-level windows that are nobody's dialog and have a title:
@@ -419,17 +407,6 @@ fn top_windows() -> Vec<(isize, u32, String)> {
     list
 }
 
-/// The first of `pids` that owns a window.
-pub fn first_with_window(pids: &[u32]) -> Option<u32> {
-    let windows = top_windows();
-    pids.iter().copied().find(|pid| windows.iter().any(|(_, owner, _)| owner == pid))
-}
-
-/// What a session remembers: the ancestor that owns a window, or nothing.
-pub fn window_owners(ancestors: &[u32]) -> Vec<u32> {
-    first_with_window(ancestors).into_iter().collect()
-}
-
 fn bring_forward(raw: isize) -> bool {
     let hwnd = HWND(raw as *mut _);
     unsafe {
@@ -439,21 +416,6 @@ fn bring_forward(raw: isize) -> bool {
         // Allowed: the click on the island that asked for this was the last input.
         SetForegroundWindow(hwnd).as_bool()
     }
-}
-
-/// Brings `pid`'s window forward — the one titled after `folder` if there are several.
-pub fn focus_process_window(pid: u32, folder: &str) -> bool {
-    let candidates: Vec<(isize, String)> = top_windows()
-        .into_iter()
-        .filter(|(_, owner, _)| *owner == pid)
-        .map(|(hwnd, _, title)| (hwnd, title))
-        .collect();
-    session_window::pick_window(&candidates, folder).is_some_and(|hwnd| bring_forward(*hwnd))
-}
-
-/// Brings forward the window a session remembered (`window_owners`).
-pub fn focus_session_window(owners: &[u32], folder: &str) -> bool {
-    owners.first().is_some_and(|pid| focus_process_window(*pid, folder))
 }
 
 /// The IDs of every running process with this executable name.
@@ -472,18 +434,6 @@ pub fn focus_app(exe: &str) -> bool {
         .into_iter()
         .find(|(_, owner, _)| pids.contains(owner))
         .is_some_and(|(hwnd, _, _)| bring_forward(hwnd))
-}
-
-/// The Claude desktop app: brought forward when it runs (Claude Code's own
-/// `claude.exe` has no window of its own, so it is never the one picked),
-/// started from where its installer puts it otherwise.
-pub fn open_claude_desktop() -> bool {
-    if focus_app("claude.exe") {
-        return true;
-    }
-    let Some(base) = std::env::var_os("LOCALAPPDATA") else { return false };
-    let exe = PathBuf::from(base).join("AnthropicClaude").join("claude.exe");
-    exe.is_file() && Command::new(exe).spawn().is_ok()
 }
 
 // ── Global shortcuts ──────────────────────────────────────────────────────────

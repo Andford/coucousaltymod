@@ -6,9 +6,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { Settings } from "./state";
-import type { RecapHistory, RecapPrefs } from "../recap/summary";
 import type { SpotifyState } from "./spotify";
 import type { CalEvent, GTask, GoogleStatus } from "./wellness";
+import type { ClipState } from "./clipboard";
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -28,7 +28,6 @@ export interface BootInfo {
   /** Logical screen rect of the monitor the island lives on. */
   screen: { x: number; y: number; width: number; height: number; scale: number };
   version: string;
-  hookPath: string;
   /** False where the OS has no global cursor (Wayland): see Island.followPageCursor. */
   cursorPoll: boolean;
 }
@@ -68,76 +67,12 @@ export const Bridge = {
   /** Tells the island to read the sounds folder again ("sounds-changed"). */
   reloadSounds: () => call<void>("reload_sounds"),
 
-  /** "Open terminal" → opens the folder in VS Code when `code` is on PATH. */
-  openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
-
-  /**
-   * "Open terminal": the window the session runs in when Rust found it
-   * (Windows; Linux on X11 and KDE Plasma), else the folder in VS Code.
-   */
-  openSession: (sessionId: string | null, path: string | null) =>
-    call<boolean>("open_session", { sessionId, path }),
-
-  /** The Claude desktop app, for the Claude Desktop pill (Windows only). */
-  openClaudeDesktop: () => call<boolean>("open_claude_desktop"),
-
-  /** The diff card's ↗: an existing file, in VS Code; never launched by its type. */
-  openFileInVSCode: (path: string) => call<boolean>("open_file_in_vscode", { path }),
-
   quit: () => call<void>("quit_app"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),
 
   /** Writes to %LOCALAPPDATA%\Coucou\coucou.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
-
-  // ── Claude Code hooks ─────────────────────────────────────────────────────
-  hooksStatus: () => call<HookStatus>("hooks_status"),
-  /** Pill ID → whether that agent's hooks reach Coucou (read-only, Mac #183). */
-  agentHooksStatus: () => call<Record<string, boolean>>("agent_hooks_status"),
-  /** Diff to show before anything is written. `install: false` previews removal. */
-  hooksPreview: (install: boolean) => callOrThrow<HookPreview>("hooks_preview", { install }),
-  /**
-   * Writes ~/.claude/settings.json — only ever after an explicit click, and only
-   * when the file still matches the preview the user looked at.
-   */
-  hooksApply: (install: boolean, fingerprint: string) =>
-    callOrThrow<string>("hooks_apply", { install, fingerprint }),
-
-  // ── Other agents (Gemini CLI, Codex, Cursor…) ─────────────────────────────
-  agentHooksList: () => call<AgentHookStatus[]>("agent_hooks_list"),
-  /** Diff to show before anything is written. `install: false` previews removal. */
-  agentHooksPreview: (agent: string, install: boolean) =>
-    callOrThrow<AgentHookPlan>("agent_hooks_preview", { agent, install }),
-  /**
-   * Writes the agent's config — only ever after an explicit click, and only when
-   * it still matches the preview the user looked at. Returns the backups taken.
-   */
-  agentHooksApply: (agent: string, install: boolean, fingerprint: string) =>
-    callOrThrow<string>("agent_hooks_apply", { agent, install, fingerprint }),
-  // ── Plan usage: the status line relay, installed apart from the hooks ──────
-  /** Diff of the status line change. `install: false` previews taking the relay out. */
-  statusLinePreview: (install: boolean) => callOrThrow<HookPreview>("status_line_preview", { install }),
-  /** Same rules as hooksApply: an explicit click, and only for the diff that was shown. */
-  statusLineApply: (install: boolean, fingerprint: string) =>
-    callOrThrow<string>("status_line_apply", { install, fingerprint }),
-  /**
-   * Asks the Codex CLI (`codex app-server`) for its plan limits, as Codex's
-   * /status does. The raw `account/rateLimits/read` result, or null when Codex
-   * is missing, not signed in or slow (15 s).
-   */
-  codexPlanUsage: () => call<unknown>("codex_plan_usage"),
-
-  approvalDecision: (requestId: string, decision: "allow" | "deny") =>
-    call<void>("approval_decision", { requestId, decision }),
-  /** "The card is up" — until this lands the relay only waits a moment. */
-  approvalAck: (requestId: string) => call<void>("approval_ack", { requestId }),
-  /** Answers a question Claude Code asked: question text → chosen label. */
-  approvalAnswer: (requestId: string, answers: Record<string, string | string[]>) =>
-    call<void>("approval_answer", { requestId, answers }),
-
-  /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
-  approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
@@ -166,8 +101,6 @@ export const Bridge = {
   refreshIntegration: (id: string) => call<void>("refresh_integration", { id }),
   /** The GitHub card is on screen: refetch that part if it is stale. */
   githubRefresh: (section: "pulse" | "activity") => call<void>("github_refresh", { section }),
-  /** Opens the configured n8n instance in the browser. */
-  openN8n: () => call<void>("open_n8n"),
 
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
@@ -177,20 +110,6 @@ export const Bridge = {
   shortcutsStatus: () => call<ShortcutsReport>("shortcuts_status"),
   /** Lets go of every global shortcut while Settings records a new one. */
   shortcutsSuspend: (suspended: boolean) => call<void>("shortcuts_suspend", { suspended }),
-
-  // ── Weekly recap ──────────────────────────────────────────────────────────
-  /** Turns and decisions from `since` (Unix seconds) on, plus the recap prefs. */
-  recapHistory: (since: number) => call<RecapHistory>("recap_history", { since: Math.floor(since) }),
-  recapPrefs: () => call<RecapPrefs>("recap_prefs"),
-  recapSetEnabled: (enabled: boolean) => call<void>("recap_set_enabled", { enabled }),
-  recapSetHideProjects: (hide: boolean) => call<void>("recap_set_hide_projects", { hide }),
-  /** `week` is the Monday (YYYY-MM-DD) the recap opened on its own for. */
-  recapMarkShown: (week: string) => call<void>("recap_mark_shown", { week }),
-  recapClear: () => call<void>("recap_clear"),
-  /** Writes the PNG (a data URL) into Pictures or Downloads; returns its path. */
-  recapSavePng: (data: string, week: string) => callOrThrow<string>("recap_save_png", { data, week }),
-  /** Opens the folder of the image saved last. */
-  recapRevealSaved: () => call<void>("recap_reveal_saved"),
 
   // ── Mochi on the desktop (src-tauri/src/desktop.rs) ───────────────────────
   desktopInfo: () => call<DesktopInfo>("desktop_mochi_info"),
@@ -222,6 +141,23 @@ export const Bridge = {
   spotifyOpen: () => call<boolean>("spotify_open"),
   /** Whether there is a Spotify to launch (Settings). */
   spotifyInstalled: () => call<boolean>("spotify_installed"),
+
+  // ── The smart clipboard (src-tauri/src/clipboard.rs) ─────────────────────
+  clipboardState: () => call<ClipState>("clipboard_state"),
+  clipboardSetCapture: (on: boolean) => call<void>("clipboard_set_capture", { on }),
+  clipboardCopy: (id: number) => callOrThrow<void>("clipboard_copy", { id }),
+  clipboardPin: (id: number, pinned: boolean) => call<void>("clipboard_pin", { id, pinned }),
+  clipboardDelete: (id: number) => call<void>("clipboard_delete", { id }),
+  clipboardClear: () => call<void>("clipboard_clear"),
+  /** Paths a real drop just delivered; Rust checks them (files.rs). */
+  clipboardAddDropped: (paths: string[]) => call<number>("clipboard_add_dropped", { paths }),
+  clipboardAddText: (text: string) => call<boolean>("clipboard_add_text", { text }),
+  clipboardText: (id: number) => call<string | null>("clipboard_text", { id }),
+  clipboardOpen: (id: number) => call<void>("clipboard_open", { id }),
+  /** The item as a file in the inbox, for the chat. */
+  clipboardForChat: (id: number) => callOrThrow<DroppedFile>("clipboard_for_chat", { id }),
+  /** Starts a real file drag of the item out of the island (Windows). */
+  clipboardDrag: (id: number) => call<boolean>("clipboard_drag", { id }),
 
   // ── Google Calendar & Tasks (src-tauri/src/google.rs, coucousaltymod) ─────
   googleStatus: () => call<GoogleStatus>("google_status"),
@@ -404,6 +340,8 @@ export async function onDragDrop(handler: (e: DragDropPayload) => void) {
   };
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
+    // Text goes to onTextDrop, a tile dragged out and back is nothing.
+    if (!hasFiles(e)) return;
     depth = 0;
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) {
@@ -430,4 +368,41 @@ export async function onDragDrop(handler: (e: DragDropPayload) => void) {
 export async function onEvent<T>(name: string, handler: (payload: T) => void) {
   if (!IS_TAURI) return () => {};
   return listen<T>(name, (e) => handler(e.payload));
+}
+
+/** Marks a drag that starts on the island itself (a clipboard tile), so it is
+ *  not taken back as a drop. */
+export const OWN_DRAG_TYPE = "application/x-tokkip-clip";
+
+/**
+ * Text dragged onto the island from another app (a selection from a browser or
+ * an editor): it goes on the clipboard shelf. Files keep going through
+ * onDragDrop. `enter` fires once per drag, `drop` with the text.
+ */
+export function onTextDrop(handler: (e: { type: "enter" | "leave" | "drop"; text?: string }) => void) {
+  const isText = (e: DragEvent) => {
+    const types = e.dataTransfer?.types ?? [];
+    return !types.includes("Files") && !types.includes(OWN_DRAG_TYPE) && types.includes("text/plain");
+  };
+  let depth = 0;
+  window.addEventListener("dragenter", (e) => {
+    if (!isText(e)) return;
+    e.preventDefault();
+    if (depth++ === 0) handler({ type: "enter" });
+  });
+  window.addEventListener("dragover", (e) => {
+    if (!isText(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  });
+  window.addEventListener("dragleave", (e) => {
+    if (!isText(e) || depth === 0) return;
+    if (--depth === 0) handler({ type: "leave" });
+  });
+  window.addEventListener("drop", (e) => {
+    if (!isText(e)) return;
+    e.preventDefault();
+    depth = 0;
+    handler({ type: "drop", text: e.dataTransfer?.getData("text/plain") ?? "" });
+  });
 }

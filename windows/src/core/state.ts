@@ -6,7 +6,6 @@ import {
   DEFAULT_MAIN_PILL, HOST_OS, availablePills, orderPills, pillDefinition, sanitizeDeclared,
   toggleDeclared, type HostOs, type PillDefinition,
 } from "./pills";
-import type { CodexPlanUsage, PlanUsage } from "./plan";
 import type { ProviderId } from "./providers";
 import type { FileDiff } from "./diff";
 import type { Bindings } from "./shortcuts";
@@ -159,9 +158,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoCloseInterval: 15,
   openOnHover: false,
   absenceInterval: 180,
-  activeIntegrations: [
-    "integration_resend", "integration_n8n", "integration_vercel", "integration_github",
-  ],
+  activeIntegrations: ["integration_spotify", "integration_github"],
   mainPill: DEFAULT_MAIN_PILL,
   screen: "primary",
   autostart: false,
@@ -208,6 +205,8 @@ class AppState {
   uploadProgress = 0;
   uploadDuration = 2.4;
   fileDragOver = false;
+  /** Text from another app is being dragged over the island (Tokkip's clipboard). */
+  textDragOver = false;
 
   promptContext: PromptContext | null = null;
   droppedFile: { name: string; path: string } | null = null;
@@ -221,9 +220,9 @@ class AppState {
   integrations: Record<string, IntegrationInfo> = {};
 
   /** Claude's 5 h / weekly limits, from the status line (null until the first call). */
-  planUsage: PlanUsage | null = null;
+  planUsage: unknown = null;
   /** Codex's limits, from `codex app-server` (null until it has answered). */
-  codexPlanUsage: CodexPlanUsage | null = null;
+  codexPlanUsage: unknown = null;
   /** A plan card is open in place of the overview's left card. */
   showingPlanDetail = false;
   /** Which one: the Codex card rather than Claude's. */

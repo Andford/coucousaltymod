@@ -2,7 +2,7 @@
 // Mirrors IslandRootView.swift + IslandWindowController.swift.
 
 import { Tracked, Spring, clamp } from "../core/anim";
-import { Bridge, IS_TAURI, onDragDrop } from "../core/bridge";
+import { Bridge, IS_TAURI, onDragDrop, onTextDrop } from "../core/bridge";
 import {
   EXPANDED_CORNER, EXPANDED_W, NOTCH_W, PANEL_H, PANEL_W,
   ROUNDED_CORNER, VIEW_LAYOUTS, botGlowColor, botGlowOpacity, botPosition, chatPromptHeight,
@@ -14,13 +14,13 @@ import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { SPOTIFY_ID, islandDances } from "../core/spotify";
 import { Wellness, WELLNESS_ID, breathFrame } from "../core/wellness";
+import { loadLook, onLookChange } from "../mochi/tokkip";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { Greeting } from "../mochi/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
 import { SeasonCache, parseOutfit } from "../mochi/wardrobe";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
-import { closePlanCard, openPlanColor, planCardOpen } from "../views/usage";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
 import { h } from "../views/dom";
 import { IslandStateMachine } from "./fsm";
@@ -30,7 +30,6 @@ import type { ViewCommand } from "./shortcuts";
 import { DRAG_THRESHOLD } from "../mochi/desktop-logic";
 
 const BOT_OVERHANG = 40;
-const CLAUDE_DESKTOP_ID = "agent_claude-desktop";
 /** Extra canvas on each side of Mochi, for the witch hat's brim and the Santa hat's tip. */
 const BOT_SIDE = 24;
 /** Same margin as the Rust hit test (src-tauri/src/island.rs). */
@@ -115,6 +114,11 @@ export class Island {
   private uploadDone = false;
 
   constructor(root: HTMLElement) {
+    // Tokkip's look, kept in step with Settings (same origin, shared storage).
+    this.engine.look = loadLook();
+    onLookChange((look) => {
+      this.engine.look = look;
+    });
     this.root = root;
     this.desktop = new DesktopLink({
       reveal: () => this.reveal(),
@@ -170,29 +174,16 @@ export class Island {
         const req = State.pendingApproval;
         if (req?.pillId === id) this.setView(req.questions ? "question" : "approval");
       },
-      openTerminal: () => {
-        const task = State.focusTask;
-        // Sessions from the Claude desktop app live there, not in a terminal.
-        if (task?.id === CLAUDE_DESKTOP_ID) void Bridge.openClaudeDesktop();
-        else void Bridge.openSession(task?.sessionId ?? null, task?.sessionCwd ?? null);
-      },
+      // Tokkip has no agent sessions, so no terminal to bring forward.
+      openTerminal: () => {},
       // The ↗ button — same targets as openAgentTarget() on macOS.
       openTarget: () => {
         const task = State.focusTask;
         if (!task) return;
         const urls: Record<string, string> = {
-          integration_resend: "https://resend.com/emails",
-          integration_vercel: "https://vercel.com/dashboard",
           integration_github: "https://github.com/pulls",
-          integration_stripe: "https://dashboard.stripe.com/payments",
-          integration_notion: "https://notion.so",
-          integration_calcom: "https://app.cal.com/bookings",
         };
-        if (task.id === CLAUDE_DESKTOP_ID) void Bridge.openClaudeDesktop();
-        else if (task.id === "integration_claude" || task.sessionId) {
-          void Bridge.openSession(task.sessionId ?? null, task.sessionCwd ?? null);
-        } else if (task.id === "integration_n8n") void Bridge.openN8n();
-        else if (task.id === SPOTIFY_ID) void Bridge.spotifyOpen();
+        if (task.id === SPOTIFY_ID) void Bridge.spotifyOpen();
         else if (urls[task.id]) void Bridge.openUrl(urls[task.id]);
       },
       openUrl: (url) => {
@@ -203,21 +194,18 @@ export class Island {
         void Bridge.log(`decide ${d} req=${req?.requestId ?? "none"}`);
         if (!req) return;
         Sound.play(d === "deny" ? "blip" : "approve");
-        void Bridge.approvalDecision(req.requestId, d);
         this.closeApproval();
       },
-      answer: (answers) => {
+      answer: (_answers) => {
         const req = State.pendingApproval;
         if (!req) return;
         Sound.play("approve");
-        void Bridge.approvalAnswer(req.requestId, answers);
         this.closeApproval();
       },
       answerInTerminal: () => {
         const req = State.pendingApproval;
         if (!req) return;
         Sound.play("blip");
-        void Bridge.approvalDecline(req.requestId);
         this.closeApproval();
       },
       toggleSound: () => {
@@ -360,7 +348,6 @@ export class Island {
       void Bridge.focusWindow(false);
     }
     if (mode !== "expanded") {
-      closePlanCard();
       this.engine.resetMorph();
       // Nothing can be seen of the sequence once the island is shut, and leaving
       // it running would keep the frame loop awake — the island must cost
@@ -384,7 +371,6 @@ export class Island {
 
   expand(view: IslandViewName) {
     this.stopSequenceIfLeaving(view);
-    if (view !== "overview") closePlanCard();
     State.view = view;
     if (State.mode !== "expanded") this.setMode("expanded");
     else this.animateGeometry(false);
@@ -394,7 +380,6 @@ export class Island {
 
   setView(view: IslandViewName) {
     this.stopSequenceIfLeaving(view);
-    if (view !== "overview") closePlanCard();
     if (State.mode !== "expanded") {
       this.fsm.forceHome();
       State.view = view;
@@ -558,9 +543,37 @@ export class Island {
           this.setView(State.defaultView());
           return;
         }
+        // Tokkip: everything dropped goes on the clipboard shelf too. Before
+        // swallow: Rust only peeks at the drop's paths, the inbox copy uses one.
+        void Bridge.clipboardAddDropped(e.paths ?? []);
         this.swallow(path);
         break;
       }
+    }
+  }
+
+  /** Text dragged onto the island: straight onto the clipboard shelf. */
+  private onTextDrop(e: { type: "enter" | "leave" | "drop"; text?: string }) {
+    if (State.paused) return;
+    switch (e.type) {
+      case "enter":
+        State.textDragOver = true;
+        if (State.view !== "clipboard" || State.mode !== "expanded") this.alert("clipboard");
+        State.notify();
+        break;
+      case "leave":
+        State.textDragOver = false;
+        State.notify();
+        break;
+      case "drop":
+        State.textDragOver = false;
+        if (e.text?.trim()) {
+          void Bridge.clipboardAddText(e.text);
+          Sound.play("approve");
+          this.engine.triggerEmote("happy");
+        }
+        State.notify();
+        break;
     }
   }
 
@@ -795,6 +808,7 @@ export class Island {
     });
 
     void onDragDrop((e) => this.onDragDrop(e));
+    onTextDrop((e) => this.onTextDrop(e));
 
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
     // island can be inspected with `npm run dev`.
@@ -1061,10 +1075,7 @@ export class Island {
     if (!ctx) return;
 
     const focus = State.focusTask;
-    // While a plan card is open Mochi wears the plan's colour, like its pill.
-    this.engine.bodyColor = planCardOpen()
-      ? hexToRGB(openPlanColor())
-      : focus?.isIntegration
+    this.engine.bodyColor = focus?.isIntegration
         ? hexToRGB(focus.color)
         : null;
     this.engine.particleOverhang = BOT_OVERHANG;

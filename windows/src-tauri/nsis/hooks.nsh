@@ -1,4 +1,4 @@
-; Uninstall hooks for the NSIS installer.
+; Uninstall hooks for the NSIS installer (Tokkip keeps Coucou's folders, so an update keeps your settings).
 ;
 ; The app stages coucou-hook.exe into %LOCALAPPDATA%\Coucou\bin at launch, so the
 ; installer never recorded it and the default uninstaller leaves it behind. The

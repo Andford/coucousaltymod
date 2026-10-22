@@ -29,6 +29,7 @@ export const SHORTCUT_TEXT = {
   muteToggle: N_("Mute or unmute Mochi"),
   desktopToggle: N_("Send Mochi to the desktop"),
   wardrobeToggle: N_("Open the wardrobe"),
+  clipboardToggle: N_("Open the clipboard"),
   island: {
     nextPrev: N_("Next or previous pill"),
     byNumber: N_("Go to pill 1 to 9"),
@@ -56,7 +57,9 @@ export type ShortcutId =
   | "prevPill"
   | "muteToggle"
   | "desktopToggle"
-  | "wardrobeToggle";
+  | "wardrobeToggle"
+  /** Tokkip: the smart clipboard. */
+  | "clipboardToggle";
 
 export interface ShortcutDef {
   id: ShortcutId;
@@ -73,14 +76,16 @@ const def = (id: ShortcutId, defaultKeys: string, enabledByDefault: boolean, por
 export const SHORTCUTS: readonly ShortcutDef[] = [
   def("toggleIsland", "Ctrl+Alt+N", false, true),
   def("openChat", "Ctrl+Alt+Space", true, true),
-  def("goToAlert", "Ctrl+Alt+A", true, true),
-  def("jumpToTerminal", "Ctrl+Alt+T", true, true),
+  // Tokkip has no agents: no permission to jump to, no terminal to bring forward.
+  def("goToAlert", "Ctrl+Alt+A", true, false),
+  def("jumpToTerminal", "Ctrl+Alt+T", true, false),
   def("attachFrontWindow", "Ctrl+Alt+F", true, false),
   def("nextPill", "Ctrl+Alt+Right", true, true),
   def("prevPill", "Ctrl+Alt+Left", true, true),
   def("muteToggle", "Ctrl+Alt+S", true, true),
   def("desktopToggle", "Ctrl+Alt+D", true, true),
   def("wardrobeToggle", "Ctrl+Alt+G", true, true),
+  def("clipboardToggle", "Ctrl+Alt+V", true, true),
 ];
 
 export interface Binding {

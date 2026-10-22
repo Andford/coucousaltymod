@@ -427,3 +427,76 @@ select option {
 html[dir="rtl"] :is(.diff, .path, .keycap, input[type="password"], input[type="text"]) {
   direction: ltr;
 }
+
+/* ── Tokkip's look ─────────────────────────────────────────────────────── */
+
+.tk-wrap {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tk-preview {
+  flex: 0 0 auto;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 70%, rgba(94, 200, 192, 0.18), transparent 70%), rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.tk-controls {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tk-controls .row > label {
+  min-width: 96px;
+}
+
+.tk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tk-chip {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.tk-chip.on {
+  background: rgba(94, 200, 192, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(94, 200, 192, 0.6);
+}
+
+.tk-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.tk-swatch.on {
+  box-shadow: 0 0 0 2px #0b0c0e, 0 0 0 4px #5ec8c0;
+}
+
+.tk-color {
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tk-controls .row {
+  gap: 7px;
+}
+
+.tk-controls .row > label {
+  flex: 0 0 100%;
+  min-width: 0;
+}

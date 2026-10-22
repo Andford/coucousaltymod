@@ -3129,3 +3129,469 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
   font: 400 10px var(--font);
   color: #f5a524;
 }
+
+/* ── Clipboard (Tokkip): the shelf of what you copied and dropped ────────── */
+
+.clip-card {
+  overflow: hidden;
+}
+
+.clip-wrap {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 14px 9px 100px;
+  min-height: 0;
+}
+
+.clip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.clip-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 12px var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.clip-title svg {
+  color: #5ec8c0;
+}
+
+.clip-chips {
+  display: flex;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.clip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim-2);
+  font: 500 10.5px var(--font);
+  white-space: nowrap;
+  cursor: default;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.clip-chip b {
+  font: 600 9px var(--font);
+  color: var(--dim-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.clip-chip:hover {
+  color: var(--ink);
+}
+
+.clip-chip.on {
+  background: rgba(94, 200, 192, 0.22);
+  color: var(--ink);
+}
+
+.clip-chip.on b {
+  color: #9fe3dc;
+}
+
+.clip-spacer {
+  flex: 1 1 auto;
+}
+
+.clip-head-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--dim);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  transition: background 0.12s ease-out, color 0.12s ease-out, transform 0.08s ease-out;
+}
+
+.clip-head-btn:hover {
+  background: rgba(94, 200, 192, 0.3);
+  color: var(--ink);
+}
+
+.clip-head-btn:active {
+  transform: scale(0.9);
+}
+
+.clip-head-btn.off {
+  background: rgba(245, 165, 36, 0.22);
+  color: var(--amber);
+}
+
+.clip-shelf {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.clip-tile {
+  position: relative;
+  flex: 0 0 116px;
+  height: 100%;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  scroll-snap-align: start;
+  cursor: default;
+  transition: transform 0.14s cubic-bezier(0.3, 1.4, 0.5, 1), border-color 0.14s ease-out, background 0.14s ease-out;
+}
+
+.clip-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94, 200, 192, 0.55);
+  background: rgba(94, 200, 192, 0.08);
+}
+
+.clip-tile:active {
+  transform: scale(0.97);
+}
+
+.clip-tile.pinned {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.clip-tile.flash {
+  animation: clip-flash 0.5s ease-out;
+}
+
+@keyframes clip-flash {
+  0% { box-shadow: 0 0 0 0 rgba(94, 200, 192, 0.7); }
+  100% { box-shadow: 0 0 0 10px rgba(94, 200, 192, 0); }
+}
+
+.ct-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.ct-text {
+  padding: 8px 9px 0;
+  font: 400 10.5px/1.35 var(--font);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  mask-image: linear-gradient(180deg, #000 70%, transparent);
+}
+
+.ct-text.link {
+  color: #8ec5ff;
+  text-decoration: underline;
+  text-decoration-color: rgba(142, 197, 255, 0.35);
+}
+
+.ct-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.ct-file {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px 0;
+  color: #9fe3dc;
+  min-width: 0;
+}
+
+.ct-file.missing {
+  opacity: 0.45;
+}
+
+.ct-name {
+  max-width: 100%;
+  font: 500 10px var(--font);
+  color: var(--ink-2);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-ext {
+  font: 700 8px var(--font);
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(94, 200, 192, 0.18);
+  color: #9fe3dc;
+}
+
+.ct-swatch {
+  flex: 1 1 auto;
+  margin: 8px 8px 0;
+  border-radius: 10px;
+}
+
+.ct-code {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  font: 600 10px var(--mono);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.ct-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 6px;
+  font: 500 9px var(--font);
+  color: var(--dim-3);
+  white-space: nowrap;
+}
+
+.ct-dim {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-pin {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(167, 139, 250, 0.85);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.ct-acts {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 6px 6px;
+  background: linear-gradient(180deg, transparent, rgba(14, 15, 17, 0.92) 45%);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.14s ease-out, transform 0.14s ease-out;
+}
+
+.clip-tile:hover .ct-acts {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.clip-act {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  transition: background 0.12s ease-out, transform 0.08s ease-out;
+}
+
+.clip-act:hover {
+  background: rgba(94, 200, 192, 0.45);
+}
+
+.clip-act.on {
+  background: rgba(167, 139, 250, 0.6);
+}
+
+.clip-act.danger:hover {
+  background: rgba(244, 80, 94, 0.6);
+}
+
+.clip-act:active {
+  transform: scale(0.88);
+}
+
+.clip-paused {
+  flex: 0 0 96px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px dashed rgba(245, 165, 36, 0.45);
+  color: var(--amber);
+  font: 500 10px/1.3 var(--font);
+}
+
+.clip-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.clip-drop {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1.5px dashed rgba(94, 200, 192, 0.35);
+  color: #9fe3dc;
+}
+
+.clip-drop b {
+  display: block;
+  font: 600 12px var(--font);
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.clip-drop p {
+  margin: 0;
+  font: 400 10.5px/1.4 var(--font);
+  color: var(--dim);
+}
+
+.clip-drop.small {
+  justify-content: center;
+  font: 500 11px var(--font);
+  color: var(--dim);
+}
+
+.clip-wrap.dragging .clip-shelf,
+.clip-wrap.dragging .clip-drop {
+  outline: 2px dashed rgba(94, 200, 192, 0.7);
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+
+.clip-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 9.5px var(--font);
+  color: var(--dim-4);
+  min-height: 12px;
+}
+
+.clip-hint {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-toast {
+  flex: 0 0 auto;
+  font: 600 10px var(--font);
+  color: #9fe3dc;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.clip-toast.on {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.clip-toast.err {
+  color: var(--red-text);
+}
+
+/* ── Chat as Tokkip's speech bubbles ─────────────────────────────────────── */
+
+.chat-row:not(.user) > .reply,
+.chat-row:not(.user) > .typing {
+  position: relative;
+  max-width: calc(100% - 28px);
+  padding: 7px 11px;
+  border-radius: 14px 14px 14px 5px;
+  background: rgba(94, 200, 192, 0.13);
+  border: 1px solid rgba(94, 200, 192, 0.22);
+  color: #dde2e7;
+  animation: bubble-in 0.28s cubic-bezier(0.3, 1.4, 0.5, 1);
+  transform-origin: left bottom;
+}
+
+/* The little tail pointing back at Tokkip. */
+.chat-row:not(.user) > .reply::before,
+.chat-row:not(.user) > .typing::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-left: 1px solid rgba(94, 200, 192, 0.22);
+  border-bottom: 1px solid rgba(94, 200, 192, 0.22);
+  border-bottom-left-radius: 3px;
+  transform: skewX(30deg) rotate(10deg);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+.chat-row:not(.user) > .typing {
+  padding: 9px 12px;
+}
+
+.chat-row:not(.user) > .typing i {
+  background: #9fe3dc;
+}
+
+.chat-row.user > .bubble {
+  border-radius: 14px 14px 5px 14px;
+  background: rgba(167, 139, 250, 0.24);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  animation: bubble-in 0.24s cubic-bezier(0.3, 1.4, 0.5, 1);
+  transform-origin: right bottom;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: scale(0.85) translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

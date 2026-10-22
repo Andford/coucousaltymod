@@ -89,34 +89,7 @@ function idleCard(task: AgentTask, openSettings: () => void): HTMLElement {
   const status = idleStatus(task.id, info, State.settings.model);
 
   const actions = h("div", { class: "int-actions" });
-  if (task.id === "integration_claude") {
-    actions.append(
-      h("button", {
-        class: "link-btn",
-        style: `color:${task.color}b3`,
-        text: t("Open Visual Studio Code"),
-        onclick: () => void Bridge.openInVSCode(task.sessionCwd ?? null),
-      }),
-    );
-  } else if (task.id === "agent_claude-desktop") {
-    actions.append(
-      h("button", {
-        class: "link-btn",
-        style: `color:${task.color}d9`,
-        text: t("Open Claude"),
-        onclick: () => void Bridge.openClaudeDesktop(),
-      }),
-    );
-  } else if (task.id === "integration_n8n") {
-    actions.append(
-      h("button", {
-        class: "link-btn",
-        style: `color:${task.color}d9`,
-        text: t("Open {name}", { name: "n8n" }),
-        onclick: () => void Bridge.openN8n(),
-      }),
-    );
-  } else if (OPEN_URLS[task.id]) {
+  if (OPEN_URLS[task.id]) {
     actions.append(
       h("button", {
         class: "link-btn",

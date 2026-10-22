@@ -17,6 +17,8 @@ import { DEFAULT_SETTINGS, State } from "../src/core/state.ts";
 const MAC_IDS = [
   "toggleIsland", "openChat", "goToAlert", "jumpToTerminal", "attachFrontWindow",
   "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle",
+  // Tokkip's own, after the Mac's.
+  "clipboardToggle",
 ];
 
 // ── Defaults (testDefaultsExhaustive, testAllDefaultsHaveModifier, testNoDefaultDuplicates) ──
@@ -73,14 +75,14 @@ test("the descriptions the Wayland portal shows are the labels Settings shows", 
 });
 
 // testEnabledByDefault
-test("only the island toggle is off by default; the one not ported yet is reserved", () => {
+test("only the island toggle is off by default; the agents' ones are reserved", () => {
+  const reserved = new Set(["attachFrontWindow", "goToAlert", "jumpToTerminal"]);
   for (const d of SHORTCUTS) {
     assert.equal(d.enabledByDefault, d.id !== "toggleIsland", d.id);
-    assert.equal(d.ported, d.id !== "attachFrontWindow", d.id);
+    assert.equal(d.ported, !reserved.has(d.id), d.id);
   }
   assert.deepEqual(activeKeys({}).map(([id]) => id), [
-    "openChat", "goToAlert", "jumpToTerminal", "nextPill", "prevPill", "muteToggle", "desktopToggle",
-    "wardrobeToggle",
+    "openChat", "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle", "clipboardToggle",
   ]);
   // The Mac's ⌃⌥D, on the same letter.
   assert.equal(SHORTCUTS.find((d) => d.id === "desktopToggle").defaultKeys, "Ctrl+Alt+D");
@@ -360,45 +362,6 @@ test("the island toggle opens with the keyboard, and closes an open island", () 
   assert.deepEqual(did, ["collapse"]);
 });
 
-test("go to alert: the permission first, then a question, else Mochi is annoyed", () => {
-  runGlobalShortcut(host, "goToAlert", resume);
-  assert.deepEqual(did, ["emote:annoyed"]);
-
-  did = [];
-  State.upsertExternalAgent("agent_gemini", "Gemini", "#fff");
-  State.updateTask("agent_gemini", "question");
-  runGlobalShortcut(host, "goToAlert", resume);
-  assert.deepEqual(did, ["resume", "alert:question", "keyboard"]);
-  assert.equal(State.focusId, "agent_gemini");
-
-  did = [];
-  State.pendingApproval = { requestId: "r1", sessionId: "s", pillId: "integration_claude", tool: "Bash", command: "ls" };
-  runGlobalShortcut(host, "goToAlert", resume);
-  assert.deepEqual(did, ["resume", "alert:approval", "keyboard"]);
-  assert.equal(State.focusId, "integration_claude");
-  // Nothing is ever decided from a shortcut.
-  assert.deepEqual(sent("approval_decision"), []);
-});
-
-test("go to alert brings up the unified card: any agent's pill, a question as a question", () => {
-  State.upsertExternalAgent("agent_codex", "Codex", "#fff");
-  State.pendingApproval = { requestId: "r1", sessionId: "s", pillId: "agent_codex", tool: "Bash", command: "ls" };
-  runGlobalShortcut(host, "goToAlert", resume);
-  assert.deepEqual(did, ["resume", "alert:approval", "keyboard"]);
-  assert.equal(State.focusId, "agent_codex");
-
-  did = [];
-  State.pendingApproval = {
-    requestId: "r2", sessionId: "s", pillId: "integration_claude", tool: "AskUserQuestion", command: "",
-    questions: [{ question: "Which?", options: [], multiSelect: false }],
-  };
-  runGlobalShortcut(host, "goToAlert", resume);
-  assert.deepEqual(did, ["resume", "alert:question", "keyboard"]);
-  assert.equal(State.focusId, "integration_claude");
-  assert.deepEqual(sent("approval_decision"), []);
-  assert.deepEqual(sent("approval_answer"), []);
-});
-
 test("the island toggle opens on a waiting card, and folds it rather than dropping it", () => {
   State.pendingApproval = { requestId: "r1", sessionId: "s", pillId: "integration_claude", tool: "Bash", command: "ls" };
   runGlobalShortcut(host, "toggleIsland", resume);
@@ -411,19 +374,14 @@ test("the island toggle opens on a waiting card, and folds it rather than droppi
   assert.equal(State.pendingApproval.requestId, "r1");
 });
 
-test("the terminal shortcut is the existing Open terminal (the session's window), and folds the island", () => {
-  State.tasks[0].sessionCwd = "C:\\work\\proj";
-  State.mode = "expanded";
-  runGlobalShortcut(host, "jumpToTerminal", resume);
-  assert.deepEqual(sent("open_session"), [{ sessionId: null, path: "C:\\work\\proj" }]);
-  assert.deepEqual(did, ["collapse"]);
-
-  // A Claude Desktop session lives in the Claude app.
+test("the clipboard shortcut opens the shelf, and folds it when it is up", () => {
+  runGlobalShortcut(host, "clipboardToggle", resume);
+  assert.deepEqual(did, ["resume", "alert:clipboard"]);
   did = [];
-  State.upsertExternalAgent("agent_claude-desktop", "Claude Desktop", "#D97757");
-  State.setFocus("agent_claude-desktop");
-  runGlobalShortcut(host, "jumpToTerminal", resume);
-  assert.equal(sent("open_claude_desktop").length, 1);
+  State.mode = "expanded";
+  State.view = "clipboard";
+  runGlobalShortcut(host, "clipboardToggle", resume);
+  assert.deepEqual(did, ["collapse"]);
 });
 
 test("next and previous pill wrap around and open the overview", () => {

@@ -101,12 +101,10 @@ impl Default for Settings {
             open_on_hover: false,
             absence_interval: 180.0,
             active_integrations: vec![
-                "integration_resend".into(),
-                "integration_n8n".into(),
-                "integration_vercel".into(),
+                "integration_spotify".into(),
                 "integration_github".into(),
             ],
-            main_pill: "integration_claude".into(),
+            main_pill: "integration_wellness".into(),
             screen: "primary".into(),
             autostart: false,
             hooks_installed: false,
@@ -129,10 +127,6 @@ impl Default for Settings {
 }
 
 pub use crate::platform::{config_dir, local_dir};
-
-pub fn hook_exe_path() -> PathBuf {
-    local_dir().join("bin").join(crate::platform::HOOK_EXE)
-}
 
 fn settings_path() -> PathBuf {
     config_dir().join("settings.json")

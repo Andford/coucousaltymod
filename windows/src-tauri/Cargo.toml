@@ -25,9 +25,15 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Google sign-in (google.rs): the PKCE challenge and its random verifier.
 sha2 = "0.10"
 getrandom = "0.2"
+# The smart clipboard (clipboard.rs): text, images and file lists, and the
+# images saved as PNG with a thumbnail.
+arboard = "3.7"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# Dragging a clipboard item out of the island as a real file (clipboard.rs).
+drag = "2.1"
 # The island's file drop reads paths straight from WebView2 (webview_drop.rs).
 # Same versions as wry, so nothing new is compiled.
 webview2-com = "0.39"
@@ -45,6 +51,9 @@ windows = { version = "0.61", features = [
   "Win32_Media_Audio",
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
+  # The smart clipboard: its sequence number, and the formats password managers
+  # use to keep a copy private.
+  "Win32_System_DataExchange",
   "Win32_System_Variant",
   "Win32_Foundation",
   "Win32_Security",

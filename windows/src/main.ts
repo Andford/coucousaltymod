@@ -5,13 +5,11 @@ import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
 import { Sound } from "./core/sound";
 import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
-import { registerHookHandlers } from "./island/hooks";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
 import { registerShortcutHandlers } from "./island/shortcuts";
 import { applySpotify, registerSpotifyHandlers } from "./island/spotify";
 import { SPOTIFY_ID } from "./core/spotify";
 import { registerWellness } from "./island/wellness";
-import { Recap } from "./recap/recap";
 import { onLanguageChange, resolveLanguage, setLanguage, systemLanguages } from "./i18n/i18n";
 
 /** Shows the language Settings asks for ("" = the system's, when Coucou has it). */
@@ -63,10 +61,6 @@ async function main() {
         setPaused(false);
         island.alert(State.defaultView());
         break;
-      case "recap":
-        setPaused(false);
-        void Recap.open(island);
-        break;
       case "wardrobe":
         setPaused(false);
         island.alert("wardrobe");
@@ -98,7 +92,6 @@ async function main() {
     void refreshConfigured();
   });
 
-  registerHookHandlers(island);
   registerIntegrationHandlers(island);
   registerShortcutHandlers(island, () => setPaused(false));
   registerSpotifyHandlers(island);
@@ -107,12 +100,6 @@ async function main() {
   if (State.settings.activeIntegrations.includes(SPOTIFY_ID)) {
     void Bridge.spotifyRefresh().then((s) => s && applySpotify(island, s));
   }
-
-  // Monday recap: app start (greeting over), an agent starting work, waking up.
-  const checkRecap = () => void Recap.check(island);
-  island.onGreetingDone = checkRecap;
-  island.onWake = checkRecap;
-  await onEvent<null>("recap-check", checkRecap);
 
   island.launch();
 

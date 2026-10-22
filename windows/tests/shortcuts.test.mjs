@@ -75,14 +75,14 @@ test("the descriptions the Wayland portal shows are the labels Settings shows", 
 });
 
 // testEnabledByDefault
-test("only the island toggle is off by default; the agents' ones are reserved", () => {
+test("every shortcut is on by default (the island toggle too); the agents' ones are reserved", () => {
   const reserved = new Set(["attachFrontWindow", "goToAlert", "jumpToTerminal"]);
   for (const d of SHORTCUTS) {
-    assert.equal(d.enabledByDefault, d.id !== "toggleIsland", d.id);
+    assert.equal(d.enabledByDefault, true, d.id);
     assert.equal(d.ported, !reserved.has(d.id), d.id);
   }
   assert.deepEqual(activeKeys({}).map(([id]) => id), [
-    "openChat", "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle", "clipboardToggle",
+    "toggleIsland", "openChat", "nextPill", "prevPill", "muteToggle", "desktopToggle", "wardrobeToggle", "clipboardToggle",
   ]);
   // The Mac's ⌃⌥D, on the same letter.
   assert.equal(SHORTCUTS.find((d) => d.id === "desktopToggle").defaultKeys, "Ctrl+Alt+D");

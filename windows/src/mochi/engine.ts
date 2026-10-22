@@ -16,7 +16,7 @@ import { PUMPKIN_BODY, drawOutfitBehind, drawOutfitFront, makeHead } from "./out
 import type { Outfit } from "./wardrobe";
 import {
   DEFAULT_LOOK, bodyPath as tokkipBody, cheekOf, drawBack, drawBody, drawFaceUnder, drawMouth, drawNose,
-  drawRobotHands, inkOf, mouthY, type MouthKind, type TokkipLook, type TokkipPose,
+  drawRobotHands, inkOf, mouthY, pillLook, type MouthKind, type TokkipLook, type TokkipPose,
 } from "./tokkip";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -842,7 +842,7 @@ export class BotEngine {
    */
   draw(x: CanvasRenderingContext2D, W: number, H: number) {
     // Tokkip, unless the body is turning into the drop box (that part is Mochi's).
-    if (!this.isMini && this.morph <= 0.02) {
+    if (this.morph <= 0.02) {
       this.drawTokkip(x, W, H);
       return;
     }
@@ -1006,11 +1006,13 @@ export class BotEngine {
     const cy = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06;
     // Studio units → pixels, and the studio's y shift that puts his head where
     // Mochi's was (ears and hats then have the canvas's overhang above).
-    const u = R * 0.0095;
-    const OFF = -8;
+    // A pill's mini is the whole little Tokkip, ears included, centred in its circle.
+    const mini = this.isMini;
+    const u = mini ? R * 0.0068 : R * 0.0095;
+    const OFF = mini ? 46 : -8;
     const n = now();
     const t = n - this.t0;
-    const look = this.look;
+    const look = mini && this.bodyColor ? pillLook(this.bodyColor) : this.look;
     const shape = this.currentEye();
     const waving = n >= this.waveStart && this.waveStart > 0 && n < this.waveUntil;
     const waveT = n - this.waveStart;
@@ -1036,14 +1038,14 @@ export class BotEngine {
       x.translate(-cx, -cy);
     }
     // Mochi's round hands come out to wave; the robot has his own.
-    if (look.species !== "robot") this.drawHandsBehind(x, R, R * 1.0, R * 0.95, cx, cy);
+    if (look.species !== "robot" && !mini) this.drawHandsBehind(x, R, R * 1.0, R * 0.95, cx, cy);
 
     x.save();
     x.translate(cx, cy);
     if (this.tilt !== 0) x.rotate(this.tilt);
     x.scale(this.sx, this.sy);
 
-    const dressed = this.outfit !== "none";
+    const dressed = !mini && this.outfit !== "none";
     const head = dressed ? makeHead(R, this.yaw, this.pitch, this.physDx, this.physDy) : null;
     const outfitState = { presence: this.outfitPresence, morph: this.morph };
     if (head) drawOutfitBehind(x, this.outfit, head, outfitState);

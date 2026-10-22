@@ -168,7 +168,17 @@ function buildOverview(actions: ViewActions): ViewHost {
   );
   const left = card(null, leftBody, jump);
   const pills = h("div", { class: "pills" });
-  const right = card(null, pills);
+  // Tokkip: with a single other pill, its whole card shows on the right
+  // instead of a lone pill; with more, the right side stays a picker.
+  const solo = h("div", { class: "solo-body" });
+  const right = card(null, pills, solo);
+  let soloKey = "";
+  const soloHooks: IntegrationCardHooks = {
+    detailOpen: false,
+    openDetail() {},
+    closeDetail() {},
+    openSettings: () => actions.openSettingsWindow(),
+  };
   // Spotify's card and pill are kept and updated in place: the progress bar
   // runs on, and a slider being dragged must not be rebuilt under the pointer.
   const spotifyCard = buildSpotifyCard();
@@ -227,7 +237,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   return {
     el,
     tick(nowMs: number) {
-      if (mode === "wellness") return wellnessCard.tick(nowMs);
+      if (mode === "wellness" || soloKey === "wellness") return wellnessCard.tick(nowMs);
       if (mode !== "ticker") return false;
       ticker.tick(nowMs);
       return ticker.animating;
@@ -349,6 +359,31 @@ function buildOverview(actions: ViewActions): ViewHost {
       shownSelection = State.cardSelection;
 
       const others = State.otherTasks.slice(0, 4);
+      // One other pill: its card, unless that very card is already on the left.
+      const only = others.length === 1 ? others[0] : null;
+      const leftHas = (id: string) => (id === SPOTIFY_ID && mode === "spotify") || (id === WELLNESS_ID && mode === "wellness");
+      if (only && !leftHas(only.id)) {
+        right.parentElement?.classList.add("solo");
+        pills.style.display = "none";
+        solo.style.display = "";
+        if (only.id === SPOTIFY_ID) {
+          if (soloKey !== "spotify") { clear(solo); solo.append(spotifyCard.el); soloKey = "spotify"; }
+          spotifyCard.sync();
+        } else if (only.id === WELLNESS_ID) {
+          if (soloKey !== "wellness") { clear(solo); solo.append(wellnessCard.el); soloKey = "wellness"; }
+          wellnessCard.sync();
+        } else {
+          const info = State.integrations[only.id];
+          const key = [language(), only.id, only.color, info?.loaded, info?.error, info?.configured, JSON.stringify(info?.data ?? {})].join("~");
+          if (key !== soloKey) { soloKey = key; clear(solo); solo.append(renderIntegrationCard(only, soloHooks)); }
+        }
+        pillIds = "";
+        return;
+      }
+      right.parentElement?.classList.remove("solo");
+      if (soloKey) { clear(solo); soloKey = ""; }
+      solo.style.display = "none";
+      pills.style.display = "";
       const pillKey = others.map((t) => `${t.id}:${t.color}:${t.pillBadge ?? ""}`).join("|");
       if (pillKey !== pillIds) {
         pillIds = pillKey;

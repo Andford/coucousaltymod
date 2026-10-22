@@ -62,6 +62,26 @@ export function loadLook(): TokkipLook {
   }
 }
 
+let shared: TokkipLook | null = null;
+
+/** The look, read once and kept in step: for the many small pill Tokkips. */
+export function sharedLook(): TokkipLook {
+  if (!shared) {
+    shared = loadLook();
+    onLookChange((look) => {
+      shared = look;
+    });
+  }
+  return shared;
+}
+
+/** A pill's little Tokkip: the user's species in the pill's colour. */
+export function pillLook(color: readonly [number, number, number]): TokkipLook {
+  const hex = (k: number) => "#" + color.map((c) => Math.round(Math.max(0, Math.min(1, c)) * 255 * k).toString(16).padStart(2, "0")).join("");
+  const base = sharedLook();
+  return { species: base.species, skin: "lisa", body: hex(1), accent: hex(0.78), ink: "#1A1412", cheek: "" };
+}
+
 export function saveLook(look: TokkipLook) {
   try {
     localStorage.setItem(KEY, JSON.stringify(look));

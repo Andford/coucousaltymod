@@ -3595,3 +3595,17 @@ html[data-dir="rtl"] #views :is(.bubble, .reply .md-p, .reply .md-h, .reply .md-
   from { opacity: 0; transform: scale(0.85) translateY(4px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ── The right card holding a single pill's whole card (Tokkip) ─────────── */
+
+.solo-body {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+.overview > .right.solo .wl-card,
+.overview > .right.solo .np-card,
+.overview > .right.solo .int-card {
+  padding-left: 12px;
+}

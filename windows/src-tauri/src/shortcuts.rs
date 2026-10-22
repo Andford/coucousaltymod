@@ -58,7 +58,7 @@ const fn action(id: &'static str, keys: &'static str, on: bool, ported: bool) ->
 
 /// Same order as `ShortcutAction.allCases`.
 pub const ACTIONS: &[ActionDef] = &[
-    action("toggleIsland", "Ctrl+Alt+N", false, true),
+    action("toggleIsland", "Ctrl+Alt+N", true, true),
     action("openChat", "Ctrl+Alt+Space", true, true),
     // Tokkip has no agents: no permission to jump to.
     action("goToAlert", "Ctrl+Alt+A", true, false),
@@ -644,8 +644,8 @@ mod wayland {
             // Left out of the answer.
             assert_eq!(of(&r, "muteToggle").status, Status::Refused);
             assert_eq!(of(&r, "desktopToggle").status, Status::Refused);
-            // Never handed over: untouched.
-            assert_eq!(of(&r, "toggleIsland").status, Status::Off);
+            // Tokkip turns the island toggle on by default: left out, it is refused too.
+            assert_eq!(of(&r, "toggleIsland").status, Status::Refused);
             assert_eq!(of(&r, "attachFrontWindow").status, Status::NotPorted);
         }
 
@@ -665,7 +665,6 @@ mod wayland {
             assert_eq!(of(&r, "openChat").trigger.as_deref(), Some("Meta+C"));
             assert_eq!(of(&r, "muteToggle").status, Status::Active);
             assert_eq!(of(&r, "muteToggle").trigger.as_deref(), Some("Meta+M"));
-            assert_eq!(of(&r, "toggleIsland").status, Status::Off);
         }
 
         #[test]
@@ -730,9 +729,10 @@ mod tests {
 
     // testEnabledByDefault
     #[test]
-    fn only_the_island_toggle_is_off_by_default() {
+    fn every_shortcut_is_on_by_default() {
+        // Tokkip: the island toggle too, since the island hides when idle.
         for def in ACTIONS {
-            assert_eq!(def.enabled_by_default, def.id != "toggleIsland", "{}", def.id);
+            assert!(def.enabled_by_default, "{}", def.id);
         }
     }
 
@@ -745,7 +745,7 @@ mod tests {
             match outcome {
                 Ok(_) => assert!(def.ported && def.enabled_by_default, "{}", def.id),
                 Err(s) if reserved => assert_eq!(s.status, Status::NotPorted),
-                Err(s) => assert_eq!((def.id, s.status), ("toggleIsland", Status::Off)),
+                Err(s) => panic!("{} not registered: {:?}", def.id, s.status),
             }
         }
     }
@@ -833,7 +833,7 @@ mod tests {
         let alert = effective(find("goToAlert").unwrap(), &stored);
         assert_eq!(alert, Binding { keys: "Ctrl+Alt+A".into(), enabled: true });
         let toggle = effective(find("toggleIsland").unwrap(), &stored);
-        assert!(!toggle.enabled);
+        assert!(toggle.enabled);
         let plan = plan(&stored, never);
         let mute = plan.iter().find(|(d, _)| d.id == "muteToggle").unwrap();
         assert_eq!(mute.1.as_ref().unwrap_err().status, Status::Off);

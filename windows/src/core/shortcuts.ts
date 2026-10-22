@@ -74,7 +74,7 @@ const def = (id: ShortcutId, defaultKeys: string, enabledByDefault: boolean, por
 
 /** Same order and defaults as ACTIONS in src-tauri/src/shortcuts.rs. */
 export const SHORTCUTS: readonly ShortcutDef[] = [
-  def("toggleIsland", "Ctrl+Alt+N", false, true),
+  def("toggleIsland", "Ctrl+Alt+N", true, true),
   def("openChat", "Ctrl+Alt+Space", true, true),
   // Tokkip has no agents: no permission to jump to, no terminal to bring forward.
   def("goToAlert", "Ctrl+Alt+A", true, false),

@@ -454,6 +454,7 @@ private val FACE_INKS = listOf(0xFF1B1616, 0xFF3A2E2C, 0xFF16807C, 0xFF3F72C2, 0
 private val CHEEKS = listOf(0xFFF0788C, 0xFFF7A1B5, 0xFFFF9A76, 0xFFF4B860, 0xFFC4A1F0, 0xFF8FD0F0, 0xFF9BE0B0, 0xFFE0E0E0)
 
 /** Every one of Tokkip's colours: accent (ears, tail), eyes and mouth, cheeks. The body has its own picker above. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun TokkipColors(data: AppData) {
     val context = LocalContext.current

@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color as AColor
 import android.graphics.Matrix
+import android.graphics.Path
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Rect
@@ -38,12 +39,14 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 import mx.loperstack.mochi.data.Agenda
 import mx.loperstack.mochi.data.CalEvent
 import mx.loperstack.mochi.data.NowPlaying
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.Weather
 import mx.loperstack.mochi.data.nextEvent
 import mx.loperstack.mochi.mochi.MochiEngine
 import mx.loperstack.mochi.mochi.Mood
@@ -170,6 +173,7 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
             eventsAt = wall
             events = runCatching { Agenda.load(ctx, wall) }.getOrDefault(emptyList())
         }
+        Weather.refresh(ctx)
 
         val d = Store.state.value
         engine.configure(Color(d.mochiColor), if (breakDue) Mood.SLEEPY else Mood.IDLE, null, music, null, true)
@@ -289,6 +293,75 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
         c.restore()
     }
 
+    // ── Weather icons, drawn soft and round like Tokkip ─────────────────
+
+    private fun drawSky(c: Canvas, cx: Float, cy: Float, s: Float, code: Int, day: Boolean) {
+        val sun = 0xFFFFD59E.toInt()
+        val moon = 0xFFC5CAE9.toInt()
+        val drop = 0xFF8EC5FF.toInt()
+        when (code) {
+            0, 1 -> if (day) sunIcon(c, cx, cy, s, sun) else moonIcon(c, cx, cy, s, moon)
+            2 -> {
+                if (day) sunIcon(c, cx - 0.16f * s, cy - 0.16f * s, s * 0.72f, sun) else moonIcon(c, cx - 0.16f * s, cy - 0.16f * s, s * 0.72f, moon)
+                cloudIcon(c, cx + 0.06f * s, cy + 0.1f * s, s * 0.85f, white(0.9f))
+            }
+            45, 48 -> {
+                stroke.color = white(0.75f); stroke.strokeWidth = 0.08f * s; stroke.strokeCap = Paint.Cap.ROUND
+                for (i in 0 until 3) {
+                    val y = cy - 0.22f * s + i * 0.22f * s
+                    val off = if (i == 1) 0.08f * s else 0f
+                    c.drawLine(cx - 0.36f * s + off, y, cx + 0.36f * s - off, y, stroke)
+                }
+            }
+            in 51..67, in 80..82 -> {
+                cloudIcon(c, cx, cy - 0.12f * s, s, white(0.9f))
+                stroke.color = drop; stroke.strokeWidth = 0.07f * s; stroke.strokeCap = Paint.Cap.ROUND
+                for (i in -1..1) c.drawLine(cx + i * 0.2f * s + 0.04f * s, cy + 0.22f * s, cx + i * 0.2f * s - 0.04f * s, cy + 0.38f * s, stroke)
+            }
+            in 71..77, 85, 86 -> {
+                cloudIcon(c, cx, cy - 0.12f * s, s, white(0.9f))
+                fill.color = white(0.95f)
+                for (i in -1..1) c.drawCircle(cx + i * 0.2f * s, cy + 0.3f * s + (if (i == 0) 0.06f * s else 0f), 0.05f * s, fill)
+            }
+            in 95..99 -> {
+                cloudIcon(c, cx, cy - 0.12f * s, s, white(0.85f))
+                fill.color = 0xFFFFD54F.toInt()
+                c.drawPath(Path().apply {
+                    moveTo(cx + 0.04f * s, cy + 0.1f * s); lineTo(cx - 0.1f * s, cy + 0.3f * s); lineTo(cx, cy + 0.3f * s)
+                    lineTo(cx - 0.06f * s, cy + 0.46f * s); lineTo(cx + 0.12f * s, cy + 0.22f * s); lineTo(cx + 0.02f * s, cy + 0.22f * s); close()
+                }, fill)
+            }
+            else -> cloudIcon(c, cx, cy, s, white(0.88f))
+        }
+        stroke.strokeCap = Paint.Cap.BUTT
+    }
+
+    private fun sunIcon(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        fill.color = color
+        c.drawCircle(cx, cy, 0.2f * s, fill)
+        stroke.color = color; stroke.strokeWidth = 0.065f * s; stroke.strokeCap = Paint.Cap.ROUND
+        for (i in 0 until 8) {
+            val a = i * PI.toFloat() / 4f
+            c.drawLine(cx + cos(a) * 0.31f * s, cy + sin(a) * 0.31f * s, cx + cos(a) * 0.42f * s, cy + sin(a) * 0.42f * s, stroke)
+        }
+    }
+
+    private fun moonIcon(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        val body = Path().apply { addCircle(cx, cy, 0.3f * s, Path.Direction.CW) }
+        val bite = Path().apply { addCircle(cx + 0.16f * s, cy - 0.12f * s, 0.25f * s, Path.Direction.CW) }
+        body.op(bite, Path.Op.DIFFERENCE)
+        fill.color = color
+        c.drawPath(body, fill)
+    }
+
+    private fun cloudIcon(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        fill.color = color
+        c.drawCircle(cx - 0.17f * s, cy + 0.04f * s, 0.16f * s, fill)
+        c.drawCircle(cx + 0.03f * s, cy - 0.06f * s, 0.22f * s, fill)
+        c.drawCircle(cx + 0.22f * s, cy + 0.06f * s, 0.14f * s, fill)
+        c.drawRoundRect(cx - 0.33f * s, cy + 0.02f * s, cx + 0.36f * s, cy + 0.2f * s, 0.09f * s, 0.09f * s, fill)
+    }
+
     private fun clock(wall: Long): String =
         SimpleDateFormat(if (DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm", es).format(Date(wall))
 
@@ -322,7 +395,12 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
 
         val timeY = v.top + 5f * k + th + 17f * k
         write(c, clock(wall), v.centerX(), timeY, 19f * k, light, white(0.92f * (0.4f + 0.6f * dim)), align = Paint.Align.CENTER)
-        val sub = if (breakDue) "¿Qué tal una pausa? Llevas un buen rato manejando" else dateLine(wall)
+        val sky = Weather.now
+        val sub = when {
+            breakDue -> "¿Qué tal una pausa? Llevas un buen rato manejando"
+            sky != null -> dateLine(wall) + "  ·  ${sky.temp}°"
+            else -> dateLine(wall)
+        }
         write(c, sub, v.centerX(), timeY + 8f * k, 4.6f * k, regular,
             if (breakDue) glowColor(0, 0.9f) else white(0.55f), v.width() * 0.8f, Paint.Align.CENTER)
         if (track != null && track.playing && track.title.isNotBlank()) {
@@ -347,7 +425,17 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
         write(c, greeting(), left, v.top + pad + 40f * k, 4.6f * k, regular, glowColor(0, 0.95f), colW)
         write(c, clock(wall), left - 0.6f * k, v.top + pad + 62f * k, 21f * k, light, white(0.95f), colW)
         write(c, dateLine(wall), left, v.top + pad + 71f * k, 4.2f * k, regular, white(0.6f), colW)
-        if (breakDue) write(c, "Llevas 2 h manejando · ¿pausa?", left, v.top + pad + 80f * k, 3.8f * k, bold, glowColor(2, 0.95f), colW)
+        val sky = Weather.now
+        if (sky != null) {
+            val iy = v.top + pad + 80f * k
+            drawSky(c, left + 4f * k, iy, 8.5f * k, sky.code, sky.day)
+            write(c, "${sky.temp}°", left + 10f * k, iy + 2.6f * k, 7.2f * k, light, white(0.95f))
+            write(c, Weather.label(sky.code), left + 22f * k, iy - 0.6f * k, 3.8f * k, bold, white(0.8f), colW - 22f * k)
+            write(c, "${sky.max}° / ${sky.min}°", left + 22f * k, iy + 4.4f * k, 3.4f * k, regular, white(0.5f), colW - 22f * k)
+        } else if (!Weather.granted(ctx)) {
+            write(c, "Clima: permite la ubicación", left, v.top + pad + 81f * k, 3.4f * k, regular, white(0.4f), colW)
+        }
+        if (breakDue) write(c, "Llevas 2 h manejando · ¿pausa?", left, v.top + pad + 90f * k, 3.8f * k, bold, glowColor(2, 0.95f), colW)
 
         // Right: music, then what's next.
         val rx = v.left + colW + pad * 1.5f

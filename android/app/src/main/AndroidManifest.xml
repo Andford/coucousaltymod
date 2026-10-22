@@ -17,6 +17,8 @@
     <!-- Android Auto: Tokkip draws its own screen on the car's display. -->
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+    <!-- The weather on the car screen: approximate location only. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Your Pixel Watch's nights, from Health Connect (read only). -->
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
 

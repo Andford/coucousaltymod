@@ -28,6 +28,7 @@ import androidx.lifecycle.LifecycleOwner
 import mx.loperstack.mochi.R
 import mx.loperstack.mochi.data.NowPlaying
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.Weather
 import mx.loperstack.mochi.mochi.Sounds
 
 class TokkipCarService : CarAppService() {
@@ -60,6 +61,20 @@ class TokkipScreen(context: CarContext) : Screen(context), DefaultLifecycleObser
     override fun onStart(owner: LifecycleOwner) {
         NowPlaying.start(carContext)
         painter.start()
+        askLocationOnce()
+    }
+
+    /** The weather needs your approximate location: asked once, on the phone. */
+    private fun askLocationOnce() {
+        if (Weather.granted(carContext)) return
+        val prefs = carContext.getSharedPreferences("tokkip_car", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("askedLocation", false)) return
+        prefs.edit().putBoolean("askedLocation", true).apply()
+        runCatching {
+            carContext.requestPermissions(listOf(android.Manifest.permission.ACCESS_COARSE_LOCATION)) { granted, _ ->
+                if (granted.isNotEmpty()) Weather.refresh(carContext, force = true)
+            }
+        }
     }
 
     override fun onStop(owner: LifecycleOwner) {

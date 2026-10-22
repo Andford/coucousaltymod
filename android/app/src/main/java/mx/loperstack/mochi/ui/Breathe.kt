@@ -91,8 +91,9 @@ fun BreatheScreen(color: Color, actions: Actions, sessions: List<BreathSession> 
         }
     }
     // A soft flute for each turn: up as you breathe in, down as you breathe out.
+    val breathFlute = Store.state.collectAsState().value.breathFlute
     LaunchedEffect(f.phase, active) {
-        if (active && !f.done) when (f.phase) {
+        if (active && !f.done && breathFlute) when (f.phase) {
             mx.loperstack.mochi.wellness.BreathPhase.IN -> mx.loperstack.mochi.mochi.Sounds.play("breath_in")
             mx.loperstack.mochi.wellness.BreathPhase.OUT -> mx.loperstack.mochi.mochi.Sounds.play("breath_out")
             else -> Unit

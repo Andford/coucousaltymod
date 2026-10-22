@@ -234,6 +234,13 @@ fun SettingsSheet(
                     colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet),
                 )
             }
+            if (data.soundOn) {
+                Spacer(Modifier.height(10.dp))
+                ToggleRow("Flautita al respirar", "Una nota suave en cada inhalación y exhalación de tus sesiones", data.breathFlute) {
+                    Store.setBreathFlute(it)
+                    if (it) Sounds.play("breath_in")
+                }
+            }
             SectionTitle("Vibración")
             ToggleRow("Vibración háptica", "Al tocar a Tokkip, los botones y al cambiar de pestaña (también en el reloj)", data.haptics) {
                 Store.setHaptics(it)

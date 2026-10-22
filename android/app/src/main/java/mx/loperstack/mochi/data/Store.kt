@@ -42,6 +42,8 @@ data class AppData(
     val hapticStrength: Float = 1f,
     /** The breathing guide also vibrates on the phone. */
     val breathHaptics: Boolean = true,
+    /** A soft flute note on each breath during a session. */
+    val breathFlute: Boolean = true,
     /** Nights, oldest first. */
     val sleep: List<SleepEntry> = emptyList(),
     val sleepGoal: SleepGoal = SleepGoal(),
@@ -145,6 +147,7 @@ object Store {
             haptics = prefs.getBoolean("haptics", true),
             hapticStrength = prefs.getFloat("hapticStrength", 1f).coerceIn(0.2f, 1f),
             breathHaptics = prefs.getBoolean("breathHaptics", true),
+            breathFlute = prefs.getBoolean("breathFlute", true),
             sleep = sleepOf(prefs.getString("sleep", null)),
             sleepGoal = SleepGoal(prefs.getInt("bedMin", 23 * 60), prefs.getInt("wakeMin", 7 * 60)),
             bedReminder = prefs.getBoolean("bedReminder", false),
@@ -243,6 +246,11 @@ object Store {
         prefs.edit().putFloat("hapticStrength", v).apply()
         mx.loperstack.mochi.mochi.Haptics.strength = v
         changed()
+    }
+
+    fun setBreathFlute(on: Boolean) {
+        _state.value = _state.value.copy(breathFlute = on)
+        prefs.edit().putBoolean("breathFlute", on).apply()
     }
 
     fun setBreathHaptics(on: Boolean) {

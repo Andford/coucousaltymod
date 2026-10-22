@@ -173,6 +173,8 @@ object WatchStore {
         mx.loperstack.mochi.mochi.MochiStyle.species = mx.loperstack.mochi.mochi.Species.of(s.species)
         mx.loperstack.mochi.mochi.MochiStyle.skin = mx.loperstack.mochi.mochi.Skin.of(s.skin)
         mx.loperstack.mochi.mochi.MochiStyle.accent = androidx.compose.ui.graphics.Color(s.accent)
+        mx.loperstack.mochi.mochi.MochiStyle.ink = if (s.faceInk == 0L) androidx.compose.ui.graphics.Color.Unspecified else androidx.compose.ui.graphics.Color(s.faceInk)
+        mx.loperstack.mochi.mochi.MochiStyle.cheek = if (s.cheek == 0L) androidx.compose.ui.graphics.Color.Unspecified else androidx.compose.ui.graphics.Color(s.cheek)
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         mx.loperstack.mochi.mochi.MochiStyle.rest = when {
             s.sleepNight != today || s.sleepMin <= 0 -> mx.loperstack.mochi.mochi.Rest.UNKNOWN

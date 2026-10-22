@@ -28,7 +28,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-enum class Species(val label: String) { CONEJO("Conejito"), GATO("Gatito"), PERRO("Perrito"), ROBOT("Robotito") ;
+enum class Species(val label: String) { CONEJO("Conejito"), GATO("Gatito"), PERRO("Perrito"), ROBOT("Robotito"), MAPACHE("Mapache") ;
     companion object { fun of(name: String?) = entries.firstOrNull { it.name == name } ?: CONEJO }
 }
 
@@ -51,13 +51,21 @@ class TokkipPose(
     val wave: Float,
     /** Vertical speed of the body (studio units/frame), for the floppy bits. */
     val bounce: Float,
+    /** Your own colours for the eyes and mouth, and the cheeks (Unspecified = automatic). */
+    val ink: Color = Color.Unspecified,
+    val cheek: Color = Color.Unspecified,
 )
 
 object TokkipArt {
     fun shade(c: Color, k: Float): Color = if (k < 0) lerp(c, Color.Black, -k) else lerp(c, Color.White, k)
 
     /** The face ink: the accent, a touch darker (or glowing, on the robot). */
-    fun ink(p: TokkipPose): Color = if (p.species == Species.ROBOT) shade(p.accent, 0.55f) else shade(p.accent, -0.12f)
+    fun ink(p: TokkipPose): Color = when {
+        p.ink != Color.Unspecified -> p.ink
+        p.species == Species.ROBOT -> shade(p.accent, 0.55f)
+        p.species == Species.MAPACHE -> Color(0xFF1B1616)
+        else -> shade(p.accent, -0.12f)
+    }
 
     private fun rrect(x: Float, y: Float, w: Float, h: Float, r: Float) = Path().apply {
         addRoundRect(RoundRect(x, y, x + w, y + h, CornerRadius(r, r)))
@@ -65,14 +73,15 @@ object TokkipArt {
 
     fun bodyPath(s: Species): Path = when (s) {
         Species.ROBOT -> rrect(-104f, -84f, 208f, 198f, 62f)
+        Species.MAPACHE -> rrect(-108f, -84f, 216f, 204f, 92f)
         Species.PERRO -> rrect(-106f, -78f, 212f, 198f, 90f)
         Species.GATO -> rrect(-108f, -88f, 216f, 208f, 94f)
         Species.CONEJO -> rrect(-100f, -90f, 200f, 210f, 54f)
     }
 
     /** Where hats sit: the head's top, and how wide a hat may be between the ears. */
-    fun hatTop(s: Species) = when (s) { Species.ROBOT -> 84f; Species.PERRO -> 76f; Species.GATO -> 88f; Species.CONEJO -> 90f }
-    fun hatHalfWidth(s: Species) = when (s) { Species.CONEJO, Species.GATO -> 70f; else -> 92f }
+    fun hatTop(s: Species) = when (s) { Species.ROBOT, Species.MAPACHE -> 84f; Species.PERRO -> 76f; Species.GATO -> 88f; Species.CONEJO -> 90f }
+    fun hatHalfWidth(s: Species) = when (s) { Species.CONEJO, Species.GATO, Species.MAPACHE -> 70f; else -> 92f }
 
     // ── Behind the body: ears (bunny, kitten) and tails ───────────────────────
 
@@ -96,8 +105,23 @@ object TokkipArt {
                     catEar(p.body, if (dream) (if (sd < 0) Color(0xFFF7B79E) else Color(0xFFD9C2F0)) else shade(p.accent, 0.55f))
                 }
             }
+            Species.MAPACHE -> for (sd in intArrayOf(-1, 1)) {
+                val ang = sd * 6f + sd * p.droop * .3f + (if (sd < 0) p.earL else p.earR) * .4f
+                withTransform({ translate(sd * 64f, -70f); rotate(ang, Offset.Zero) }) { coonEar(p.body) }
+            }
             else -> Unit
         }
+    }
+
+    /** Pointed with a soft tip: a pale rim, the grey ear, a dark inside. */
+    private fun DrawScope.coonEar(body: Color) {
+        fun ear(k: Float, dy: Float) = Path().apply {
+            moveTo(-34f * k, 22f + dy); quadraticTo(-30f * k, -26f * k + dy, -6f * k, -54f * k + dy)
+            quadraticTo(0f, -60f * k + dy, 6f * k, -54f * k + dy); quadraticTo(30f * k, -26f * k + dy, 34f * k, 22f + dy); close()
+        }
+        drawPath(ear(1.06f, 0f), shade(body, .6f))
+        drawPath(ear(.94f, 4f), shade(body, -.18f))
+        drawPath(ear(.56f, 12f), shade(body, -.52f))
     }
 
     private fun DrawScope.bunnyEar(fill: Color, inner: Color) {
@@ -143,6 +167,19 @@ object TokkipArt {
                 val a = sin(p.t * (if (p.happy) 18f else 5f)) * (if (p.happy) .5f else .25f)
                 withTransform({ translate(92f, 84f); rotate(((-.7f + a) * 180f / PI).toFloat(), Offset.Zero) }) {
                     drawOval(if (dream) Color(0xFFF7D35B) else p.body, Offset(-15f, -56f), Size(30f, 60f))
+                }
+            }
+            Species.MAPACHE -> {
+                // A bushy ringed tail.
+                val w = sin(p.t * (if (p.happy) 7f else 2.2f)) * (if (p.happy) 10f else 6f)
+                for (i in 8 downTo 0) {
+                    val u = i / 8f
+                    val x = 76f + 22f + u * 74f + w * u * u
+                    val y = 96f - u * 96f - sin(u * 2.4f) * 10f
+                    val rx = 24f - u * 4f; val ry = 20f - u * 2f
+                    withTransform({ rotate(((-.9f + u * .5f) * 180f / PI).toFloat(), Offset(x, y)) }) {
+                        drawOval(if (i % 2 == 1) shade(p.body, -.5f) else shade(p.body, -.08f), Offset(x - rx, y - ry), Size(rx * 2, ry * 2))
+                    }
                 }
             }
             Species.ROBOT -> {
@@ -245,28 +282,46 @@ object TokkipArt {
 
     // ── The face's extras ─────────────────────────────────────────────────────
 
+    /** The raccoon's bandit mask and light muzzle, under the eyes. Face space. */
+    fun DrawScope.faceUnder(p: TokkipPose) {
+        if (p.species != Species.MAPACHE) return
+        drawPath(Path().apply {
+            moveTo(-92f, -2f); cubicTo(-90f, -36f, -58f, -34f, -30f, -20f); quadraticTo(0f, -8f, 30f, -20f)
+            cubicTo(58f, -34f, 90f, -36f, 92f, -2f); cubicTo(88f, 22f, 58f, 26f, 34f, 14f); quadraticTo(0f, 2f, -34f, 14f)
+            cubicTo(-58f, 26f, -88f, 22f, -92f, -2f); close()
+        }, shade(p.body, -.52f))
+        drawOval(shade(p.body, .65f), Offset(-46f, 8f), Size(92f, 60f))
+    }
+
+    /** A white glint so dark eyes still sparkle (the raccoon's sit on his mask). */
+    fun DrawScope.glint(p: TokkipPose, x: Float, y: Float) {
+        if (p.species != Species.MAPACHE) return
+        drawCircle(Color.White.copy(alpha = .9f), 3.6f, Offset(x - 4f, y - 5f))
+    }
+
     /** Cheeks: soft ovals, or two pink lights on the robot. Face space (eyes at y −6). */
     fun DrawScope.blush(p: TokkipPose, amount: Float) {
         if (amount < .02f) return
-        val c = Color(0xFFF0788C).copy(alpha = min(.7f, amount))
+        val base = if (p.cheek != Color.Unspecified) p.cheek else Color(0xFFF0788C)
+        val c = base.copy(alpha = min(.7f, amount))
         for (sd in intArrayOf(-1, 1)) {
             if (p.species == Species.ROBOT) {
-                drawRoundRect(Color(0xFFF37A9A).copy(alpha = .25f * amount * 1.4f), Offset(sd * 60f - 14f, 18f), Size(28f, 16f), CornerRadius(8f, 8f))
-                drawRoundRect(Color(0xFFF37A9A).copy(alpha = min(1f, amount * 1.4f)), Offset(sd * 60f - 10f, 22f), Size(20f, 8f), CornerRadius(4f, 4f))
+                drawRoundRect((if (p.cheek != Color.Unspecified) p.cheek else Color(0xFFF37A9A)).copy(alpha = .25f * amount * 1.4f), Offset(sd * 60f - 14f, 18f), Size(28f, 16f), CornerRadius(8f, 8f))
+                drawRoundRect((if (p.cheek != Color.Unspecified) p.cheek else Color(0xFFF37A9A)).copy(alpha = min(1f, amount * 1.4f)), Offset(sd * 60f - 10f, 22f), Size(20f, 8f), CornerRadius(4f, 4f))
             } else drawOval(c, Offset(sd * 70f - 17f, 9f), Size(34f, 18f))
         }
     }
 
     fun DrawScope.nose(p: TokkipPose) {
-        if (p.species != Species.PERRO) return
-        val ink = ink(p)
+        if (p.species != Species.PERRO && p.species != Species.MAPACHE) return
+        val ink = if (p.species == Species.MAPACHE) Color(0xFF2A2222) else ink(p)
         drawPath(Path().apply { moveTo(-13f, 6f); quadraticTo(0f, 0f, 13f, 6f); quadraticTo(12f, 16f, 0f, 19f); quadraticTo(-12f, 16f, -13f, 6f); close() }, ink)
         drawOval(Color.White.copy(alpha = .45f), Offset(-8f, 5f), Size(8f, 4f))
     }
 
     fun DrawScope.mouth(p: TokkipPose, kind: Mouth) {
         val ink = ink(p)
-        val y = if (p.species == Species.PERRO) 34f else 30f
+        val y = when (p.species) { Species.PERRO -> 34f; Species.MAPACHE -> 38f; else -> 30f }
         val st = Stroke(5.5f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
         fun arc(cx: Float, cy: Float, r: Float, a0: Float, a1: Float) =
             drawArc(ink, a0 * 180f, (a1 - a0) * 180f, false, Offset(cx - r, cy - r), Size(r * 2, r * 2), style = st)

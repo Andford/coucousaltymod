@@ -68,6 +68,8 @@ data class Snapshot(
     val species: String = "CONEJO",
     val skin: String = "LISA",
     val accent: Long = 0xFF3F9E9A,
+    val faceInk: Long = 0,
+    val cheek: Long = 0,
     /** The last breathing sessions (with their pulse) and nights, for the watch's reports. */
     val sessions: List<BreathSession> = emptyList(),
     val nights: List<NightLite> = emptyList(),
@@ -132,7 +134,7 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("sleepMin", sleepMin)
     .put("sleepNight", sleepNight)
     .put("flat", flat)
-    .put("outfit", outfit).put("species", species).put("skin", skin).put("accent", accent)
+    .put("outfit", outfit).put("species", species).put("skin", skin).put("accent", accent).put("faceInk", faceInk).put("cheek", cheek)
     .put("focusMin", focusMin).put("breakMin", breakMin)
     .put("sessions", JSONArray().apply { sessions.forEach { put(it.toJsonObject()) } })
     .put("nights", JSONArray().apply {
@@ -178,7 +180,7 @@ fun snapshotOf(raw: String?): Snapshot {
             sleepNight = o.optString("sleepNight", ""),
             flat = o.optBoolean("flat", true),
             outfit = o.optString("outfit", "NONE"),
-            species = o.optString("species", "CONEJO"), skin = o.optString("skin", "LISA"), accent = o.optLong("accent", 0xFF3F9E9A),
+            species = o.optString("species", "CONEJO"), skin = o.optString("skin", "LISA"), accent = o.optLong("accent", 0xFF3F9E9A), faceInk = o.optLong("faceInk", 0), cheek = o.optLong("cheek", 0),
             focusMin = o.optInt("focusMin", 25).coerceIn(1, 180), breakMin = o.optInt("breakMin", 5).coerceIn(1, 60),
             sessions = o.optJSONArray("sessions")?.let { a -> (0 until a.length()).mapNotNull { sessionOf(a.optJSONObject(it)?.toString()) } } ?: emptyList(),
             nights = o.optJSONArray("nights")?.let { a ->

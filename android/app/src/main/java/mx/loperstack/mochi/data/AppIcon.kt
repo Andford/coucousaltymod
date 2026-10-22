@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 
 object AppIcon {
-    private val ALIASES = mapOf("CONEJO" to "LauncherConejo", "GATO" to "LauncherGato", "PERRO" to "LauncherPerro", "ROBOT" to "LauncherRobot")
+    private val ALIASES = mapOf("CONEJO" to "LauncherConejo", "GATO" to "LauncherGato", "PERRO" to "LauncherPerro", "ROBOT" to "LauncherRobot", "MAPACHE" to "LauncherMapache")
 
     fun apply(context: Context, species: String) {
         val pm = context.packageManager

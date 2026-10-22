@@ -10,6 +10,7 @@ SPECIES = {
     "gato":   dict(bg="#2B3FC4", body="#F7EAD3", accent="#16807C"),
     "perro":  dict(bg="#9FBF9F", body="#F7EAD3", accent="#3F7E6E"),
     "robot":  dict(bg="#F3E5D3", body="#E9ECEF", accent="#2BB3C0"),
+    "mapache": dict(bg="#B9A6E0", body="#CFC8C0", accent="#3F9E9A"),
 }
 
 def shade(hexc, k):
@@ -83,6 +84,12 @@ def parts(sp, c, T):
         b = rrect(T, -108, -88, 216, 208, 94)
     elif sp == "perro":
         b = rrect(T, -106, -78, 212, 198, 90)
+    elif sp == "mapache":
+        for sd in (-1, 1):
+            rot = (sd * 64, -70, rad(sd * 6))
+            def ear(k, dy): return bez(T, [('M', -34 * k, 22 + dy), ('Q', -30 * k, -26 * k + dy, -6 * k, -54 * k + dy), ('Q', 0, -60 * k + dy, 6 * k, -54 * k + dy), ('Q', 30 * k, -26 * k + dy, 34 * k, 22 + dy), ('Z',)], rot)
+            L += [(ear(1.06, 0), shade(body, .6)), (ear(.94, 4), shade(body, -.18)), (ear(.56, 12), shade(body, -.52))]; sil.append(ear(1.06, 0))
+        b = rrect(T, -108, -84, 216, 204, 92)
     else:
         b = rrect(T, -104, -84, 208, 198, 62)
     L.append((b, body)); body_path = b
@@ -93,6 +100,9 @@ def parts(sp, c, T):
             e = bez(T, [('M', -22, 0), ('C', -34, 50, -26, 118, 6, 122), ('C', 36, 120, 40, 50, 22, -4), ('Q', 0, -14, -22, 0), ('Z',)], rot)
             L += [(e, shade(body, -.24)), (bez(T, [('M', -10, 20), ('C', -16, 60, -10, 104, 6, 106), ('C', 22, 104, 24, 60, 14, 18), ('Z',)], rot), shade(body, -.12))]
             sil.append(e)
+    if sp == "mapache":
+        L.append((bez(T, [('M', -92, 18), ('C', -90, -16, -58, -14, -30, 0), ('Q', 0, 12, 30, 0), ('C', 58, -14, 90, -16, 92, 18), ('C', 88, 42, 58, 46, 34, 34), ('Q', 0, 22, -34, 34), ('C', -58, 46, -88, 42, -92, 18), ('Z',)]), shade(body, -.52)))
+        L.append((ellipse(T, 0, 58, 46, 30), shade(body, .65)))
     if sp == "robot":
         L.append((rrect(T, -84, -48, 168, 116, 40), "#1C2230"))
         for sd in (-1, 1):
@@ -102,11 +112,15 @@ def parts(sp, c, T):
     for sd in (-1, 1):
         if sp == "robot": L.append((ellipse(T, sd * 46, 14, 20, 20), "#44" + acc[1:]))
         e = ellipse(T, sd * 46, 14, 12, 12)
-        L.append((e, ink)); holes.append(e)
+        L.append((e, "#1B1616" if sp == "mapache" else ink)); holes.append(e)
+        if sp == "mapache": L.append((ellipse(T, sd * 46 - 4, 9, 3.6, 3.6), "#FFFFFF"))
         L.append((ellipse(T, sd * (60 if sp == "robot" else 70), 47 if sp == "robot" else 38, 14 if sp == "robot" else 17, 5 if sp == "robot" else 9), "#F37A9A" if sp == "robot" else "#F2A0A8"))
-    my = 54 if sp == "perro" else 50
+    my = {"perro": 54, "mapache": 58}.get(sp, 50)
     m = smile_band(T, 0, my - 12, 18, math.pi * .2, math.pi * .8, 5.5)
     L.append((m, ink)); holes.append(m)
+    if sp == "mapache":
+        n = bez(T, [('M', -13, 26), ('Q', 0, 20, 13, 26), ('Q', 12, 36, 0, 39), ('Q', -12, 36, -13, 26), ('Z',)])
+        L.append((n, "#2A2222")); holes.append(n)
     if sp == "perro":
         n = bez(T, [('M', -13, 30), ('Q', 0, 24, 13, 30), ('Q', 12, 40, 0, 43), ('Q', -12, 40, -13, 30), ('Z',)])
         L.append((n, ink)); holes.append(n)
@@ -117,9 +131,9 @@ def write(name, xml):
     open(name, "w").write(xml)
 
 for sp, c in SPECIES.items():
-    top = {"conejo": -222, "gato": -162, "perro": -90, "robot": -90}[sp]
-    bottom = {"conejo": 120, "gato": 120, "perro": 120, "robot": 114}[sp]
-    width = {"conejo": 200, "gato": 216, "perro": 290, "robot": 276}[sp]
+    top = {"conejo": -222, "gato": -162, "perro": -90, "robot": -90, "mapache": -138}[sp]
+    bottom = {"conejo": 120, "gato": 120, "perro": 120, "robot": 114, "mapache": 120}[sp]
+    width = {"conejo": 200, "gato": 216, "perro": 290, "robot": 276, "mapache": 216}[sp]
     s = min(72 / (bottom - top), 74 / width)
     T = Tx(s, 54, 54 - (top + bottom) / 2 * s)
     L, sil, holes, body_path = parts(sp, c, T)

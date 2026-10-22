@@ -433,6 +433,7 @@ fun TokkipPicker(data: AppData) {
                 mx.loperstack.mochi.mochi.Species.GATO -> Icons.Rounded.Pets
                 mx.loperstack.mochi.mochi.Species.PERRO -> Icons.Rounded.Pets
                 mx.loperstack.mochi.mochi.Species.ROBOT -> Icons.Rounded.SmartToy
+                mx.loperstack.mochi.mochi.Species.MAPACHE -> Icons.Rounded.Pets
             }
             Pill(sp.label, data.species == sp.name, icon) { Store.setTokkip(species = sp.name); mx.loperstack.mochi.mochi.Haptics.success(context) }
         }
@@ -446,15 +447,61 @@ fun TokkipPicker(data: AppData) {
         }
     }
     Spacer(Modifier.height(12.dp))
-    Label("Acento · orejas, ojos y boca", Ink.Dim2, 12.sp)
+    TokkipColors(data)
+}
+
+private val FACE_INKS = listOf(0xFF1B1616, 0xFF3A2E2C, 0xFF16807C, 0xFF3F72C2, 0xFF6D4BB8, 0xFFC2416B, 0xFF2F6B3A, 0xFF8A5A2B)
+private val CHEEKS = listOf(0xFFF0788C, 0xFFF7A1B5, 0xFFFF9A76, 0xFFF4B860, 0xFFC4A1F0, 0xFF8FD0F0, 0xFF9BE0B0, 0xFFE0E0E0)
+
+/** Every one of Tokkip's colours: accent (ears, tail), eyes and mouth, cheeks. The body has its own picker above. */
+@Composable
+fun TokkipColors(data: AppData) {
+    val context = LocalContext.current
+    var part by remember { mutableStateOf(0) }
+    val parts = listOf("Acento", "Ojos y boca", "Mejillas")
+    Label("Colores", Ink.Dim2, 12.sp)
     Spacer(Modifier.height(8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        for (c in ACCENTS) {
+    PillRow { parts.forEachIndexed { i, n -> Pill(n, part == i) { part = i } } }
+    Spacer(Modifier.height(10.dp))
+    val (palette, current, auto) = when (part) {
+        0 -> Triple(ACCENTS, data.accent, false)
+        1 -> Triple(FACE_INKS, data.faceInk, true)
+        else -> Triple(CHEEKS, data.cheek, true)
+    }
+    fun pick(c: Long) {
+        mx.loperstack.mochi.mochi.Haptics.tick(context)
+        when (part) { 0 -> Store.setTokkip(accent = c); 1 -> Store.setFaceColors(faceInk = c); else -> Store.setFaceColors(cheek = c) }
+    }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (auto) Pill("Auto", current == 0L, Icons.Rounded.AutoAwesome) { pick(0L) }
+        for (c in palette) {
             Box(
-                Modifier.size(34.dp).clip(CircleShape).background(Color(c))
-                    .border(3.dp, if (data.accent == c) Ink.Text else Color.Transparent, CircleShape)
-                    .clickable { mx.loperstack.mochi.mochi.Haptics.tick(context); Store.setTokkip(accent = c) },
+                Modifier.size(36.dp).clip(CircleShape).background(Color(c))
+                    .border(3.dp, if (current == c) Ink.Text else Ink.Hairline, CircleShape)
+                    .clickable { pick(c) },
             )
         }
+    }
+    // Any colour at all: hue, intensity and brightness.
+    var custom by remember(part) { mutableStateOf(false) }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        if (custom) "Ocultar colores a tu gusto" else "A tu gusto…", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+        modifier = Modifier.clickable { custom = !custom }.padding(vertical = 6.dp),
+    )
+    if (custom) {
+        val start = remember(part) { hsv(Color(if (current == 0L) palette.first() else current)) }
+        var hue by remember(part) { mutableStateOf(start[0]) }
+        var sat by remember(part) { mutableStateOf(start[1]) }
+        var value by remember(part) { mutableStateOf(start[2]) }
+        fun apply() = pick(argbOf(fromHsv(hue, sat, value)))
+        Label("Tono", Ink.Dim, 12.sp, FontWeight.Bold)
+        GradientSlider(hue / 360f, Brush.horizontalGradient((0..6).map { fromHsv(it * 60f, 1f, 1f) }), fromHsv(hue, 1f, 1f)) { hue = it * 360f; apply() }
+        Spacer(Modifier.height(8.dp))
+        Label("Intensidad", Ink.Dim, 12.sp, FontWeight.Bold)
+        GradientSlider(sat, Brush.horizontalGradient(listOf(fromHsv(hue, 0f, value), fromHsv(hue, 1f, value))), fromHsv(hue, sat, value)) { sat = it; apply() }
+        Spacer(Modifier.height(8.dp))
+        Label("Brillo", Ink.Dim, 12.sp, FontWeight.Bold)
+        GradientSlider(value, Brush.horizontalGradient(listOf(Color.Black, fromHsv(hue, sat, 1f))), fromHsv(hue, sat, value)) { value = it; apply() }
     }
 }

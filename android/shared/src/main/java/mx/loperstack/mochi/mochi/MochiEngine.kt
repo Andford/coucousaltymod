@@ -88,6 +88,9 @@ object MochiStyle {
     var species by androidx.compose.runtime.mutableStateOf(Species.CONEJO)
     var skin by androidx.compose.runtime.mutableStateOf(Skin.LISA)
     var accent by androidx.compose.runtime.mutableStateOf(Color(0xFF3F9E9A))
+    /** Your own eye/mouth and cheek colours (Unspecified = automatic). */
+    var ink by androidx.compose.runtime.mutableStateOf(Color.Unspecified)
+    var cheek by androidx.compose.runtime.mutableStateOf(Color.Unspecified)
 }
 
 /** Mochi's wardrobe, drawn flat (2D). The names are stored in the preferences. */
@@ -819,6 +822,7 @@ class MochiEngine {
             MochiStyle.species, MochiStyle.skin, flatFill(), MochiStyle.accent, t,
             earL = danceSway + tilt * 30f, earR = -danceSway + waveEar + tilt * 30f,
             droop = earDroop, happy = happy, wave = if (waving) (n - waveStart).toFloat() else -1f, bounce = bounce,
+            ink = MochiStyle.ink, cheek = MochiStyle.cheek,
         )
 
         // The breath grows him from his base, up to 16 % wider and 20 % taller.
@@ -849,6 +853,7 @@ class MochiEngine {
                     // Face: eyes look where he looks.
                     withTransform({ translate(sin(yaw) * 14f, 20f - sin(this@MochiEngine[P.PITCH]) * 10f) }) {
                         val cheeks = max(max(this@MochiEngine[P.BLUSH], tint * 0.3f), if (rest == Rest.GREAT) 0.55f else 0.35f)
+                        faceUnder(pose)
                         blush(pose, cheeks)
                         inkColor = TokkipArt.ink(pose)
                         val es = this@MochiEngine[P.ES]
@@ -857,6 +862,7 @@ class MochiEngine {
                             eyeGlow(pose, e.x, e.y)
                             withTransform({ translate(e.x, e.y) }) {
                                 drawTokkipEye(shape, 24f * es, 26f * es, e.side)
+                                if ((shape == Eye.PILL && this@MochiEngine[P.OPEN] > .5f) || shape == Eye.WIDE) glint(pose, 0f, 0f)
                                 if (tired) drawArc(
                                     Color(0x665B4B8A), startAngle = 20f, sweepAngle = 140f, useCenter = false,
                                     topLeft = Offset(-16f, 6f), size = Size(32f, 16f), style = Stroke(width = 4.5f, cap = StrokeCap.Round),

@@ -50,8 +50,8 @@ import mx.loperstack.mochi.mochi.Mochi
 
 fun argbOf(c: Color): Long = c.toArgb().toLong() and 0xFFFFFFFFL
 
-private fun hsv(c: Color): FloatArray = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
-private fun fromHsv(h: Float, s: Float, v: Float) = Color(android.graphics.Color.HSVToColor(floatArrayOf(h, s, v)))
+internal fun hsv(c: Color): FloatArray = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
+internal fun fromHsv(h: Float, s: Float, v: Float) = Color(android.graphics.Color.HSVToColor(floatArrayOf(h, s, v)))
 
 /** A rounded gradient track with a round thumb; drag or tap anywhere on it. */
 @Composable

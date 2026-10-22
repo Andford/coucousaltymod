@@ -57,6 +57,9 @@ data class AppData(
     val species: String = "CONEJO",
     val skin: String = "LISA",
     val accent: Long = 0xFF3F9E9A,
+    /** Eyes and mouth, and cheeks: 0 = automatic. */
+    val faceInk: Long = 0,
+    val cheek: Long = 0,
     /** Respirar: a pattern id (BREATH_PATTERNS) or "custom", the custom rhythm and the usual length. */
     val breathPattern: String = "calma",
     val breathCustom: List<Double> = listOf(4.0, 2.0, 6.0, 0.0),
@@ -156,6 +159,8 @@ object Store {
             species = prefs.getString("species", "CONEJO") ?: "CONEJO",
             skin = prefs.getString("skin", "LISA") ?: "LISA",
             accent = prefs.getLong("accent", 0xFF3F9E9A),
+            faceInk = prefs.getLong("faceInk", 0),
+            cheek = prefs.getLong("cheek", 0),
             breathPattern = prefs.getString("breathPattern", "calma") ?: "calma",
             breathCustom = (prefs.getString("breathCustom", null) ?: "4,2,6,0").split(",").mapNotNull { it.toDoubleOrNull() }
                 .takeIf { it.size == 4 } ?: listOf(4.0, 2.0, 6.0, 0.0),
@@ -320,6 +325,16 @@ object Store {
         mx.loperstack.mochi.mochi.MochiStyle.species = mx.loperstack.mochi.mochi.Species.of(d.species)
         mx.loperstack.mochi.mochi.MochiStyle.skin = mx.loperstack.mochi.mochi.Skin.of(d.skin)
         mx.loperstack.mochi.mochi.MochiStyle.accent = androidx.compose.ui.graphics.Color(d.accent)
+        mx.loperstack.mochi.mochi.MochiStyle.ink = if (d.faceInk == 0L) androidx.compose.ui.graphics.Color.Unspecified else androidx.compose.ui.graphics.Color(d.faceInk)
+        mx.loperstack.mochi.mochi.MochiStyle.cheek = if (d.cheek == 0L) androidx.compose.ui.graphics.Color.Unspecified else androidx.compose.ui.graphics.Color(d.cheek)
+    }
+
+    /** Eyes/mouth and cheek colours; 0 brings back the automatic ones. */
+    fun setFaceColors(faceInk: Long = _state.value.faceInk, cheek: Long = _state.value.cheek) {
+        _state.value = _state.value.copy(faceInk = faceInk, cheek = cheek)
+        prefs.edit().putLong("faceInk", faceInk).putLong("cheek", cheek).apply()
+        applyLook()
+        changed()
     }
 
     /** Tokkip's look: species (also switches the app icon), skin and accent. */

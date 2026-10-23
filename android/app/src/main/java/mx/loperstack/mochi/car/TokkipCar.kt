@@ -1,11 +1,11 @@
-// Tokkip in the car, on Android Auto. Android Auto only lets navigation apps
-// draw freely on the screen (the map surface), so Tokkip registers as one and
-// paints its own two modes there:
-//   · Ambiente — a slow, breathing glow around the screen edge, Tokkip and the time.
-//   · Panel    — the time, what's playing and what's left to do today.
-// Personal use: installed from the APK with Android Auto's "unknown sources"
-// (developer settings). Play would not accept a "navigation" app that doesn't
-// navigate, so this has to change before any public release.
+// Tokkip in the car, on Android Auto. Only navigation, point-of-interest and
+// weather apps may draw on the screen's map surface. Tokkip is a POI app using
+// the map-with-content template (Car App Library 1.7): Android Auto does not
+// list sideloaded navigation apps, and a POI app also never takes Google Maps'
+// place. The surface shows the ambient glow with Tokkip and the time; the list
+// card beside it holds the panel: what's playing, what's next, your tasks.
+// Hosts too old for that template get the list alone.
+// Personal use: installed from the APK with Android Auto's "unknown sources".
 
 package mx.loperstack.mochi.car
 
@@ -20,7 +20,10 @@ import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarIcon
 import androidx.car.app.model.Template
-import androidx.car.app.navigation.model.NavigationTemplate
+import androidx.car.app.model.ItemList
+import androidx.car.app.model.ListTemplate
+import androidx.car.app.model.Row
+import androidx.car.app.navigation.model.MapWithContentTemplate
 import androidx.car.app.validation.HostValidator
 import androidx.core.graphics.drawable.IconCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -86,6 +89,38 @@ class TokkipScreen(context: CarContext) : Screen(context), DefaultLifecycleObser
         runCatching { appManager.setSurfaceCallback(null) }
     }
 
+    /** The panel as rows: what's playing, what's next today, and the tasks left. */
+    private fun panelRows(): ItemList {
+        val items = ItemList.Builder()
+        val track = NowPlaying.track.value
+        val es = java.util.Locale("es", "MX")
+        val clock = java.text.SimpleDateFormat("h:mm a", es)
+        if (track != null && track.title.isNotBlank()) {
+            items.addItem(
+                Row.Builder()
+                    .setTitle((if (track.playing) "Sonando · " else "En pausa · ") + track.title)
+                    .addText(listOf(track.artist, track.app).filter { it.isNotBlank() }.joinToString(" · "))
+                    .build(),
+            )
+        } else if (!NowPlaying.granted(carContext)) {
+            items.addItem(Row.Builder().setTitle("Música").addText("Permite el acceso en Tokkip → Enfoque").build())
+        }
+        val now = System.currentTimeMillis()
+        mx.loperstack.mochi.data.nextEvent(painter.upcoming(), now)?.let { e ->
+            items.addItem(Row.Builder().setTitle(e.title).addText("Próximo · ${clock.format(java.util.Date(e.begin))}").build())
+        }
+        Weather.now?.let { w ->
+            items.addItem(Row.Builder().setTitle("${w.temp}° · ${Weather.label(w.code)}").addText("Hoy ${w.max}° / ${w.min}°").build())
+        }
+        val tasks = mx.loperstack.mochi.wellness.orderedTasks(Store.state.value.tasks).filter { !it.done }
+        if (tasks.isEmpty()) {
+            items.addItem(Row.Builder().setTitle("Todo al día").addText("Disfruta el camino").build())
+        } else {
+            for (t in tasks.take(3)) items.addItem(Row.Builder().setTitle(t.text).addText("Pendiente").build())
+        }
+        return items.build()
+    }
+
     private fun icon(res: Int) = CarIcon.Builder(IconCompat.createWithResource(carContext, res)).build()
 
     override fun onGetTemplate(): Template {
@@ -110,6 +145,15 @@ class TokkipScreen(context: CarContext) : Screen(context), DefaultLifecycleObser
                     .build(),
             )
             .build()
-        return NavigationTemplate.Builder().setActionStrip(strip).build()
+        val list = ListTemplate.Builder()
+            .setTitle("Tokkip")
+            .setSingleList(panelRows())
+            .setActionStrip(strip)
+            .build()
+        if (carContext.carAppApiLevel < 7) return list
+        return MapWithContentTemplate.Builder()
+            .setContentTemplate(ListTemplate.Builder().setTitle("Tokkip").setSingleList(panelRows()).build())
+            .setActionStrip(strip)
+            .build()
     }
 }

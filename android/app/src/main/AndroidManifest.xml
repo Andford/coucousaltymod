@@ -15,7 +15,7 @@
     <!-- Google Tasks. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android Auto: Tokkip draws its own screen on the car's display. -->
-    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
     <!-- The weather on the car screen: approximate location only. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -259,8 +259,8 @@
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/mochi" />
             </intent-filter>
         </service>
-        <!-- Tokkip in the car (Android Auto). Registered as "navigation" because
-             only those apps may draw freely; personal sideloaded use only. -->
+        <!-- Tokkip in the car (Android Auto): a point-of-interest app with the
+             map-with-content template, so it may draw its own screen. -->
         <service
             android:name=".car.TokkipCarService"
             android:exported="true"
@@ -268,7 +268,7 @@
             android:icon="@mipmap/ic_launcher">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.NAVIGATION" />
+                <category android:name="androidx.car.app.category.POI" />
             </intent-filter>
         </service>
         <meta-data

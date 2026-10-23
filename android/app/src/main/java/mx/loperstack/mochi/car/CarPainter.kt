@@ -53,9 +53,15 @@ import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.wellness.orderedTasks
 
 class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) : SurfaceCallback {
-    /** Ambient mode (glow + Tokkip + time) or the panel. */
-    var ambient = false
+    /**
+     * Ambient mode (glow + Tokkip + time) or the panel. With the map template the
+     * panel's information is the list card beside the surface, so the surface
+     * stays ambient; the panel drawing remains for hosts without that template.
+     */
+    var ambient = true
         private set
+    /** True where the surface is the whole screen (no list card next to it). */
+    var panelOnSurface = false
     /** Called once when you've been driving for two hours. */
     var onBreak: (() -> Unit)? = null
 
@@ -80,6 +86,7 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
     private var music = false
     private var musicCheckedAt = 0L
     private var lastPlaying: Boolean? = null
+    private var lastKey = ""
 
     private var events: List<CalEvent> = emptyList()
     private var eventsAt = 0L
@@ -118,7 +125,7 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
     override fun onClick(x: Float, y: Float) {
         touch()
         when {
-            ambient -> { ambient = false; onState() }
+            ambient && panelOnSurface -> { ambient = false; onState() }
             tokkipBox.contains(x, y) -> engine.tickle()
         }
     }
@@ -149,7 +156,10 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
         handler.removeCallbacks(frame)
     }
 
-    fun toggle() { ambient = !ambient; touch() }
+    fun toggle() { if (panelOnSurface) ambient = !ambient; touch() }
+
+    /** Today's events, for the list card. */
+    fun upcoming() = events
 
     fun touch() { lastTouch = SystemClock.elapsedRealtime() }
 
@@ -163,7 +173,8 @@ class CarPainter(private val ctx: CarContext, private val onState: () -> Unit) :
         if (!breakDue && now - startedAt > 2 * 3600_000L) { breakDue = true; onBreak?.invoke() }
 
         val track = NowPlaying.track.value
-        if (track?.playing != lastPlaying) { lastPlaying = track?.playing; onState() }
+        val key = "${track?.playing}|${track?.title}|${Store.state.value.tasks.count { !it.done }}"
+        if (key != lastKey) { lastKey = key; lastPlaying = track?.playing; onState() }
         if (now - musicCheckedAt > 2000) {
             musicCheckedAt = now
             music = runCatching { audio?.isMusicActive == true }.getOrDefault(false)

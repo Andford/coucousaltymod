@@ -127,9 +127,11 @@ Por ahora Tokkip se instala desde GitHub Actions (no está en ninguna tienda).
 3. Conecta el teléfono al estéreo. Si Tokkip no aparece, actívalo en
    **Personalizar menú de apps**.
 
-Tokkip se registra como app de *navegación* porque solo esas apps pueden dibujar
-libremente en la pantalla del coche. Por eso, mientras está abierto ocupa el
-lugar del mapa. Antes de publicarse en Play Store esto tiene que cambiar.
+Tokkip se registra como app de *lugares* con la plantilla de mapa con contenido:
+dibuja su pantalla (el brillo, Tokkip y la hora) y a un lado muestra una tarjeta
+con lo que suena, tu próximo evento, el clima y tus pendientes. No ocupa el lugar
+de Google Maps. Si no aparece en el menú, instálalo marcando a Play Store como
+instalador (`adb install -r -i com.android.vending Tokkip.apk`).
 
 ## Compilar
 

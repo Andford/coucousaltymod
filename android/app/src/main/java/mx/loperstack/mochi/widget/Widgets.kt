@@ -19,6 +19,12 @@ import android.graphics.Shader
 import android.os.SystemClock
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.toArgb
@@ -752,14 +758,14 @@ class CompanionWidget : GlanceAppWidget() {
         val dots = habits.take(6).map { h ->
             Triple(h.id, h.name, ImageProvider(habitDot(mx.loperstack.mochi.ui.MIcon.habitIcon(mx.loperstack.mochi.data.habitIconKey(h.emoji)), h.doneOn(now), colors)))
         }
-        val flame = ImageProvider(iconBitmap(androidx.compose.material.icons.Icons.Rounded.LocalFireDepartment, if (best > 0) 0xFFE0661F.toInt() else colors.dim))
+        val flame = ImageProvider(iconBitmap(Icons.Rounded.LocalFireDepartment, if (best > 0) 0xFFE0661F.toInt() else colors.dim))
         val check = ImageProvider(taskDot(colors))
         val col = color()
         val faces = MOODS.reversed().map { m -> m to ImageProvider(mochiBitmap(84, 70, col, Mood.IDLE, m.face, wear = false)) }
         val actionIcons = listOf(
-            androidx.compose.material.icons.Icons.Rounded.Air,
-            if (focusing) androidx.compose.material.icons.Icons.Rounded.Pause else androidx.compose.material.icons.Icons.Rounded.Timer,
-            androidx.compose.material.icons.Icons.Rounded.EditNote,
+            Icons.Rounded.Air,
+            if (focusing) Icons.Rounded.Pause else Icons.Rounded.Timer,
+            Icons.Rounded.EditNote,
         )
 
         provideContent {

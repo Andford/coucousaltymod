@@ -1,4 +1,4 @@
-// Home screen widgets (Glance): Mochi with your day, Respirar (1·5·10 min,
+// Home screen widgets (Glance): Tokkip with your day, Compañero (everything at hand), Respirar (1·5·10 min,
 // the watch joins in), the Pomodoro with its live countdown, Pendientes you
 // can tick off, Sueño, ¿Cómo estás? (one tap logs your mood) and Rachas.
 // Each has its own cozy gradient, and Mochi moves: Glance can't animate, so
@@ -20,6 +20,8 @@ import android.os.SystemClock
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -589,8 +591,104 @@ class HabitToggle : ActionCallback {
 }
 
 // ── Compañero: everything at hand, changing through the day ───────────────────
+//
+// Tokkip in a ring that fills with your day (habits and tasks done), the next
+// thing on your calendar, your habits as icons you tick in place with your
+// longest streak, and — when the widget is tall enough — two tasks to tick and
+// the five moods. Light buttons for Respirar, Enfoque and Diario. Glance can't
+// draw vectors, so the ring, the habit dots and the icons are small bitmaps in
+// the phone's own Material You colours.
+
+/** The phone's dynamic colours, light or dark, as plain ints for bitmaps. */
+private class Pal(val primary: Int, val onPrimary: Int, val track: Int, val dim: Int)
+
+private fun pal(context: Context): Pal {
+    val night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+        android.content.res.Configuration.UI_MODE_NIGHT_YES
+    fun c(id: Int) = context.getColor(id)
+    return if (night) Pal(c(android.R.color.system_accent1_200), c(android.R.color.system_accent1_800), c(android.R.color.system_neutral2_700), c(android.R.color.system_neutral2_200))
+    else Pal(c(android.R.color.system_accent1_600), c(android.R.color.system_accent1_0), c(android.R.color.system_neutral2_200), c(android.R.color.system_neutral2_700))
+}
+
+/** A Material icon (an ImageVector) drawn into `canvas`, `size` px wide at (x, y). */
+private fun drawVector(canvas: android.graphics.Canvas, v: androidx.compose.ui.graphics.vector.ImageVector, x: Float, y: Float, size: Float, color: Int) {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }
+    canvas.save()
+    canvas.translate(x, y)
+    canvas.scale(size / v.viewportWidth, size / v.viewportHeight)
+    fun walk(group: androidx.compose.ui.graphics.vector.VectorGroup) {
+        for (node in group) {
+            when (node) {
+                is androidx.compose.ui.graphics.vector.VectorGroup -> walk(node)
+                is androidx.compose.ui.graphics.vector.VectorPath -> {
+                    @Suppress("DEPRECATION")
+                    val path = androidx.compose.ui.graphics.vector.PathParser().addPathNodes(node.pathData).toPath()
+                    val ap = path.asAndroidPath()
+                    ap.fillType = if (node.pathFillType == androidx.compose.ui.graphics.PathFillType.EvenOdd)
+                        android.graphics.Path.FillType.EVEN_ODD else android.graphics.Path.FillType.WINDING
+                    canvas.drawPath(ap, paint)
+                }
+            }
+        }
+    }
+    walk(v.root)
+    canvas.restore()
+}
+
+private fun iconBitmap(v: androidx.compose.ui.graphics.vector.ImageVector, color: Int, px: Int = 48): Bitmap {
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    drawVector(android.graphics.Canvas(bmp), v, 0f, 0f, px.toFloat(), color)
+    return bmp
+}
+
+/** A habit: filled in your colour when done today, an outline when not. */
+private fun habitDot(v: androidx.compose.ui.graphics.vector.ImageVector, done: Boolean, p: Pal, px: Int = 84): Bitmap {
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val r = px / 2f
+    if (done) {
+        paint.color = p.primary
+        c.drawCircle(r, r, r, paint)
+    } else {
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = px * 0.06f
+        paint.color = p.track
+        c.drawCircle(r, r, r - paint.strokeWidth / 2, paint)
+    }
+    val icon = px * 0.5f
+    drawVector(c, v, r - icon / 2, r - icon / 2, icon, if (done) p.onPrimary else p.dim)
+    return bmp
+}
+
+/** A task's round check. */
+private fun taskDot(p: Pal, px: Int = 48): Bitmap {
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px * 0.1f; color = p.dim }
+    android.graphics.Canvas(bmp).drawCircle(px / 2f, px / 2f, px / 2f - paint.strokeWidth, paint)
+    return bmp
+}
+
+/** The ring around Tokkip: how much of today's habits and tasks is done. */
+private fun ringBitmap(frac: Float, p: Pal, px: Int = 168): Bitmap {
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val stroke = px * 0.07f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND }
+    val box = android.graphics.RectF(stroke, stroke, px - stroke, px - stroke)
+    paint.color = p.track
+    c.drawArc(box, 0f, 360f, false, paint)
+    if (frac > 0f) {
+        paint.color = p.primary
+        c.drawArc(box, -90f, 360f * frac.coerceIn(0f, 1f), false, paint)
+    }
+    return bmp
+}
 
 class CompanionWidget : GlanceAppWidget() {
+    // The layout follows the widget's real size: 4×2 keeps the essentials.
+    override val sizeMode = androidx.glance.appwidget.SizeMode.Exact
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Store.init(context)
         Store.applyLook()
@@ -598,83 +696,185 @@ class CompanionWidget : GlanceAppWidget() {
         val now = System.currentTimeMillis()
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val es = Locale("es", "MX")
         val next = if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
             runCatching { nextEvent(Agenda.load(context, now), now) }.getOrNull()
         } else null
         val p = d.pomodoro
         val focusing = p.phase != Phase.IDLE && !p.isPaused() && p.endsAt != null
-        val tasks = orderedTasks(d.tasks).filter { !it.done }
+        val allTasks = d.tasks
+        val tasks = orderedTasks(allTasks).filter { !it.done }
         val habits = d.habits.filter { it.scheduledOn(cal) }
-        val habitsLeft = habits.count { !it.doneOn(now) }
+        val habitsDone = habits.count { it.doneOn(now) }
+        val best = d.habits.maxOfOrNull { it.streak(now) } ?: 0
         val today = d.logs.firstOrNull { it.day == dayKey(now) }
-        val mood = (today?.moods?.lastOrNull()?.value ?: today?.mood?.takeIf { it > 0 })?.let { v -> MOODS.firstOrNull { it.value == v } }
-        val lastNight = d.sleep.maxByOrNull { it.wake }?.takeIf { it.night == dayKey(now) }
-        val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }.let { if (d.name.isBlank()) it else "$it, ${d.name}" }
-        val allDone = tasks.isEmpty() && habitsLeft == 0
+        val moodNow = today?.moods?.lastOrNull()?.value ?: today?.mood?.takeIf { it > 0 }
+        val hello = when (hour) { in 5..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }
+            .let { if (d.name.isBlank()) it else "$it, ${d.name}" }
+
+        // The day so far: habits due today and today's tasks.
+        val doneToday = allTasks.count { it.done }
+        val total = habits.size + allTasks.size
+        val frac = if (total == 0) 0f else (habitsDone + doneToday).toFloat() / total
+        val left = habits.size - habitsDone + tasks.size
+        val allDone = total > 0 && left == 0
+
+        // Weather, when the car screen (or anything else) already looked it up.
+        mx.loperstack.mochi.data.Weather.refresh(context)
+        val sky = mx.loperstack.mochi.data.Weather.now
+        val date = SimpleDateFormat("EEEE d", es).format(Date(now)).replaceFirstChar { it.uppercase(es) }
+        val info = buildList {
+            add(date)
+            if (sky != null) add("${sky.temp}° ${mx.loperstack.mochi.data.Weather.label(sky.code).lowercase(es)}")
+            add(if (total == 0) "un paso a la vez" else if (allDone) "¡todo listo!" else "faltan $left")
+        }.joinToString(" · ")
+
+        // The line that matters most right now.
+        val headline: Pair<String, Int?> = when {
+            focusing -> PomodoroScheduler.phaseTitle(p.phase) to null
+            next != null && next.begin - now < 12 * 3_600_000L ->
+                "${next.title} · ${SimpleDateFormat("h:mm a", es).format(Date(next.begin))}" to (next.color ?: 0xFF3D8BD9.toInt())
+            hour >= 20 -> "¿Qué fue lo mejor de tu día?" to null
+            allDone -> "Tokkip está orgulloso de ti" to null
+            else -> "Un paso a la vez" to null
+        }
+
+        val colors = pal(context)
+        val ring = ImageProvider(ringBitmap(frac, colors))
         val image = moving(
             context, if (allDone) Motion.HOP else if (focusing) Motion.SNOOZE else Motion.BOB,
-            if (focusing) Mood.FOCUS else if (hour >= 22 || hour < 6) Mood.SLEEPY else Mood.IDLE, 200, 182, alt = MochiEngine.Eye.HAPPY,
+            if (focusing) Mood.FOCUS else if (hour >= 22 || hour < 6) Mood.SLEEPY else Mood.IDLE, 150, 136, alt = MochiEngine.Eye.HAPPY,
         )
         val countdown = RemoteViews(context.packageName, R.layout.widget_chrono).apply {
             setChronometer(R.id.chrono, SystemClock.elapsedRealtime() + ((p.endsAt ?: now) - now), null, true)
             setChronometerCountDown(R.id.chrono, true)
         }
-        // The one thing that matters most right now.
-        val (nowLabel, nowText) = when {
-            focusing -> PomodoroScheduler.phaseTitle(p.phase) to null
-            next != null && next.begin - now < 3 * 3_600_000L -> {
-                val min = ((next.begin - now) / 60_000).toInt()
-                (if (min <= 0) "Ahora" else if (min < 60) "En $min min" else "A las ${SimpleDateFormat("HH:mm", Locale("es", "MX")).format(Date(next.begin))}") to next.title
-            }
-            hour in 5..11 && lastNight != null -> "Anoche" to "Dormiste ${lastNight.minutes / 60} h ${"%02d".format(lastNight.minutes % 60)}"
-            hour >= 20 -> "Antes de dormir" to "¿Qué fue lo mejor de tu día?"
-            allDone -> "Hoy" to "¡Todo listo! Tokkip está orgulloso"
-            else -> "Hoy" to "Un paso a la vez"
+        val dots = habits.take(6).map { h ->
+            Triple(h.id, h.name, ImageProvider(habitDot(mx.loperstack.mochi.ui.MIcon.habitIcon(mx.loperstack.mochi.data.habitIconKey(h.emoji)), h.doneOn(now), colors)))
         }
+        val flame = ImageProvider(iconBitmap(androidx.compose.material.icons.Icons.Rounded.LocalFireDepartment, if (best > 0) 0xFFE0661F.toInt() else colors.dim))
+        val check = ImageProvider(taskDot(colors))
+        val col = color()
+        val faces = MOODS.reversed().map { m -> m to ImageProvider(mochiBitmap(84, 70, col, Mood.IDLE, m.face, wear = false)) }
+        val actionIcons = listOf(
+            androidx.compose.material.icons.Icons.Rounded.Air,
+            if (focusing) androidx.compose.material.icons.Icons.Rounded.Pause else androidx.compose.material.icons.Icons.Rounded.Timer,
+            androidx.compose.material.icons.Icons.Rounded.EditNote,
+        )
+
         provideContent {
             GlanceTheme {
+                val size = androidx.glance.LocalSize.current
+                val full = size.height >= 250.dp
+                val onTonal = GlanceTheme.colors.onSecondaryContainer
+                val tonalIcons = actionIcons.map { ImageProvider(iconBitmap(it, onTonal.getColor(context).toArgb())) }
                 Column(GlanceModifier.fillMaxSize().cornerRadius(28.dp).background(GlanceTheme.colors.widgetBackground).padding(14.dp)) {
+                    // Tokkip in his ring, hello, what's next.
                     Row(GlanceModifier.fillMaxWidth().clickable(openApp(context, "home")), verticalAlignment = Alignment.CenterVertically) {
-                        AndroidRemoteViews(image, GlanceModifier.size(78.dp, 72.dp))
-                        Spacer(GlanceModifier.width(10.dp))
+                        Box(GlanceModifier.size(68.dp), contentAlignment = Alignment.Center) {
+                            Image(ring, contentDescription = "Progreso de tu día", modifier = GlanceModifier.size(68.dp))
+                            AndroidRemoteViews(image, GlanceModifier.size(50.dp, 46.dp))
+                        }
+                        Spacer(GlanceModifier.width(12.dp))
                         Column(GlanceModifier.defaultWeight()) {
-                            Text(hello, style = TextStyle(color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                            Text(nowLabel, style = TextStyle(color = Violet, fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                            if (focusing) AndroidRemoteViews(countdown)
-                            else if (nowText != null) Text(nowText, style = TextStyle(color = White, fontSize = 15.sp), maxLines = 2)
+                            Text(hello, style = TextStyle(color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                headline.second?.let { bar ->
+                                    Box(GlanceModifier.size(4.dp, 14.dp).cornerRadius(2.dp).background(ColorProvider(Color(bar)))) {}
+                                    Spacer(GlanceModifier.width(6.dp))
+                                }
+                                if (focusing) AndroidRemoteViews(countdown)
+                                else Text(headline.first, style = TextStyle(color = Dim, fontSize = 13.sp), maxLines = 1)
+                            }
+                            Text(info, style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 1)
                         }
                     }
                     Spacer(GlanceModifier.height(10.dp))
-                    // Three little cards: tasks, streaks, mood.
-                    Row(GlanceModifier.fillMaxWidth()) {
-                        @Composable
-                        fun Mini(title: String, value: String, tab: String, last: Boolean = false) {
-                            Column(
-                                GlanceModifier.defaultWeight().height(62.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer)
-                                    .clickable(openApp(context, tab)).padding(horizontal = 10.dp, vertical = 8.dp),
-                            ) {
-                                Text(title, style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                                Text(value, style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+
+                    // Habits you tick in place, and the longest streak.
+                    Row(
+                        GlanceModifier.fillMaxWidth().cornerRadius(20.dp).background(GlanceTheme.colors.surfaceVariant).padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (dots.isEmpty()) {
+                            Text(
+                                "Crea tu primera racha", style = TextStyle(color = Dim, fontSize = 13.sp),
+                                modifier = GlanceModifier.defaultWeight().clickable(openApp(context, "streaks")),
+                            )
+                        } else {
+                            for ((hid, name, img) in dots) {
+                                Image(
+                                    img, contentDescription = name,
+                                    modifier = GlanceModifier.size(34.dp).clickable(actionRunCallback<HabitToggle>(actionParametersOf(HabitId to hid))),
+                                )
+                                Spacer(GlanceModifier.width(6.dp))
                             }
-                            if (!last) Spacer(GlanceModifier.width(6.dp))
+                            Spacer(GlanceModifier.defaultWeight())
                         }
-                        Mini("Tareas", if (tasks.isEmpty()) "Al día" else "${tasks.size} · ${tasks.first().text}", "tasks")
-                        Mini("Rachas", if (habits.isEmpty()) "Crear" else if (habitsLeft == 0) "Listas" else "Faltan $habitsLeft", "streaks")
-                        Mini("Ánimo", mood?.label ?: "¿Cómo vas?", "diary", last = true)
+                        Row(
+                            GlanceModifier.cornerRadius(14.dp).background(GlanceTheme.colors.widgetBackground).padding(horizontal = 9.dp, vertical = 5.dp)
+                                .clickable(openApp(context, "streaks")),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(flame, contentDescription = null, modifier = GlanceModifier.size(16.dp))
+                            Spacer(GlanceModifier.width(3.dp))
+                            Text(if (best == 1) "1 día" else "$best días", style = TextStyle(color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold))
+                        }
                     }
-                    Spacer(GlanceModifier.height(8.dp))
-                    // Quick actions.
+
+                    if (full) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        // Two tasks to tick off.
+                        if (tasks.isEmpty()) {
+                            Text(
+                                "Sin pendientes · toca para agregar", style = TextStyle(color = Dim, fontSize = 13.sp),
+                                modifier = GlanceModifier.padding(horizontal = 4.dp, vertical = 4.dp).clickable(openApp(context, "tasks")),
+                            )
+                        } else for (t in tasks.take(if (size.height >= 330.dp) 3 else 2)) {
+                            Row(
+                                GlanceModifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .clickable(actionRunCallback<TaskDone>(actionParametersOf(TaskId to t.id))),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Image(check, contentDescription = "Marcar como hecha", modifier = GlanceModifier.size(20.dp))
+                                Spacer(GlanceModifier.width(10.dp))
+                                Text(t.text, style = TextStyle(color = White, fontSize = 14.sp), maxLines = 1)
+                            }
+                        }
+                        Spacer(GlanceModifier.height(6.dp))
+                        // How are you: one tap logs it.
+                        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("¿Cómo estás?", style = TextStyle(color = Dim, fontSize = 13.sp), modifier = GlanceModifier.defaultWeight())
+                            for ((m, img) in faces) {
+                                Box(
+                                    GlanceModifier.size(36.dp, 32.dp).cornerRadius(16.dp)
+                                        .background(if (m.value == moodNow) GlanceTheme.colors.secondaryContainer else GlanceTheme.colors.widgetBackground)
+                                        .clickable(actionRunCallback<MoodLog>(actionParametersOf(MoodValue to m.value))),
+                                    contentAlignment = Alignment.Center,
+                                ) { Image(img, contentDescription = m.label, modifier = GlanceModifier.size(30.dp, 25.dp)) }
+                                Spacer(GlanceModifier.width(2.dp))
+                            }
+                        }
+                    }
+
+                    Spacer(GlanceModifier.defaultWeight())
+                    // Light buttons: an icon and a word each.
                     Row(GlanceModifier.fillMaxWidth()) {
                         @Composable
-                        fun Action(text: String, modifier: GlanceModifier, last: Boolean = false) {
-                            Box(modifier.defaultWeight().height(40.dp).cornerRadius(20.dp).background(GlanceTheme.colors.primary), contentAlignment = Alignment.Center) {
-                                Text(text, style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                        fun Action(text: String, icon: ImageProvider, modifier: GlanceModifier, last: Boolean = false) {
+                            Row(
+                                modifier.defaultWeight().height(42.dp).cornerRadius(21.dp).background(GlanceTheme.colors.secondaryContainer),
+                                verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Image(icon, contentDescription = null, modifier = GlanceModifier.size(18.dp))
+                                Spacer(GlanceModifier.width(6.dp))
+                                Text(text, style = TextStyle(color = onTonal, fontSize = 13.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                             }
                             if (!last) Spacer(GlanceModifier.width(6.dp))
                         }
-                        Action("Respirar", GlanceModifier.clickable(openApp(context, "breathe", 5)))
-                        Action(if (focusing) "Pausa" else "Enfoque", GlanceModifier.clickable(actionRunCallback<PomodoroToggle>()))
-                        Action("Diario", GlanceModifier.clickable(openApp(context, "diary")), last = true)
+                        Action("Respirar", tonalIcons[0], GlanceModifier.clickable(openApp(context, "breathe", 5)))
+                        Action(if (focusing) "Pausa" else "Enfoque", tonalIcons[1], GlanceModifier.clickable(actionRunCallback<PomodoroToggle>()))
+                        Action("Diario", tonalIcons[2], GlanceModifier.clickable(openApp(context, "diary")), last = true)
                     }
                 }
             }

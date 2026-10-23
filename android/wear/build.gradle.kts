@@ -13,8 +13,8 @@ android {
         applicationId = "mx.loperstack.mochi"
         minSdk = 33
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.2.0"
+        versionCode = 16
+        versionName = "1.2.1"
     }
 
     signingConfigs {

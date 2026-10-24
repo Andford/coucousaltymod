@@ -1,5 +1,5 @@
 // A copy of all of Tokkip on the phone, in one .zip: your settings, tasks,
-// diary (with its photos), moods, sleep, breathing sessions, streaks and
+// diary (with its photos), moods, sleep, breathing sessions, streaks, money and
 // Tokkip's look. Restoring it replaces what's here. Nothing leaves the phone
 // unless you save the file somewhere yourself.
 //
@@ -25,6 +25,7 @@ data class BackupSummary(
     val tasks: Int = 0,
     val nights: Int = 0,
     val photos: Int = 0,
+    val money: Int = 0,
     /** An old copy from the Diario screen: only the diary, joined to what's here. */
     val diaryOnly: Boolean = false,
 ) {
@@ -33,7 +34,7 @@ data class BackupSummary(
         if (diaryOnly) return "solo el diario: " + n(days, "día", "días") + " (copia antigua, sin rachas)"
         return listOf(
             n(habits, "racha", "rachas"), n(days, "día de diario", "días de diario"),
-            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(photos, "foto", "fotos"),
+            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(money, "movimiento", "movimientos"), n(photos, "foto", "fotos"),
         ).joinToString(" · ")
     }
 }
@@ -49,6 +50,7 @@ object Backup {
         tasks = parseTasks(prefs["tasks"] as? String).size,
         nights = sleepOf(prefs["sleep"] as? String).size,
         photos = photos,
+        money = moneyOf(prefs["money"] as? String).size,
     )
 
     /** Everything to `out`; what went in, or null if it failed. */

@@ -68,6 +68,9 @@ data class AppData(
     val pomodoroConfig: mx.loperstack.mochi.wellness.PomodoroConfig = mx.loperstack.mochi.wellness.PomodoroConfig(),
     val habits: List<Habit> = emptyList(),
     val notify: NotifySettings = NotifySettings(),
+    /** Dinero: movements, oldest first, and your budget. */
+    val money: List<MoneyEntry> = emptyList(),
+    val budget: Budget = Budget(),
 )
 
 /** Mochi's notifications (Ajustes → Notificaciones). Times in minutes of the day. */
@@ -102,6 +105,7 @@ fun notifyOf(raw: String?): NotifySettings = runCatching {
 fun AppData.routine(): Routine = Routine(
     logs = logs, habits = habits, breaths = sessions.map { it.at },
     nights = sleep.map { Night(it.night, it.minutes, it.quality) }, sleepGoalMin = sleepGoal.minutes,
+    money = money, budget = budget,
 )
 
 /** The rhythm you picked, for a session of `minutes`. */
@@ -175,7 +179,8 @@ object Store {
                 prefs.getInt("pFocus", 25), prefs.getInt("pBreak", 5), prefs.getInt("pLong", 15), prefs.getInt("pCycles", 4),
             ),
         )
-        _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)))
+        _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)),
+            money = moneyOf(prefs.getString("money", null)), budget = budgetOf(prefs.getString("budget", null)))
         mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
         mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
@@ -300,6 +305,18 @@ object Store {
         prefs.edit().putString("habits", habitsJson(list)).apply()
         Widgets.refresh(app)
         mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    fun setMoney(list: List<MoneyEntry>) {
+        val clean = list.sortedBy { it.at }.takeLast(MONEY_LIMIT)
+        _state.value = _state.value.copy(money = clean)
+        prefs.edit().putString("money", moneyJson(clean)).apply()
+        Widgets.refresh(app)
+    }
+
+    fun setBudget(b: Budget) {
+        _state.value = _state.value.copy(budget = b)
+        prefs.edit().putString("budget", budgetJson(b)).apply()
     }
 
     fun setNotify(n: NotifySettings) {

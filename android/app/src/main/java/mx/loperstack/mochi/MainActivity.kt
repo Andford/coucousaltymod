@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
         "diary" -> Tab.DIARY
         "sleep" -> Tab.SLEEP
         "streaks" -> Tab.STREAKS
+        "money" -> Tab.MONEY
         "pet" -> Tab.PET
         else -> Tab.HOME
     }

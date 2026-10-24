@@ -269,7 +269,10 @@ fun tokkipNotes(r: Routine, now: Long): List<TokkipNote> {
             "Haz de Respirar una pausa fija, como después de comer.", 46)
     }
 
-    if (r.logs.isEmpty() && r.habits.isEmpty()) out += TokkipNote("hello", "sparkle", "Todavía te estoy conociendo.",
+    // Your money (data/Money.kt), with your mood per day.
+    out += moneyNotes(r.money, r.budget, r.logs.filter { it.averageMood > 0 }.associate { it.day to it.averageMood }, now)
+
+    if (r.logs.isEmpty() && r.habits.isEmpty() && r.money.isEmpty()) out += TokkipNote("hello", "sparkle", "Todavía te estoy conociendo.",
         "Cuéntame cómo te fue hoy en el Diario, o crea tu primera racha.", 20)
     return out.distinctBy { it.id }.sortedByDescending { it.weight }
 }

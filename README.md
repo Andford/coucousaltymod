@@ -49,6 +49,15 @@ octubre, gorro navideño en diciembre.
   tu ánimo, tus rachas, tu sueño y tus respiraciones ("los días que cumples
   «Caminar» te sientes mejor"). Todo en el teléfono: sin IA ni internet.
 - **Ánimo y diario**: cómo te sientes, con notas y fotos; exportable a PDF.
+- **Dinero**: tus gastos e ingresos con un presupuesto semanal y uno de fin de
+  semana dentro de él (tú decides los montos, si la semana empieza en lunes o
+  domingo y si el fin de semana empieza el sábado, el viernes o el viernes a las
+  6 pm). Cuánto te queda y cuánto puedes gastar por día, el mes con ingresos,
+  gastos, balance y gasto por día, tus últimas seis semanas, en qué se va tu
+  dinero, límites por categoría y una meta de ahorro. Tokkip te avisa si vas
+  rápido, si los fines de semana se te van, qué categoría creció, cuánto suman
+  los gastos hormiga y si gastas más en tus días de bajón. Anotar tus finanzas
+  también le da cariño a Tokkip.
 - **Kit para journaling**: tu diario como recortables para imprimir en hoja
   carta: cada día como tarjeta con cinta washi y fotos tipo polaroid, stickers
   de Tokkip en cada ánimo, sellos de tus rachas, tu mes en colores, etiquetas y

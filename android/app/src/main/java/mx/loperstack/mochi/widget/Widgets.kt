@@ -20,7 +20,10 @@ import android.os.SystemClock
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Pause
@@ -81,6 +84,8 @@ import mx.loperstack.mochi.data.nextEvent
 import mx.loperstack.mochi.mochi.MochiEngine
 import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.data.addMood
+import mx.loperstack.mochi.data.averageMood
+import mx.loperstack.mochi.data.routine
 import mx.loperstack.mochi.data.dayKey
 import mx.loperstack.mochi.data.doneOn
 import mx.loperstack.mochi.data.hhmm
@@ -132,6 +137,7 @@ object Widgets {
             runCatching { MoodWidget().updateAll(app) }
             runCatching { StreaksWidget().updateAll(app) }
             runCatching { CompanionWidget().updateAll(app) }
+            runCatching { MoneyWidget().updateAll(app) }
         }
     }
 }
@@ -598,10 +604,12 @@ class HabitToggle : ActionCallback {
 
 // ── Compañero: everything at hand, changing through the day ───────────────────
 //
-// Tokkip in a ring that fills with your day (habits and tasks done), the next
-// thing on your calendar, your habits as icons you tick in place with your
-// longest streak, and — when the widget is tall enough — two tasks to tick and
-// the five moods. Light buttons for Respirar, Enfoque and Diario. Glance can't
+// Tokkip in a ring that fills with your day (habits and tasks done) — or, with
+// nothing due, with his way to the next growth stage — the next thing on your
+// calendar, your habits as icons you tick in place with your longest streak,
+// and — when the widget is tall enough — his level and your week's money as
+// chips, two tasks to tick, the five moods and, if there's room, what Tokkip
+// noticed. Light buttons for Respirar, Enfoque and Diario. Glance can't
 // draw vectors, so the ring, the habit dots and the icons are small bitmaps in
 // the phone's own Material You colours.
 
@@ -745,8 +753,24 @@ class CompanionWidget : GlanceAppWidget() {
             else -> "Un paso a la vez" to null
         }
 
+        // Tokkip's growth, what he noticed, and your week's money (data/Growth.kt, Insights.kt, Money.kt).
+        val r = d.routine()
+        val grow = mx.loperstack.mochi.data.growth(r, now)
+        val noted = mx.loperstack.mochi.data.noteOfTheDay(r, now)
+        val week = mx.loperstack.mochi.data.weekSummary(d.money, d.budget, now)
+        val hasMoney = week.hasBudget || d.money.isNotEmpty()
+
         val colors = pal(context)
-        val ring = ImageProvider(ringBitmap(frac, colors))
+        // With nothing due today, the ring shows his way to the next stage.
+        val ring = ImageProvider(ringBitmap(if (total == 0) grow.progress else frac, colors))
+        val starIcon = ImageProvider(iconBitmap(Icons.Rounded.Star, colors.primary))
+        val walletIcon = ImageProvider(iconBitmap(Icons.Rounded.AccountBalanceWallet, colors.primary))
+        val notedIcon = ImageProvider(iconBitmap(mx.loperstack.mochi.ui.noteIcon(noted.icon), colors.onPrimary))
+        val moneyText = when {
+            week.hasBudget && week.left >= 0 -> "${mx.loperstack.mochi.data.money(week.left)} libres"
+            week.hasBudget -> "Te pasaste ${mx.loperstack.mochi.data.money(-week.left)}"
+            else -> "${mx.loperstack.mochi.data.money(week.spent)} esta semana"
+        }
         val image = moving(
             context, if (allDone) Motion.HOP else if (focusing) Motion.SNOOZE else Motion.BOB,
             if (focusing) Mood.FOCUS else if (hour >= 22 || hour < 6) Mood.SLEEPY else Mood.IDLE, 150, 136, alt = MochiEngine.Eye.HAPPY,
@@ -777,9 +801,9 @@ class CompanionWidget : GlanceAppWidget() {
                 Column(GlanceModifier.fillMaxSize().cornerRadius(28.dp).background(GlanceTheme.colors.widgetBackground).padding(14.dp)) {
                     // Tokkip in his ring, hello, what's next.
                     Row(GlanceModifier.fillMaxWidth().clickable(openApp(context, "home")), verticalAlignment = Alignment.CenterVertically) {
-                        Box(GlanceModifier.size(68.dp), contentAlignment = Alignment.Center) {
-                            Image(ring, contentDescription = "Progreso de tu día", modifier = GlanceModifier.size(68.dp))
-                            AndroidRemoteViews(image, GlanceModifier.size(50.dp, 46.dp))
+                        Box(GlanceModifier.size(76.dp), contentAlignment = Alignment.Center) {
+                            Image(ring, contentDescription = if (total == 0) "Camino de Tokkip" else "Progreso de tu día", modifier = GlanceModifier.size(76.dp))
+                            AndroidRemoteViews(image, GlanceModifier.size(60.dp, 56.dp))
                         }
                         Spacer(GlanceModifier.width(12.dp))
                         Column(GlanceModifier.defaultWeight()) {
@@ -830,6 +854,30 @@ class CompanionWidget : GlanceAppWidget() {
 
                     if (full) {
                         Spacer(GlanceModifier.height(8.dp))
+                        // Tokkip's level and the week's money, side by side.
+                        Row(GlanceModifier.fillMaxWidth()) {
+                            @Composable
+                            fun Chip(icon: ImageProvider, text: String, open: androidx.glance.action.Action, modifier: GlanceModifier) {
+                                Row(
+                                    modifier.height(34.dp).cornerRadius(17.dp).background(GlanceTheme.colors.surfaceVariant).padding(horizontal = 10.dp).clickable(open),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Image(icon, contentDescription = null, modifier = GlanceModifier.size(16.dp))
+                                    Spacer(GlanceModifier.width(6.dp))
+                                    Text(text, style = TextStyle(color = White, fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                }
+                            }
+                            Chip(
+                                starIcon,
+                                if (hasMoney) "${grow.title} · nv ${grow.stage.level}" else "${grow.title} · faltan ${grow.toNext} para ${grow.nextName}",
+                                openApp(context, "home"), GlanceModifier.defaultWeight(),
+                            )
+                            if (hasMoney) {
+                                Spacer(GlanceModifier.width(6.dp))
+                                Chip(walletIcon, moneyText, openMoney(context, null), GlanceModifier.defaultWeight())
+                            }
+                        }
+                        Spacer(GlanceModifier.height(6.dp))
                         // Two tasks to tick off.
                         if (tasks.isEmpty()) {
                             Text(
@@ -861,6 +909,26 @@ class CompanionWidget : GlanceAppWidget() {
                                 Spacer(GlanceModifier.width(2.dp))
                             }
                         }
+                        // What Tokkip noticed, when there's room for it.
+                        val taskRows = if (tasks.isEmpty()) 1 else minOf(tasks.size, if (size.height >= 330.dp) 3 else 2)
+                        val usedDp = 76 + 10 + 48 + 8 + 34 + 6 + taskRows * 28 + 6 + 32 + 42 + 28 + 10
+                        if (size.height.value - usedDp >= 56) {
+                            Spacer(GlanceModifier.height(8.dp))
+                            Row(
+                                GlanceModifier.fillMaxWidth().cornerRadius(20.dp).background(GlanceTheme.colors.secondaryContainer).padding(10.dp)
+                                    .clickable(openApp(context, "home")),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(GlanceModifier.size(30.dp).cornerRadius(15.dp).background(GlanceTheme.colors.primary), contentAlignment = Alignment.Center) {
+                                    Image(notedIcon, contentDescription = null, modifier = GlanceModifier.size(17.dp))
+                                }
+                                Spacer(GlanceModifier.width(10.dp))
+                                Column(GlanceModifier.defaultWeight()) {
+                                    Text("Tokkip notó", style = TextStyle(color = onTonal, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text(noted.text, style = TextStyle(color = onTonal, fontSize = 13.sp), maxLines = 2)
+                                }
+                            }
+                        }
                     }
 
                     Spacer(GlanceModifier.defaultWeight())
@@ -890,4 +958,193 @@ class CompanionWidget : GlanceAppWidget() {
 
 class CompanionWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = CompanionWidget()
+}
+
+// ── Dinero ────────────────────────────────────────────────────────────────────
+//
+// What's left of the week's budget in a ring, about how much per day, the
+// weekdays and the weekend as bars, what Tokkip noticed (when tall enough),
+// and "Anotar" with your three most used categories one tap away.
+
+private fun openMoney(context: Context, add: String?) =
+    actionStartActivity(
+        Intent(context, MainActivity::class.java)
+            .setData(Uri.parse("mochi://widget/money/${add ?: "open"}"))
+            .putExtra(MainActivity.EXTRA_TAB, "money")
+            .apply { if (add != null) putExtra(MainActivity.EXTRA_MONEY_ADD, add) }
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+    )
+
+/** A rounded progress bar; over budget turns red. */
+private fun barBitmap(frac: Float, p: Pal, w: Int = 480, h: Int = 18): Bitmap {
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val r = h / 2f
+    paint.color = p.track
+    c.drawRoundRect(0f, 0f, w.toFloat(), h.toFloat(), r, r, paint)
+    if (frac > 0f) {
+        paint.color = when {
+            frac > 1f -> 0xFFE5484D.toInt()
+            frac > 0.85f -> 0xFFE8A317.toInt()
+            else -> p.primary
+        }
+        c.drawRoundRect(0f, 0f, maxOf(h.toFloat(), w * frac.coerceAtMost(1f)), h.toFloat(), r, r, paint)
+    }
+    return bmp
+}
+
+/** The week's ring: used against the budget, with a tick where the week is. */
+private fun budgetRing(used: Float, elapsed: Float, p: Pal, px: Int = 168): Bitmap {
+    val bmp = ringBitmap(0f, p, px)
+    val c = android.graphics.Canvas(bmp)
+    val stroke = px * 0.07f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND }
+    val box = android.graphics.RectF(stroke, stroke, px - stroke, px - stroke)
+    if (used > 0f) {
+        paint.color = when {
+            used > 1f -> 0xFFE5484D.toInt()
+            used - elapsed >= 0.15f -> 0xFFE8A317.toInt()
+            else -> p.primary
+        }
+        c.drawArc(box, -90f, 360f * used.coerceAtMost(1f), false, paint)
+    }
+    val a = Math.toRadians((-90 + 360 * elapsed).toDouble())
+    val rIn = px / 2f - stroke * 1.9f
+    val rOut = px / 2f - stroke * 0.2f
+    paint.color = p.dim
+    paint.strokeWidth = stroke * 0.45f
+    c.drawLine(
+        px / 2f + (rIn * Math.cos(a)).toFloat(), px / 2f + (rIn * Math.sin(a)).toFloat(),
+        px / 2f + (rOut * Math.cos(a)).toFloat(), px / 2f + (rOut * Math.sin(a)).toFloat(), paint,
+    )
+    return bmp
+}
+
+/** A category's round button: its icon in its colour. */
+private fun categoryDot(c: mx.loperstack.mochi.data.MoneyCategory, px: Int = 96): Bitmap {
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = (c.color.toInt() and 0x00FFFFFF) or 0x38000000 }
+    canvas.drawCircle(px / 2f, px / 2f, px / 2f, paint)
+    val icon = px * 0.52f
+    drawVector(canvas, mx.loperstack.mochi.ui.categoryIcon(c.icon), (px - icon) / 2, (px - icon) / 2, icon, c.color.toInt())
+    return bmp
+}
+
+class MoneyWidget : GlanceAppWidget() {
+    override val sizeMode = androidx.glance.appwidget.SizeMode.Exact
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        Store.init(context)
+        val d = Store.state.value
+        val now = System.currentTimeMillis()
+        val w = mx.loperstack.mochi.data.weekSummary(d.money, d.budget, now)
+        val fresh = d.money.isEmpty() && d.budget.weekly <= 0
+        val colors = pal(context)
+        val ring = ImageProvider(budgetRing(w.used, w.elapsed, colors))
+        val weekdayBar = ImageProvider(barBitmap(w.weekdayUsed, colors))
+        val weekendBar = ImageProvider(barBitmap(w.weekendUsed, colors))
+        // Your three most used categories of the last month (or the usual ones).
+        val since = now - 30L * 86_400_000
+        val used = d.money.filter { it.kind == mx.loperstack.mochi.data.MoneyKind.GASTO && it.at >= since }
+            .groupingBy { it.category }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+        val quick = (used + listOf("comida", "super", "cafe", "transporte")).distinct().take(3).map { mx.loperstack.mochi.data.categoryOf(it) }
+        val quickIcons = quick.map { it to ImageProvider(categoryDot(it)) }
+        val note = mx.loperstack.mochi.data.moneyNotes(
+            d.money, d.budget, d.logs.filter { it.averageMood > 0 }.associate { it.day to it.averageMood }, now,
+        ).maxByOrNull { it.weight }
+        val noteIcon = note?.let { ImageProvider(iconBitmap(mx.loperstack.mochi.ui.noteIcon(it.icon), colors.primary)) }
+        val pct = if (w.hasBudget) "${(w.used * 100).toInt()}%" else "—"
+        val m: (Long, Boolean) -> String = { c, s -> mx.loperstack.mochi.data.money(c, s) }
+
+        provideContent {
+            GlanceTheme {
+                val size = androidx.glance.LocalSize.current
+                val onTonal = GlanceTheme.colors.onSecondaryContainer
+                val addIcon = ImageProvider(iconBitmap(Icons.Rounded.Add, onTonal.getColor(context).toArgb()))
+                Column(GlanceModifier.fillMaxSize().cornerRadius(28.dp).background(GlanceTheme.colors.widgetBackground).padding(14.dp)) {
+                    Row(GlanceModifier.fillMaxWidth().clickable(openMoney(context, null)), verticalAlignment = Alignment.CenterVertically) {
+                        Box(GlanceModifier.size(64.dp), contentAlignment = Alignment.Center) {
+                            Image(ring, contentDescription = "Presupuesto usado", modifier = GlanceModifier.size(64.dp))
+                            Text(pct, style = TextStyle(color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold))
+                        }
+                        Spacer(GlanceModifier.width(12.dp))
+                        Column(GlanceModifier.defaultWeight()) {
+                            Text("DINERO · ESTA SEMANA", style = TextStyle(color = Dim, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                            when {
+                                fresh -> {
+                                    Text("Lleva tus cuentas", style = TextStyle(color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text("Toca para poner tu presupuesto", style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 1)
+                                }
+                                w.hasBudget -> {
+                                    Text(
+                                        if (w.left >= 0) "Te quedan ${m(w.left, false)}" else "Te pasaste por ${m(-w.left, false)}",
+                                        style = TextStyle(color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold), maxLines = 1,
+                                    )
+                                    Text(
+                                        if (w.left > 0) "Unos ${m(w.perDay, false)} por día · de ${m(w.budget.weekly, false)}" else "Gastaste ${m(w.spent, false)} de ${m(w.budget.weekly, false)}",
+                                        style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 1,
+                                    )
+                                }
+                                else -> {
+                                    Text("Gastaste ${m(w.spent, false)}", style = TextStyle(color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                    Text("Ponle presupuesto a tu semana", style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                    if (w.hasBudget && size.height >= 170.dp) {
+                        Spacer(GlanceModifier.height(10.dp))
+                        @Composable
+                        fun Split(title: String, spent: Long, budget: Long, bar: ImageProvider) {
+                            Row(GlanceModifier.fillMaxWidth()) {
+                                Text(title, style = TextStyle(color = White, fontSize = 12.sp, fontWeight = FontWeight.Bold), modifier = GlanceModifier.defaultWeight(), maxLines = 1)
+                                Text("${m(spent, false)} de ${m(budget, false)}", style = TextStyle(color = Dim, fontSize = 12.sp), maxLines = 1)
+                            }
+                            Spacer(GlanceModifier.height(3.dp))
+                            Image(bar, contentDescription = null, modifier = GlanceModifier.fillMaxWidth().height(7.dp), contentScale = androidx.glance.layout.ContentScale.FillBounds)
+                        }
+                        Split("Entre semana", w.weekdaySpent, w.weekdayBudget, weekdayBar)
+                        if (w.budget.weekend > 0) {
+                            Spacer(GlanceModifier.height(7.dp))
+                            Split("Fin de semana", w.weekendSpent, w.budget.weekend, weekendBar)
+                        }
+                    }
+                    if (note != null && noteIcon != null && size.height >= 250.dp) {
+                        Spacer(GlanceModifier.height(10.dp))
+                        Row(
+                            GlanceModifier.fillMaxWidth().cornerRadius(18.dp).background(GlanceTheme.colors.surfaceVariant).padding(10.dp)
+                                .clickable(openMoney(context, null)),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(noteIcon, contentDescription = null, modifier = GlanceModifier.size(20.dp))
+                            Spacer(GlanceModifier.width(8.dp))
+                            Text(note.text, style = TextStyle(color = White, fontSize = 12.sp), maxLines = 2)
+                        }
+                    }
+                    Spacer(GlanceModifier.defaultWeight())
+                    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            GlanceModifier.defaultWeight().height(42.dp).cornerRadius(21.dp).background(GlanceTheme.colors.secondaryContainer)
+                                .clickable(openMoney(context, "")),
+                            verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Image(addIcon, contentDescription = null, modifier = GlanceModifier.size(18.dp))
+                            Spacer(GlanceModifier.width(6.dp))
+                            Text("Anotar", style = TextStyle(color = onTonal, fontSize = 13.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                        }
+                        for ((c, img) in quickIcons) {
+                            Spacer(GlanceModifier.width(6.dp))
+                            Image(img, contentDescription = c.label, modifier = GlanceModifier.size(42.dp).clickable(openMoney(context, c.id)))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+class MoneyWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MoneyWidget()
 }

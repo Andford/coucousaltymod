@@ -14,8 +14,8 @@ android {
         // Watch Face Format 2: Wear OS 5 and up (the Pixel Watch 4 runs Wear OS 6).
         minSdk = 34
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {

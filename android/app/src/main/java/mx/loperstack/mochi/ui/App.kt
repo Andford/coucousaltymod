@@ -356,7 +356,7 @@ fun longDate(now: Long): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, composeNow: Long = 0L) {
+fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, composeNow: Long = 0L, moneyAdd: Pair<String, Long> = "" to 0L) {
     val context = LocalContext.current
     val data by Store.state.collectAsState()
     val actions = remember { Actions(context) }
@@ -366,6 +366,8 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
     SideEffect { lastIn[Group.of(tab)] = tab }
     LaunchedEffect(startTab) { tab = startTab }
     // The Respirar widget's 1 · 5 · 10 buttons.
+    // The Dinero widget's "Anotar": straight to the sheet.
+    LaunchedEffect(moneyAdd) { if (moneyAdd.second != 0L) tab = Tab.MONEY }
     LaunchedEffect(breatheNow) {
         val (min, key) = breatheNow
         if (min > 0 && key != 0L) {
@@ -472,7 +474,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                         Tab.SLEEP -> SleepScreen(data, color, actions)
                         Tab.PET -> PetScreen(color, actions)
                         Tab.STREAKS -> StreaksScreen(data.habits, color, actions)
-                        Tab.MONEY -> MoneyScreen(data, color, actions)
+                        Tab.MONEY -> MoneyScreen(data, color, actions, moneyAdd)
                     }
                 }
               }

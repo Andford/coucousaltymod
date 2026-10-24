@@ -15,6 +15,8 @@
     <string name="widget_mood_desc">Registra tu ánimo con un toque</string>
     <string name="widget_streaks">Rachas</string>
     <string name="widget_companion">Compañero</string>
-    <string name="widget_companion_desc">Tokkip con lo importante de ahora: eventos, enfoque, tareas, rachas y ánimo</string>
+    <string name="widget_companion_desc">Tokkip con lo importante de ahora: eventos, enfoque, tareas, rachas, ánimo, su nivel, tu dinero y lo que notó</string>
+    <string name="widget_money">Dinero</string>
+    <string name="widget_money_desc">Cuánto te queda de la semana y del fin de semana, y anota un gasto en un toque</string>
     <string name="widget_streaks_desc">Tus rachas de hoy: márcalas desde aquí</string>
 </resources>

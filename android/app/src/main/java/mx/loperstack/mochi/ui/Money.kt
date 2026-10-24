@@ -153,10 +153,21 @@ private fun paceColor(w: WeekSummary): Color = when {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MoneyScreen(data: AppData, color: Color, actions: Actions) {
+fun MoneyScreen(data: AppData, color: Color, actions: Actions, addNow: Pair<String, Long> = "" to 0L) {
     val context = LocalContext.current
     val now = rememberNow(60_000)
     var editing by remember { mutableStateOf<MoneyEntry?>(null) }
+    // From the widget: "Anotar", maybe with a category already picked.
+    LaunchedEffect(addNow) {
+        if (addNow.second != 0L) editing = blankEntry(System.currentTimeMillis()).let { e ->
+            val cat = addNow.first
+            when {
+                cat == "ingreso" -> e.copy(kind = MoneyKind.INGRESO, category = "sueldo")
+                EXPENSE_CATEGORIES.any { it.id == cat } -> e.copy(category = cat)
+                else -> e
+            }
+        }
+    }
     var budgeting by remember { mutableStateOf(false) }
     val w = remember(data.money, data.budget, now / 60_000) { weekSummary(data.money, data.budget, now) }
     val month = remember(data.money, now / 3_600_000) { monthSummary(data.money, now) }

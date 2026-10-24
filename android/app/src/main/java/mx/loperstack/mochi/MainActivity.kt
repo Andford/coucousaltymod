@@ -24,12 +24,15 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_BREATHE_MIN = "breatheMin"
         /** From the night notification: open the diary's composer. */
         const val EXTRA_COMPOSE = "compose"
+        /** From the Dinero widget: open "Anotar", with this category picked ("" = none). */
+        const val EXTRA_MONEY_ADD = "moneyAdd"
     }
 
     private val startTab = mutableStateOf(Tab.HOME)
     /** minutes to breathe, and a nonce so the same button works twice. */
     private val breatheNow = mutableStateOf(0 to 0L)
     private val composeNow = mutableStateOf(0L)
+    private val moneyAdd = mutableStateOf("" to 0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,9 +56,10 @@ class MainActivity : ComponentActivity() {
         startTab.value = tabOf(intent)
         breatheNow.value = breatheOf(intent)
         composeNow.value = composeOf(intent)
+        moneyAdd.value = moneyOf(intent)
         mx.loperstack.mochi.wellness.MochiNotifier.channels(this)
         mx.loperstack.mochi.wellness.MochiNotifier.sync(this)
-        setContent { MochiApp(startTab.value, breatheNow.value, composeNow.value) }
+        setContent { MochiApp(startTab.value, breatheNow.value, composeNow.value, moneyAdd.value) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -63,7 +67,11 @@ class MainActivity : ComponentActivity() {
         startTab.value = tabOf(intent)
         breatheNow.value = breatheOf(intent)
         composeNow.value = composeOf(intent)
+        moneyAdd.value = moneyOf(intent)
     }
+
+    private fun moneyOf(intent: Intent?): Pair<String, Long> =
+        intent?.getStringExtra(EXTRA_MONEY_ADD)?.let { it to System.nanoTime() } ?: ("" to 0L)
 
     private fun composeOf(intent: Intent?) = if (intent?.getBooleanExtra(EXTRA_COMPOSE, false) == true) System.nanoTime() else 0L
 

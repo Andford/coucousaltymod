@@ -12,8 +12,8 @@ android {
         applicationId = "mx.loperstack.mochi"
         minSdk = 31
         targetSdk = 35
-        versionCode = 19
-        versionName = "1.4.0"
+        versionCode = 20
+        versionName = "1.5.0"
     }
 
     // One stable key for every CI build, so a new APK installs over the old one

@@ -72,7 +72,10 @@ octubre, gorro navideño en diciembre.
 - **Mimos**: juega con Tokkip, con física, vibración y sonidos.
 - **Notificaciones bonitas**: buenos días, eventos y pendientes, y diario por la noche.
 - **Widgets**: Tokkip animado, Respirar, Pomodoro, Tareas, Sueño, ¿Cómo estás?,
-  Rachas y Compañero (4×3, con todo a la mano). Siguen el modo claro u oscuro.
+  Rachas, Dinero (lo que te queda de la semana y del fin de semana, y anotar un
+  gasto en un toque con tus categorías más usadas) y Compañero (4×3, con todo a
+  la mano: tu día, rachas, tareas, ánimo, el nivel de Tokkip, tu dinero y lo
+  que notó). Siguen el modo claro u oscuro.
 - **Ícono por especie**: el ícono de la app cambia según tu Tokkip.
 - **Respaldo**: exporta y restaura todo en un .zip (también desde el Diario), y
   te dice qué guardó: rachas, días de diario, tareas, noches y fotos.
@@ -85,7 +88,10 @@ octubre, gorro navideño en diciembre.
 - La app del reloj: Tokkip para mimar con la corona, respiración, ánimo y
   pendientes, sincronizados con el teléfono.
 - Tile y complicaciones.
-- **Carátula** en Watch Face Format (Material 3 Expressive), lista para Wear OS 6.
+- **Carátula** en Watch Face Format (Material 3 Expressive), lista para Wear OS 6:
+  tres botones (accesos directos o datos) con formas Expressive (galleta,
+  trébol, flor, sol o una mezcla), letra de la hora y de la fecha a elegir
+  (sistema, redonda, elegante, retro o a mano), siete colores y anillo de pasos.
 
 ### En tu coche (Android Auto)
 
@@ -198,9 +204,12 @@ código sigue bajo esa misma licencia.
 El nombre Coucou, su personaje Mochi y sus sonidos son de Louis Raillé
 ([LICENSE-ASSETS.md](LICENSE-ASSETS.md)) y no se usan en Tokkip: Tokkip es un
 personaje propio, con sus propios sonidos y música, generados en código.
-La letra manuscrita del kit para journaling es
-[Caveat](https://github.com/googlefonts/caveat), con licencia SIL Open Font
-License ([android/licenses/OFL-Caveat.txt](android/licenses/OFL-Caveat.txt)). El README
+Las letras del kit para journaling y de la carátula son
+[Caveat](https://github.com/googlefonts/caveat),
+[Fredoka](https://github.com/hafontia-zz/Fredoka),
+[DM Serif Display](https://github.com/googlefonts/dm-fonts) y
+[Space Mono](https://github.com/googlefonts/spacemono), todas con licencia SIL
+Open Font License ([android/licenses/](android/licenses/)). El README
 original de Coucou está en [README-coucou.md](README-coucou.md).
 
 Tokkip es un proyecto personal de Andy ([LoperStack](https://loperstack.com)).

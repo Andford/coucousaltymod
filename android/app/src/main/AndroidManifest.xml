@@ -250,6 +250,16 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_companion" />
         </receiver>
 
+        <receiver
+            android:name=".widget.MoneyWidgetReceiver"
+            android:label="@string/widget_money"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_money" />
+        </receiver>
+
         <!-- Messages from the Mochi app on the watch (shared/…/Sync.kt). -->
         <service
             android:name=".data.PhoneListenerService"

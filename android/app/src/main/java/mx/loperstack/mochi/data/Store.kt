@@ -317,6 +317,7 @@ object Store {
     fun setBudget(b: Budget) {
         _state.value = _state.value.copy(budget = b)
         prefs.edit().putString("budget", budgetJson(b)).apply()
+        Widgets.refresh(app)
     }
 
     fun setNotify(n: NotifySettings) {

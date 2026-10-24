@@ -117,12 +117,13 @@ object MochiNotifier {
 
     // ── Planning ──────────────────────────────────────────────────────────────
 
-    private fun alarm(context: Context, code: Int, at: Long, kind: String, extras: Intent.() -> Unit = {}) {
+    private fun alarm(context: Context, code: Int, at: Long, kind: String, exact: Boolean = true, extras: Intent.() -> Unit = {}) {
         val am = context.getSystemService(AlarmManager::class.java)
         val i = Intent(context, MochiAlarmReceiver::class.java).setData(Uri.parse("mochi://alarm/$kind/$code"))
             .putExtra(EXTRA_KIND, kind).apply(extras)
         val pi = PendingIntent.getBroadcast(context, code, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        if (am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        if (!exact) am.set(AlarmManager.RTC, at, pi)
+        else if (am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
     }
 
@@ -169,6 +170,9 @@ object MochiNotifier {
                 val at = debt?.nextReminder(now)
                 if (debt != null && at != null) alarm(context, 9500 + i, at, "debt") { putExtra(EXTRA_ID, debt.id) } else cancel(context, 9500 + i, "debt")
             }
+            // Pantalla: a look every ~10 minutes (not waking the phone), for the indicator, the watch and the nudge.
+            if (mx.loperstack.mochi.data.ScreenUsage.granted(context)) alarm(context, 9900, now + 10 * 60_000L, "screen", exact = false)
+            else cancel(context, 9900, "screen")
             // Habits with a time.
             for ((i, h) in d.habits.withIndex()) {
                 val code = 9000 + i
@@ -255,6 +259,34 @@ object MochiNotifier {
                     open = openApp(context, "home"),
                     action = meet?.let { "Unirse" to PendingIntent.getActivity(context, 7, Intent(Intent.ACTION_VIEW, Uri.parse(it)), PendingIntent.FLAG_IMMUTABLE) },
                 )
+            }
+            "screen" -> {
+                val r = mx.loperstack.mochi.data.ScreenUsage.refresh(context, now)
+                val t = r?.today
+                val after = d.screen.nudgeAfter
+                // One nudge per long scroll session (its start identifies it).
+                val sessionStart = t?.let { now - it.sessionMin * 60_000L } ?: 0L
+                if (t != null && after > 0 && t.sessionMin >= after && t.sessionApp != null &&
+                    kotlin.math.abs(sessionStart - Store.nudgedAt()) > 5 * 60_000L
+                ) {
+                    Store.setNudgedAt(sessionStart)
+                    val app = mx.loperstack.mochi.data.ScreenUsage.label(context, t.sessionApp)
+                    val lvl = DOOM_LEVELS[r.level]
+                    val breathe = PendingIntent.getActivity(
+                        context, 9901,
+                        Intent(context, MainActivity::class.java).setData(Uri.parse("mochi://screen/breathe"))
+                            .putExtra(MainActivity.EXTRA_TAB, "breathe").putExtra(MainActivity.EXTRA_BREATHE_MIN, 1)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    post(
+                        context, 9902, CH_REMIND, title = "Llevas ${t.sessionMin} min en $app",
+                        text = "${lvl.line} ¿Una pausa de un minuto conmigo?", sub = "Tokkip ${lvl.name.lowercase()} · ${t.scrollMin} min de scroll hoy",
+                        theme = Theme.NIGHT.takeIf { r.level >= 3 } ?: Theme.EVENT,
+                        face = runCatching { MochiEngine.Eye.valueOf(lvl.eye) }.getOrNull(),
+                        open = openApp(context, "screen"), action = "Respirar 1 min" to breathe,
+                    )
+                }
             }
             "debt" -> {
                 val debt = d.debts.firstOrNull { it.id == intent.getStringExtra(EXTRA_ID) }

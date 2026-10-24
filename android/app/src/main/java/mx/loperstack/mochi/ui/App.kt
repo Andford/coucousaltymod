@@ -162,7 +162,7 @@ import java.util.Locale
 enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     HOME("Inicio", Icons.Rounded.Home), AGENDA("Agenda", Icons.Rounded.CalendarMonth), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
     STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories), MONEY("Dinero", Icons.Rounded.Savings),
-    SLEEP("Sueño", Icons.Rounded.Bedtime), PET("Mimos", Icons.Rounded.Favorite),
+    SLEEP("Sueño", Icons.Rounded.Bedtime), SCREEN("Pantalla", Icons.Rounded.PhoneAndroid), PET("Mimos", Icons.Rounded.Favorite),
 }
 
 /** The floating bar's five places, filled when selected. */
@@ -179,7 +179,7 @@ enum class Group(val label: String, val tabs: List<Tab>) {
     HOME("Inicio", listOf(Tab.HOME, Tab.AGENDA)),
     TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
     DIARY("Diario", listOf(Tab.DIARY, Tab.MONEY)),
-    CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
+    CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP, Tab.SCREEN)),
     PET("Tokkip", listOf(Tab.PET));
 
     companion object {
@@ -466,7 +466,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
-                            goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA },
+                            goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA }, goScreen = { tab = Tab.SCREEN },
                             agendaChanged = { agendaKey++ },
                             newEvent = newEvent,
                         )
@@ -481,6 +481,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             calendarOk, askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) }, actions,
                             newEvent = newEvent, reloadKey = agendaKey,
                         )
+                        Tab.SCREEN -> ScreenTimeScreen(data, color, actions)
                         Tab.MONEY -> MoneyScreen(data, color, actions, moneyAdd)
                     }
                 }
@@ -640,9 +641,12 @@ fun HomeScreen(
     tasks: List<Task>, pomodoro: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
     goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {}, goMoney: () -> Unit = {},
-    goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {},
+    goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {}, goScreen: () -> Unit = {},
 ) {
     var openEvent by remember { mutableStateOf<CalEvent?>(null) }
+    // Bienestar → Pantalla's last reading, if it's from the last half hour.
+    val doomData = Store.state.collectAsState().value
+    val doomNow = if (now - doomData.doomAt < 30 * 60_000L) doomData.doom else 0
     val next = nextEvent(events, now)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Top) {
@@ -672,6 +676,8 @@ fun HomeScreen(
                 },
                 color = color,
                 mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
+                // Lots of scrolling (Bienestar → Pantalla, read in the last half hour): tired or dizzy eyes.
+                face = doomNow.takeIf { it >= 2 }?.let { doomEye(it) },
                 jump = actions.jump,
                 interactive = true,
                 greet = true,
@@ -679,7 +685,11 @@ fun HomeScreen(
             )
             }
             if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Tokkip baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
-            when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
+            if (doomNow >= 2) IconLabel(
+                Icons.Rounded.PhoneAndroid,
+                if (doomNow >= 3) "Mucho scroll: Tokkip anda mareado" else "Llevas un buen rato de scroll: Tokkip está cansado",
+                DOOM_COLORS[doomNow], Modifier.align(Alignment.CenterHorizontally).clickable(onClick = goScreen),
+            ) else when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
                 mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Tokkip anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
                 mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Tokkip está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
                 else -> Unit

@@ -76,6 +76,13 @@ octubre, gorro navideño en diciembre.
   hojas para escribir a mano con un tracker de hábitos para colorear.
 - **Sueño**: lee tus horas desde Health Connect (reloj, Mi Band y lo que escriba
   ahí) y Tokkip lo refleja en su carita.
+- **Pantalla (indicador de doomscrolling)**: cuánto usas el teléfono, tus apps
+  más usadas, por tipo (redes, video, juegos, mensajes…), por hora y por semana,
+  desbloqueos y tu sesión más larga. Tokkip cambia de cara según tu scroll de
+  redes y video contra tu meta diaria, cuánto llevas seguido y la hora:
+  tranquilo, atento, cansado o mareado (también en Inicio y en el reloj). Te
+  avisa con cariño tras un rato seguido, con "Respirar 1 min", y cruza tu scroll
+  con tu sueño y tu ánimo. Con "Acceso al uso"; todo se queda en el teléfono.
 - **Respirar**: sesiones guiadas con Tokkip inflándose al ritmo, flautita opcional.
 - **Enfoque**: Pomodoro personalizable, lo que suena (Spotify, YouTube Music…) y
   modo AOD.
@@ -99,7 +106,8 @@ octubre, gorro navideño en diciembre.
 
 - La app del reloj: Tokkip para mimar con la corona, respiración, ánimo y
   pendientes, sincronizados con el teléfono.
-- Tile y complicaciones.
+- Tile y complicaciones (entre ellas el indicador de doomscrolling), y la
+  pantalla de Pantalla con la cara de Tokkip según tu scroll.
 - **Carátula** en Watch Face Format (Material 3 Expressive), lista para Wear OS 6:
   tres botones (accesos directos o datos) con formas Expressive (galleta,
   trébol, flor, sol o una mezcla), letra de la hora y de la fecha a elegir

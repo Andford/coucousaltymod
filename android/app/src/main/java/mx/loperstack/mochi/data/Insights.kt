@@ -272,6 +272,8 @@ fun tokkipNotes(r: Routine, now: Long): List<TokkipNote> {
     // Your money (data/Money.kt), with your mood per day.
     out += moneyNotes(r.money, r.budget, r.logs.filter { it.averageMood > 0 }.associate { it.day to it.averageMood }, now)
     out += debtNotes(r.debts, monthSummary(r.money, now).income, now)
+    // Your screen (data/ScreenTime.kt).
+    out += screenNotes(r.screenDays, r.screenDays.firstOrNull { it.day == today }, r.screenGoal, r.nights, moods, now)
 
     if (r.logs.isEmpty() && r.habits.isEmpty() && r.money.isEmpty()) out += TokkipNote("hello", "sparkle", "Todavía te estoy conociendo.",
         "Cuéntame cómo te fue hoy en el Diario, o crea tu primera racha.", 20)

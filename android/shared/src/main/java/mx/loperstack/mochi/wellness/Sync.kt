@@ -73,6 +73,14 @@ data class Snapshot(
     /** The last breathing sessions (with their pulse) and nights, for the watch's reports. */
     val sessions: List<BreathSession> = emptyList(),
     val nights: List<NightLite> = emptyList(),
+    /** Pantalla: today's minutes on the phone and in scroll apps, the goal, Tokkip's doomscrolling level (0…3), the top scroll app, the session going on, and when it was read. */
+    val screenMin: Int = 0,
+    val scrollMin: Int = 0,
+    val scrollGoal: Int = 60,
+    val doom: Int = 0,
+    val doomTop: String = "",
+    val doomSession: Int = 0,
+    val doomAt: Long = 0,
     val at: Long = 0,
 )
 
@@ -140,6 +148,7 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("nights", JSONArray().apply {
         nights.forEach { put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)) }
     })
+    .put("screen", JSONObject().put("t", screenMin).put("s", scrollMin).put("g", scrollGoal).put("l", doom).put("top", doomTop).put("ses", doomSession).put("at", doomAt))
     .put("at", at)
     .toString()
 
@@ -189,6 +198,13 @@ fun snapshotOf(raw: String?): Snapshot {
                     NightLite(n.optString("night"), n.optInt("min"), n.optInt("q"), n.optLong("bed"), n.optLong("wake"))
                 }
             } ?: emptyList(),
+            screenMin = o.optJSONObject("screen")?.optInt("t") ?: 0,
+            scrollMin = o.optJSONObject("screen")?.optInt("s") ?: 0,
+            scrollGoal = o.optJSONObject("screen")?.optInt("g", 60) ?: 60,
+            doom = (o.optJSONObject("screen")?.optInt("l") ?: 0).coerceIn(0, 3),
+            doomTop = o.optJSONObject("screen")?.optString("top", "")?.take(40) ?: "",
+            doomSession = o.optJSONObject("screen")?.optInt("ses") ?: 0,
+            doomAt = o.optJSONObject("screen")?.optLong("at") ?: 0,
             at = o.optLong("at"),
         )
     } catch (_: Exception) {

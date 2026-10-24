@@ -109,6 +109,11 @@ object WearSync {
             sessions = d.sessions.takeLast(7),
             nights = d.sleep.takeLast(7).map { NightLite(it.night, it.minutes, it.quality, it.bed, it.wake) },
             moodToday = d.logs.firstOrNull { it.day == dayKey(now) }?.mood ?: 0,
+            screenMin = d.screenDays.firstOrNull { it.day == dayKey(now) }?.totalMin ?: 0,
+            scrollMin = d.screenDays.firstOrNull { it.day == dayKey(now) }?.scrollMin ?: 0,
+            scrollGoal = d.screen.goal,
+            doom = if (dayKey(d.doomAt) == dayKey(now)) d.doom else 0,
+            doomTop = d.doomTop, doomSession = d.doomSession, doomAt = d.doomAt,
             at = now,
         )
     }

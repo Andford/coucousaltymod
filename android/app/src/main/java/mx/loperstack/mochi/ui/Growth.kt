@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Park
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Star
@@ -118,6 +119,7 @@ fun noteIcon(key: String): ImageVector = when (key) {
     "party" -> Icons.Rounded.Celebration
     "coffee" -> Icons.Rounded.LocalCafe
     "card" -> Icons.Rounded.CreditCard
+    "phone" -> Icons.Rounded.PhoneAndroid
     else -> Icons.Rounded.AutoAwesome
 }
 
@@ -128,6 +130,7 @@ private fun careIcon(c: Care): ImageVector = when (c) {
     Care.RESPIRAR -> Icons.Rounded.Air
     Care.SUENO -> Icons.Rounded.Bedtime
     Care.FINANZAS -> Icons.Rounded.Savings
+    Care.PANTALLA -> Icons.Rounded.PhoneAndroid
 }
 
 private fun careHow(c: Care): String = when (c) {
@@ -137,6 +140,7 @@ private fun careHow(c: Care): String = when (c) {
     Care.RESPIRAR -> "+3 por sesión (hasta 6 al día)"
     Care.SUENO -> "+1 al registrar tu noche, +2 si cumples tu meta"
     Care.FINANZAS -> "+2 el día que anotas tus gastos o ingresos"
+    Care.PANTALLA -> "+3 cada día que te quedas dentro de tu meta de scroll"
 }
 
 /** The growth and the note of the day, recomputed when your history changes (and each hour). */
@@ -144,7 +148,7 @@ private fun careHow(c: Care): String = when (c) {
 fun rememberGrowth(now: Long): Pair<Growth, TokkipNote> {
     val d by Store.state.collectAsState()
     val hour = now / 3_600_000
-    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, d.debts, hour) {
+    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, d.debts, d.screenDays, d.screen, hour) {
         val r = d.routine()
         growth(r, now) to noteOfTheDay(r, now)
     }

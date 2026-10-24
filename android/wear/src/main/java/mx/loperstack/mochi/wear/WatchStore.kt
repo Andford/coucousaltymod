@@ -84,7 +84,7 @@ object WatchStore {
     fun refreshSurfaces() {
         runCatching { TileService.getUpdater(app).requestUpdate(MochiTileService::class.java) }
         runCatching { TileService.getUpdater(app).requestUpdate(MoodTileService::class.java) }
-        for (cls in listOf(PendingComplicationService::class.java, PhoneBatteryComplicationService::class.java, MoodComplicationService::class.java)) {
+        for (cls in listOf(PendingComplicationService::class.java, PhoneBatteryComplicationService::class.java, MoodComplicationService::class.java, DoomComplicationService::class.java)) {
             runCatching { ComplicationDataSourceUpdateRequester.create(app, ComponentName(app, cls)).requestUpdateAll() }
         }
     }

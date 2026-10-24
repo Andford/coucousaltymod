@@ -96,6 +96,7 @@ import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.mochi.mochi.Haptics
 import mx.loperstack.mochi.mochi.rememberMusicPlaying
 import mx.loperstack.mochi.wellness.MOODS
+import mx.loperstack.mochi.wellness.DOOM_LEVELS
 import mx.loperstack.mochi.wellness.moodOf
 import mx.loperstack.mochi.wellness.BREATHE_MINUTES
 import mx.loperstack.mochi.wellness.BreathSession
@@ -199,6 +200,7 @@ fun WearApp() {
             composable("battery") { Batteries(snap) }
             composable("mood") { MoodPicker(snap) { nav.popBackStack() } }
             composable("pet") { WatchPet(snap) }
+            composable("screen") { ScreenReport(snap) }
         }
     }
 }
@@ -242,12 +244,27 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     interactive = true,
                     greet = true,
                     dancing = rememberMusicPlaying(),
+                    // Lots of scrolling on the phone: tired or dizzy eyes, like there.
+                    face = doomNow(snap).takeIf { it >= 2 }?.let { doomEye(it) },
                 )
             }
             if (snap.name.isNotBlank()) {
                 item { Text("Hola, ${snap.name}", color = VioletSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
             }
             item { NextEvent(snap) }
+            if (snap.doomAt > 0) {
+                item {
+                    val lvl = DOOM_LEVELS[doomNow(snap)]
+                    Chip(
+                        onClick = { go("screen") },
+                        icon = { Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize), tint = DOOM_TINTS[lvl.level]) },
+                        label = { Text("Pantalla · ${lvl.name}") },
+                        secondaryLabel = { Text("${screenMins(snap.scrollMin)} de scroll de ${screenMins(snap.scrollGoal)}") },
+                        colors = ChipDefaults.secondaryChipColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
             if (snap.pomodoro.phase != Phase.IDLE) {
                 item {
                     Chip(
@@ -844,3 +861,57 @@ fun SleepReport(snap: Snapshot) {
         }
     }
 }
+
+// ── Pantalla ──────────────────────────────────────────────────────────────────
+
+val DOOM_TINTS = listOf(Color(0xFF4ADE80), Color(0xFFFBBF24), Color(0xFFF97316), Color(0xFFF4505E))
+
+fun doomEye(level: Int): mx.loperstack.mochi.mochi.MochiEngine.Eye? =
+    runCatching { mx.loperstack.mochi.mochi.MochiEngine.Eye.valueOf(DOOM_LEVELS[level.coerceIn(0, 3)].eye) }.getOrNull()
+
+/** The phone's last reading, if it's from the last hour (an old one says nothing). */
+fun doomNow(snap: Snapshot): Int =
+    if (System.currentTimeMillis() - snap.doomAt < 60 * 60_000L) snap.doom.coerceIn(0, 3) else 0
+
+fun screenMins(m: Int) = if (m < 60) "$m min" else "${m / 60} h${if (m % 60 > 0) " ${m % 60}" else ""}"
+
+/** Tokkip's face for your scrolling, the scroll against your goal, and what's on now. */
+@Composable
+fun ScreenReport(snap: Snapshot) {
+    val level = doomNow(snap)
+    val lvl = DOOM_LEVELS[level]
+    val tint = DOOM_TINTS[level]
+    val listState = rememberScalingLazyListState()
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            item {
+                Box(contentAlignment = Alignment.Center) {
+                    val frac = if (snap.scrollGoal <= 0) 0f else (snap.scrollMin.toFloat() / snap.scrollGoal).coerceIn(0f, 1f)
+                    androidx.compose.foundation.Canvas(Modifier.size(132.dp)) {
+                        val sw = 10.dp.toPx()
+                        val inset = sw / 2
+                        val arc = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw)
+                        drawArc(Color(0xFF2A2440), -90f, 360f, false, androidx.compose.ui.geometry.Offset(inset, inset), arc, style = androidx.compose.ui.graphics.drawscope.Stroke(sw))
+                        drawArc(tint, -90f, 360f * frac, false, androidx.compose.ui.geometry.Offset(inset, inset), arc, style = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                    }
+                    Mochi(Modifier.width(96.dp).height(80.dp), color = Color(snap.mochiColor), face = doomEye(level), interactive = true)
+                }
+            }
+            item { Text("Tokkip ${lvl.name.lowercase()}", color = tint, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item { Text(lvl.line, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 12.dp)) }
+            item { Text("${screenMins(snap.scrollMin)} de scroll · meta ${screenMins(snap.scrollGoal)}", fontSize = 12.sp, color = VioletSoft) }
+            item { Text("${screenMins(snap.screenMin)} de pantalla hoy", fontSize = 12.sp, color = Color(0xFFA5A9B1)) }
+            if (snap.doomTop.isNotBlank()) item { Text("Lo que más: ${snap.doomTop}", fontSize = 12.sp, color = Color(0xFFA5A9B1)) }
+            if (level >= 2) item {
+                Chip(
+                    onClick = { WatchStore.openScreen.value = "breathe" },
+                    icon = { Icon(Icons.Rounded.Air, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    label = { Text("Respira 1 minuto") },
+                    colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+

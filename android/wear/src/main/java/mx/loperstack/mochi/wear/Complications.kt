@@ -81,3 +81,39 @@ class PhoneBatteryComplicationService : SuspendingComplicationDataSourceService(
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? = data(type, 82, false, tap = false)
 }
+
+/** Tokkip's doomscrolling indicator: today's scroll against your goal, as a ring or "45m". */
+class DoomComplicationService : SuspendingComplicationDataSourceService() {
+
+    private fun data(type: ComplicationType, scroll: Int, goal: Int, level: Int, tap: Boolean): ComplicationData? {
+        val name = mx.loperstack.mochi.wellness.DOOM_LEVELS[level.coerceIn(0, 3)].name
+        val label = if (scroll < 60) "${scroll}m" else "${scroll / 60}h${if (scroll % 60 > 0) "${scroll % 60}" else ""}"
+        val desc = plain("Scroll de hoy: $scroll de $goal minutos. Tokkip $name")
+        return when (type) {
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(scroll.coerceAtMost(goal).toFloat(), 0f, goal.coerceAtLeast(1).toFloat(), desc)
+                    .setText(plain(label))
+                    .setTitle(plain(name))
+                    .setMonochromaticImage(mochiIcon(this))
+                    .apply { if (tap) setTapAction(openApp(this@DoomComplicationService)) }
+                    .build()
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(plain(label), desc)
+                    .setTitle(plain(name))
+                    .setMonochromaticImage(mochiIcon(this))
+                    .apply { if (tap) setTapAction(openApp(this@DoomComplicationService)) }
+                    .build()
+            else -> null
+        }
+    }
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        WatchStore.init(this)
+        val s = WatchStore.state.value
+        val fresh = System.currentTimeMillis() - s.doomAt < 60 * 60_000L
+        return data(request.complicationType, if (fresh) s.scrollMin else 0, s.scrollGoal, if (fresh) s.doom else 0, tap = true)
+    }
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? = data(type, 45, 60, 1, tap = false)
+}
+

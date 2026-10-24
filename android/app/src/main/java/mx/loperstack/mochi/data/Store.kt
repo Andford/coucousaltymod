@@ -73,6 +73,14 @@ data class AppData(
     val budget: Budget = Budget(),
     /** Dinero → Pagos y deudas. */
     val debts: List<Debt> = emptyList(),
+    /** Bienestar → Pantalla: your settings, a summary per day (today's kept up to date), and the last reading. */
+    val screen: ScreenSettings = ScreenSettings(),
+    val screenDays: List<ScreenDay> = emptyList(),
+    val doom: Int = 0,
+    val doomAt: Long = 0,
+    /** Today's most used scroll app, and the scroll session going on (minutes) at the last reading. */
+    val doomTop: String = "",
+    val doomSession: Int = 0,
 )
 
 /** Mochi's notifications (Ajustes → Notificaciones). Times in minutes of the day. */
@@ -107,7 +115,7 @@ fun notifyOf(raw: String?): NotifySettings = runCatching {
 fun AppData.routine(): Routine = Routine(
     logs = logs, habits = habits, breaths = sessions.map { it.at },
     nights = sleep.map { Night(it.night, it.minutes, it.quality) }, sleepGoalMin = sleepGoal.minutes,
-    money = money, budget = budget, debts = debts,
+    money = money, budget = budget, debts = debts, screenDays = screenDays, screenGoal = screen.goal,
 )
 
 /** The rhythm you picked, for a session of `minutes`. */
@@ -183,7 +191,10 @@ object Store {
         )
         _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)),
             money = moneyOf(prefs.getString("money", null)), budget = budgetOf(prefs.getString("budget", null)),
-            debts = debtsOf(prefs.getString("debts", null)))
+            debts = debtsOf(prefs.getString("debts", null)),
+            screen = screenSettingsOf(prefs.getString("screen", null)), screenDays = screenDaysOf(prefs.getString("screenDays", null)),
+            doom = prefs.getInt("doom", 0), doomAt = prefs.getLong("doomAt", 0), doomTop = prefs.getString("doomTop", "") ?: "",
+            doomSession = prefs.getInt("doomSession", 0))
         mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
         mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
@@ -338,6 +349,36 @@ object Store {
         setMoney(_state.value.money + entry)
         setDebts(_state.value.debts.map { if (it.id == id) paid else it })
     }
+
+    fun setScreen(sc: ScreenSettings) {
+        _state.value = _state.value.copy(screen = sc)
+        prefs.edit().putString("screen", screenSettingsJson(sc)).apply()
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    /** The last reading: today's line in the days, and Tokkip's level for Inicio and the watch. */
+    fun saveScreenNow(r: ScreenNow) {
+        val t = r.today
+        val day = ScreenDay(dayKey(r.at), t.totalMin, t.scrollMin, t.lateMin, t.unlocks)
+        val days = (_state.value.screenDays.filter { it.day != day.day } + day).sortedBy { it.day }.takeLast(120)
+        val sc = _state.value.screen
+        val top = t.apps.firstOrNull { it.kind in sc.scrollKinds }?.label ?: ""
+        _state.value = _state.value.copy(screenDays = days, doom = r.level, doomAt = r.at, doomTop = top, doomSession = t.sessionMin)
+        prefs.edit().putString("screenDays", screenDaysJson(days)).putInt("doom", r.level).putLong("doomAt", r.at)
+            .putString("doomTop", top).putInt("doomSession", t.sessionMin).apply()
+    }
+
+    fun addScreenDays(list: List<ScreenDay>) {
+        if (list.isEmpty()) return
+        val keys = list.map { it.day }.toSet()
+        val days = (_state.value.screenDays.filter { it.day !in keys } + list).sortedBy { it.day }.takeLast(120)
+        _state.value = _state.value.copy(screenDays = days)
+        prefs.edit().putString("screenDays", screenDaysJson(days)).apply()
+    }
+
+    /** The scroll session you were last nudged about (its start), so each long session gets one nudge. */
+    fun nudgedAt(): Long = prefs.getLong("screenNudged", 0)
+    fun setNudgedAt(v: Long) { prefs.edit().putLong("screenNudged", v).apply() }
 
     fun setNotify(n: NotifySettings) {
         _state.value = _state.value.copy(notify = n)

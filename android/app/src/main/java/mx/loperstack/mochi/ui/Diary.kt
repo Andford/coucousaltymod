@@ -165,24 +165,69 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
             toast(context, if (ok) "Diario exportado en PDF" else "No se pudo exportar")
         }
     }
+    // The printable kit for a paper journal (data/JournalKit.kt): pick the days, then where to save it.
+    var kitRange by remember { mutableStateOf<mx.loperstack.mochi.data.KitRange?>(null) }
+    var askKit by remember { mutableStateOf(false) }
+    val saveKit = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val range = kitRange
+        if (uri == null || range == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            toast(context, "Armando tu kit…")
+            val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.JournalKit.pdf(context, Store.state.value, range, uri) }
+            toast(context, if (ok) "Kit listo: imprímelo en hoja carta al 100 % y recorta ✂" else "No se pudo armar el kit")
+            if (ok) Sounds.play("approve")
+        }
+    }
+    if (askKit) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { askKit = false },
+            title = { Text("Kit para journaling") },
+            text = {
+                Column {
+                    Text("Un PDF para imprimir y recortar: tus días como tarjetas con cinta washi y fotos tipo polaroid, stickers de Tokkip, tus rachas, tu mes en colores y hojas para escribir a mano.")
+                    Spacer(Modifier.height(12.dp))
+                    for (r in mx.loperstack.mochi.data.KitRange.entries) {
+                        androidx.compose.material3.TextButton(onClick = {
+                            askKit = false
+                            kitRange = r
+                            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                            saveKit.launch("Tokkip-journal-$stamp.pdf")
+                        }) { Text(r.label, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { askKit = false }) { Text("Cancelar") } },
+        )
+    }
+
+    // The same full copy as Ajustes (the diary, and the streaks, tasks, sleep…).
     val saveZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val ok = withContext(Dispatchers.IO) { DiaryExport.backup(context, Store.state.value.logs, uri) }
-            toast(context, if (ok) "Copia guardada" else "No se pudo guardar la copia")
+            val got = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.export(context, uri) }
+            toast(context, if (got != null) "Copia guardada ✓ ${got.text()}" else "No se pudo guardar la copia")
         }
     }
-    val openZip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        uri ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            val restored = withContext(Dispatchers.IO) { DiaryExport.restore(context, uri) }
-            if (restored == null) toast(context, "Ese archivo no es una copia de Tokkip")
-            else {
-                Store.setLogs(mergeLogs(Store.state.value.logs, restored))
-                toast(context, "Copia restaurada: ${restored.size} días")
-                Sounds.play("approve")
-            }
-        }
+    var restoring by remember { mutableStateOf<Uri?>(null) }
+    val openZip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? -> restoring = uri }
+    restoring?.let { uri ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { restoring = null },
+            title = { Text("¿Restaurar la copia?") },
+            text = { Text("Lo que tienes ahora en Tokkip se reemplaza por lo de la copia. Si es una copia antigua solo del diario, sus días se suman a los tuyos.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    restoring = null
+                    scope.launch {
+                        val got = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.restore(context, uri) }
+                        toast(context, if (got != null) "Copia restaurada ✓ ${got.text()}" else "Ese archivo no es una copia de Tokkip")
+                        if (got != null) Sounds.play("approve")
+                    }
+                }) { Text("Restaurar") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { restoring = null }) { Text("Cancelar") } },
+        )
     }
 
     var compose by remember { mutableStateOf(false) }
@@ -207,8 +252,9 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
             Box {
                 IconButton(onClick = { menu = true }) { Text("⋯", fontSize = 22.sp, color = Ink.Dim) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Exportar en PDF") }, onClick = { menu = false; savePdf.launch("Tokkip-diario-$today.pdf") })
-                    DropdownMenuItem(text = { Text("Copia de seguridad (.zip)") }, onClick = { menu = false; saveZip.launch("Tokkip-diario-$today.zip") })
+                    DropdownMenuItem(text = { Text("Kit para journaling (imprimir)") }, onClick = { menu = false; askKit = true })
+                    DropdownMenuItem(text = { Text("Diario completo en PDF") }, onClick = { menu = false; savePdf.launch("Tokkip-diario-$today.pdf") })
+                    DropdownMenuItem(text = { Text("Copia de seguridad de todo (.zip)") }, onClick = { menu = false; saveZip.launch("Tokkip-copia-$today.zip") })
                     DropdownMenuItem(text = { Text("Restaurar una copia") }, onClick = { menu = false; openZip.launch(arrayOf("application/zip", "application/octet-stream")) })
                 }
             }

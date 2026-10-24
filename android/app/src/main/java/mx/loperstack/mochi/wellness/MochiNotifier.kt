@@ -40,6 +40,7 @@ import mx.loperstack.mochi.data.minutes
 import mx.loperstack.mochi.data.nudge
 import mx.loperstack.mochi.data.scheduledOn
 import mx.loperstack.mochi.data.upcoming
+import mx.loperstack.mochi.data.routine
 import mx.loperstack.mochi.mochi.MochiEngine
 import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.mochi.Rest
@@ -183,13 +184,16 @@ object MochiNotifier {
                     else -> MORNING.random()
                 }
                 val last = d.sleep.lastOrNull()?.takeIf { it.night == dayKey(now) }
+                // When Tokkip noticed something that matters today, he says that instead.
+                val noted = runCatching { mx.loperstack.mochi.data.noteOfTheDay(d.routine(), now) }.getOrNull()
+                    ?.takeIf { it.weight >= 40 }
                 val sleepLine = last?.let { "Dormiste ${it.minutes / 60} h ${"%02d".format(it.minutes % 60)}" }
                 val pending = d.tasks.count { !it.done }
                 val extra = listOfNotNull(sleepLine, if (pending > 0) "$pending pendientes" else null).joinToString(" · ")
                 post(
                     context, 201, CH_DAY,
                     title = if (name.isBlank()) "Buenos días" else "Buenos días, $name",
-                    text = phrase, sub = extra, theme = Theme.MORNING,
+                    text = noted?.let { "${it.text} ${it.tip}" } ?: phrase, sub = extra, theme = Theme.MORNING,
                     face = if (rest == Rest.TIRED) MochiEngine.Eye.TIRED else MochiEngine.Eye.HAPPY,
                     open = openApp(context, "home"),
                 )

@@ -269,6 +269,10 @@ fun SettingsSheet(
             "Ver la bienvenida otra vez", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
             modifier = Modifier.padding(horizontal = 28.dp).clickable(onClick = replayWelcome),
         )
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            SectionTitle("Empezar de cero")
+            WipeRow()
+        }
     }
 }
 
@@ -378,9 +382,9 @@ fun BackupRow() {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip"),
     ) { uri ->
         if (uri != null) scope.launch {
-            val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.export(context, uri) }
-            toast(if (ok) "Copia guardada ✓" else "No se pudo guardar la copia")
-            if (ok) mx.loperstack.mochi.mochi.Haptics.success(context)
+            val got = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.export(context, uri) }
+            toast(if (got != null) "Copia guardada ✓ ${got.text()}" else "No se pudo guardar la copia")
+            if (got != null) mx.loperstack.mochi.mochi.Haptics.success(context)
         }
     }
     val open = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -406,13 +410,78 @@ fun BackupRow() {
                 androidx.compose.material3.TextButton(onClick = {
                     confirm = null
                     scope.launch {
-                        val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.restore(context, uri) }
-                        toast(if (ok) "Copia restaurada ✓" else "Ese archivo no es una copia de Tokkip")
-                        if (ok) mx.loperstack.mochi.mochi.Haptics.success(context)
+                        val got = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.restore(context, uri) }
+                        toast(if (got != null) "Copia restaurada ✓ ${got.text()}" else "Ese archivo no es una copia de Tokkip")
+                        if (got != null) mx.loperstack.mochi.mochi.Haptics.success(context)
                     }
                 }) { Text("Restaurar") }
             },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = null }) { Text("Cancelar") } },
+        )
+    }
+}
+
+/** Ajustes → Empezar de cero: everything erased, after a copy if you like and typing BORRAR. */
+@Composable
+fun WipeRow() {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var asking by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
+    var wiping by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }
+    val save = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null) scope.launch {
+            val got = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Backup.export(context, uri) }
+            saved = got != null
+            android.widget.Toast.makeText(context, if (got != null) "Copia guardada ✓ ${got.text()}" else "No se pudo guardar la copia", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    Label("Borra todo lo que Tokkip guarda en este teléfono: diario y fotos, rachas, tareas, sueño, respiraciones, ajustes y su crecimiento. Queda como recién instalado.", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(10.dp))
+    ExpressiveButton("Restablecer Tokkip", icon = Icons.Rounded.DeleteForever, container = Color(0x33F4505E), content = Color(0xFFF4505E)) {
+        typed = ""; saved = false; asking = true
+    }
+    if (asking) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (!wiping) asking = false },
+            icon = { androidx.compose.material3.Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = Color(0xFFF4505E)) },
+            title = { Text("¿Borrar todo?") },
+            text = {
+                Column {
+                    Text("Esto no se puede deshacer. Tus tareas de Google Tasks siguen en Google; lo demás solo existe aquí.")
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.material3.OutlinedButton(onClick = {
+                        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                        save.launch("Tokkip-copia-$day.zip")
+                    }, enabled = !wiping) {
+                        androidx.compose.material3.Icon(if (saved) Icons.Rounded.CheckCircle else Icons.Rounded.Backup, contentDescription = null)
+                        Spacer(Modifier.size(8.dp))
+                        Text(if (saved) "Copia guardada" else "Guardar una copia antes")
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Escribe BORRAR para confirmar", fontSize = 13.sp, color = Ink.Dim2)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = typed, onValueChange = { typed = it.take(10) }, singleLine = true, enabled = !wiping,
+                        placeholder = { Text("BORRAR") },
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    enabled = typed.trim().equals("BORRAR", ignoreCase = true) && !wiping,
+                    onClick = {
+                        wiping = true
+                        mx.loperstack.mochi.mochi.Haptics.thud(context)
+                        scope.launch(Dispatchers.IO) { mx.loperstack.mochi.data.Wipe.everything(context) }
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = Color(0xFFF4505E)),
+                ) { Text(if (wiping) "Borrando…" else "Borrar todo") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }, enabled = !wiping) { Text("Cancelar") } },
         )
     }
 }

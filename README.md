@@ -40,7 +40,19 @@ octubre, gorro navideño en diciembre.
 ### En tu teléfono (Pixel, Android 12+)
 
 - **Inicio**: Tokkip, tu día de un vistazo, lo que suena y tus pendientes.
+- **Tokkip crece contigo**: cada vez que te cuidas (rachas, diario, ánimo,
+  respirar, dormir) le das cariño. Pasa por seis etapas, de *Recién llegado* a
+  *Leyenda*, y después el ciclo sigue dando vueltas (★1, ★2…). Se calcula con tu
+  propio historial, así que una copia restaurada trae su crecimiento.
+- **Tokkip notó…**: una frase y una sugerencia según tu rutina. Lee cómo y cuándo
+  escribes en tu diario, el tono de tus palabras y de qué hablas, y lo cruza con
+  tu ánimo, tus rachas, tu sueño y tus respiraciones ("los días que cumples
+  «Caminar» te sientes mejor"). Todo en el teléfono: sin IA ni internet.
 - **Ánimo y diario**: cómo te sientes, con notas y fotos; exportable a PDF.
+- **Kit para journaling**: tu diario como recortables para imprimir en hoja
+  carta: cada día como tarjeta con cinta washi y fotos tipo polaroid, stickers
+  de Tokkip en cada ánimo, sellos de tus rachas, tu mes en colores, etiquetas y
+  hojas para escribir a mano con un tracker de hábitos para colorear.
 - **Sueño**: lee tus horas desde Health Connect (reloj, Mi Band y lo que escriba
   ahí) y Tokkip lo refleja en su carita.
 - **Respirar**: sesiones guiadas con Tokkip inflándose al ritmo, flautita opcional.
@@ -53,7 +65,10 @@ octubre, gorro navideño en diciembre.
 - **Widgets**: Tokkip animado, Respirar, Pomodoro, Tareas, Sueño, ¿Cómo estás?,
   Rachas y Compañero (4×3, con todo a la mano). Siguen el modo claro u oscuro.
 - **Ícono por especie**: el ícono de la app cambia según tu Tokkip.
-- **Respaldo**: exporta y restaura todo en un .zip.
+- **Respaldo**: exporta y restaura todo en un .zip (también desde el Diario), y
+  te dice qué guardó: rachas, días de diario, tareas, noches y fotos.
+- **Empezar de cero**: en Ajustes, un botón que borra todo (con opción de
+  guardar una copia antes y escribiendo BORRAR para confirmar).
 - Música de bienvenida estilo lofi y sonidos propios, generados en código.
 
 ### En tu reloj (Wear OS)
@@ -173,7 +188,10 @@ código sigue bajo esa misma licencia.
 
 El nombre Coucou, su personaje Mochi y sus sonidos son de Louis Raillé
 ([LICENSE-ASSETS.md](LICENSE-ASSETS.md)) y no se usan en Tokkip: Tokkip es un
-personaje propio, con sus propios sonidos y música, generados en código. El README
+personaje propio, con sus propios sonidos y música, generados en código.
+La letra manuscrita del kit para journaling es
+[Caveat](https://github.com/googlefonts/caveat), con licencia SIL Open Font
+License ([android/licenses/OFL-Caveat.txt](android/licenses/OFL-Caveat.txt)). El README
 original de Coucou está en [README-coucou.md](README-coucou.md).
 
 Tokkip es un proyecto personal de Andy ([LoperStack](https://loperstack.com)).

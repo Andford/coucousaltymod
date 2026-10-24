@@ -1,7 +1,11 @@
-// A copy of all of Mochi on the phone, in one .zip: your settings, tasks,
+// A copy of all of Tokkip on the phone, in one .zip: your settings, tasks,
 // diary (with its photos), moods, sleep, breathing sessions, streaks and
-// Mochi's look. Restoring it replaces what's here. Nothing leaves the phone
+// Tokkip's look. Restoring it replaces what's here. Nothing leaves the phone
 // unless you save the file somewhere yourself.
+//
+// The Diario screen used to make its own copy with only the diary in it, so
+// a copy made there lost the streaks. Both places now make this full copy;
+// an old diary-only copy can still be restored (its days join what's here).
 
 package mx.loperstack.mochi.data
 
@@ -9,19 +13,50 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
+/** What a copy holds, for the toast: so you can see the streaks went in. */
+data class BackupSummary(
+    val habits: Int = 0,
+    val days: Int = 0,
+    val tasks: Int = 0,
+    val nights: Int = 0,
+    val photos: Int = 0,
+    /** An old copy from the Diario screen: only the diary, joined to what's here. */
+    val diaryOnly: Boolean = false,
+) {
+    fun text(): String {
+        fun n(v: Int, one: String, many: String) = if (v == 1) "1 $one" else "$v $many"
+        if (diaryOnly) return "solo el diario: " + n(days, "día", "días") + " (copia antigua, sin rachas)"
+        return listOf(
+            n(habits, "racha", "rachas"), n(days, "día de diario", "días de diario"),
+            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(photos, "foto", "fotos"),
+        ).joinToString(" · ")
+    }
+}
+
 object Backup {
     private const val PREFS = "mochi"
     private const val ENTRY = "mochi-backup.json"
+    private const val DIARY_ENTRY = "diary.json"
 
-    /** Everything to `out`; true if it worked. */
-    fun export(context: Context, out: Uri): Boolean = runCatching {
+    private fun summaryOf(prefs: Map<String, Any?>, photos: Int) = BackupSummary(
+        habits = habitsOf(prefs["habits"] as? String).size,
+        days = logsOf(prefs["logs"] as? String).size,
+        tasks = parseTasks(prefs["tasks"] as? String).size,
+        nights = sleepOf(prefs["sleep"] as? String).size,
+        photos = photos,
+    )
+
+    /** Everything to `out`; what went in, or null if it failed. */
+    fun export(context: Context, out: Uri): BackupSummary? = runCatching {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val all = prefs.all
         val values = JSONObject()
-        for ((k, v) in prefs.all) {
+        for ((k, v) in all) {
             val typed = when (v) {
                 is Boolean -> JSONObject().put("t", "b").put("v", v)
                 is Int -> JSONObject().put("t", "i").put("v", v)
@@ -33,43 +68,68 @@ object Backup {
             }
             if (typed != null) values.put(k, typed)
         }
-        val root = JSONObject().put("app", "mochi").put("version", 1).put("at", System.currentTimeMillis()).put("prefs", values)
+        val photos = DiaryImages.dir(context).listFiles()?.filter { isImageName(it.name) } ?: emptyList()
+        val summary = summaryOf(all, photos.size)
+        val root = JSONObject().put("app", "mochi").put("version", 2).put("at", System.currentTimeMillis())
+            .put("summary", JSONObject().put("habits", summary.habits).put("days", summary.days).put("tasks", summary.tasks).put("nights", summary.nights))
+            .put("prefs", values)
         context.contentResolver.openOutputStream(out)?.use { os ->
             ZipOutputStream(os).use { zip ->
                 zip.putNextEntry(ZipEntry(ENTRY))
                 zip.write(root.toString().toByteArray())
                 zip.closeEntry()
-                DiaryImages.dir(context).listFiles()?.filter { isImageName(it.name) }?.forEach { f ->
+                photos.forEach { f ->
                     zip.putNextEntry(ZipEntry("diary/${f.name}"))
                     f.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
             }
-        } ?: return false
-        true
-    }.getOrDefault(false)
+        } ?: return null
+        summary
+    }.getOrNull()
 
-    /** Replaces everything with the copy at `src`; false if it isn't a Mochi copy. */
-    fun restore(context: Context, src: Uri): Boolean = runCatching {
+    /**
+     * Replaces everything with the copy at `src` (or, for an old diary-only
+     * copy, adds its days to the diary). What came back, or null if the file
+     * isn't a Tokkip copy.
+     */
+    fun restore(context: Context, src: Uri): BackupSummary? = runCatching {
         var json: JSONObject? = null
+        var diary: List<DayLog>? = null
         val photos = File(context.cacheDir, "restore").apply { deleteRecursively(); mkdirs() }
         context.contentResolver.openInputStream(src)?.use { input ->
             ZipInputStream(input).use { zip ->
                 while (true) {
                     val e = zip.nextEntry ?: break
                     val name = e.name
+                    // Photos: only our own names, so a crafted entry can't write outside the folder.
+                    val photo = when {
+                        name.startsWith("diary/") -> name.removePrefix("diary/")
+                        name.startsWith("images/") -> name.removePrefix("images/")
+                        else -> null
+                    }
                     when {
                         name == ENTRY -> json = JSONObject(zip.readBytes().decodeToString())
-                        name.startsWith("diary/") && isImageName(name.removePrefix("diary/")) ->
-                            File(photos, name.removePrefix("diary/")).outputStream().use { zip.copyTo(it) }
+                        name == DIARY_ENTRY -> diary = logsOf(zip.readBytes().decodeToString())
+                        photo != null && isImageName(photo) -> FileOutputStream(File(photos, photo)).use { zip.copyTo(it) }
                     }
                 }
             }
         }
-        val root = json ?: return false
-        if (root.optString("app") != "mochi") return false
-        val values = root.optJSONObject("prefs") ?: return false
+        val dir = DiaryImages.dir(context)
+        val root = json
+        if (root == null) {
+            // An old copy from the Diario screen: its days join the diary.
+            val days = diary ?: return null
+            photos.listFiles()?.forEach { f -> File(dir, f.name).let { if (!it.exists()) f.copyTo(it) } }
+            photos.deleteRecursively()
+            Store.setLogs(mergeLogs(Store.state.value.logs, days))
+            return BackupSummary(days = days.size, diaryOnly = true)
+        }
+        if (root.optString("app") != "mochi") return null
+        val values = root.optJSONObject("prefs") ?: return null
         val e = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear()
+        val restored = HashMap<String, Any?>()
         for (k in values.keys()) {
             val o = values.optJSONObject(k) ?: continue
             when (o.optString("t")) {
@@ -77,15 +137,15 @@ object Backup {
                 "i" -> e.putInt(k, o.optInt("v"))
                 "l" -> e.putLong(k, o.optLong("v"))
                 "f" -> e.putFloat(k, o.optDouble("v").toFloat())
-                "s" -> e.putString(k, o.optString("v"))
+                "s" -> o.optString("v").let { e.putString(k, it); restored[k] = it }
                 "ss" -> o.optJSONArray("v")?.let { a -> e.putStringSet(k, (0 until a.length()).map { a.optString(it) }.toSet()) }
             }
         }
         e.commit()
-        val dir = DiaryImages.dir(context)
+        val count = photos.listFiles()?.size ?: 0
         photos.listFiles()?.forEach { it.copyTo(File(dir, it.name), overwrite = true) }
         photos.deleteRecursively()
         Store.reload()
-        true
-    }.getOrDefault(false)
+        summaryOf(restored, count)
+    }.getOrNull()
 }

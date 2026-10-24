@@ -1,6 +1,7 @@
 // The diary's files: photos (copied in, upright and at most 1600 px, so the
 // diary does not depend on the gallery), the day as an image (to the gallery
-// or to share), the PDF and the .zip copy, and restoring that copy.
+// or to share) and the whole diary as a PDF. The .zip copy is data/Backup.kt;
+// the printable kit for a paper journal is data/JournalKit.kt.
 
 package mx.loperstack.mochi.data
 
@@ -32,9 +33,6 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 import kotlin.math.max
 import kotlin.math.min
 
@@ -215,45 +213,4 @@ object DiaryExport {
 
     private fun dateOf(day: String) =
         SimpleDateFormat("EEEE d 'de' MMMM yyyy", MX).format(Date(dayStart(day))).replaceFirstChar { it.uppercase(MX) }
-
-    // ── The .zip copy ─────────────────────────────────────────────────────────
-
-    fun backup(context: Context, logs: List<DayLog>, out: Uri): Boolean = runCatching {
-        context.contentResolver.openOutputStream(out)?.use { os ->
-            ZipOutputStream(os).use { zip ->
-                zip.putNextEntry(ZipEntry("diary.json"))
-                zip.write(logsJson(logs).toByteArray())
-                zip.closeEntry()
-                for (img in logs.flatMap { it.notes }.mapNotNull { it.image }.distinct()) {
-                    val f = DiaryImages.file(context, img) ?: continue
-                    if (!f.exists()) continue
-                    zip.putNextEntry(ZipEntry("images/$img"))
-                    f.inputStream().use { it.copyTo(zip) }
-                    zip.closeEntry()
-                }
-            }
-        } ?: return false
-        true
-    }.getOrDefault(false)
-
-    /** Reads a copy; returns its days (to merge), or null if it is not a Mochi copy. */
-    fun restore(context: Context, input: Uri): List<DayLog>? = runCatching {
-        var logs: List<DayLog>? = null
-        context.contentResolver.openInputStream(input)?.use { ins ->
-            ZipInputStream(ins).use { zip ->
-                while (true) {
-                    val e = zip.nextEntry ?: break
-                    when {
-                        e.name == "diary.json" -> logs = logsOf(zip.readBytes().toString(Charsets.UTF_8))
-                        e.name.startsWith("images/") -> {
-                            val n = e.name.removePrefix("images/")
-                            // Only our own names: a crafted entry can't write outside the folder.
-                            DiaryImages.file(context, n)?.let { f -> if (!f.exists()) FileOutputStream(f).use { zip.copyTo(it) } }
-                        }
-                    }
-                }
-            }
-        }
-        logs
-    }.getOrNull()
 }

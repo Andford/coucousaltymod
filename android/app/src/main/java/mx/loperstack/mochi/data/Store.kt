@@ -98,6 +98,12 @@ fun notifyOf(raw: String?): NotifySettings = runCatching {
     )
 }.getOrDefault(NotifySettings())
 
+/** What Tokkip's growth and his notes read (data/Growth.kt, data/Insights.kt). */
+fun AppData.routine(): Routine = Routine(
+    logs = logs, habits = habits, breaths = sessions.map { it.at },
+    nights = sleep.map { Night(it.night, it.minutes, it.quality) }, sleepGoalMin = sleepGoal.minutes,
+)
+
 /** The rhythm you picked, for a session of `minutes`. */
 fun AppData.breathing(start: Long?, minutes: Int): mx.loperstack.mochi.wellness.Breathing {
     val base = mx.loperstack.mochi.wellness.Breathing(start, minutes)
@@ -283,6 +289,11 @@ object Store {
         prefs.edit().putString("petDay", dayKey(System.currentTimeMillis())).putInt("petCount", n).apply()
         return n
     }
+
+    /** The growth stage you've already celebrated (level × 100 + turns of the cycle); -1 before the first time. */
+    fun growthSeen(): Int = prefs.getInt("growthSeen", -1)
+
+    fun setGrowthSeen(v: Int) { prefs.edit().putInt("growthSeen", v).apply() }
 
     fun setHabits(list: List<Habit>) {
         _state.value = _state.value.copy(habits = list)

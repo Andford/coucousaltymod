@@ -94,6 +94,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
@@ -647,8 +648,13 @@ fun HomeScreen(
             // The cookie sits right behind his body (his centre is a bit below the canvas's).
             Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
             MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.padding(top = 18.dp).size(150.dp))
+            // He grows with you (data/Growth.kt): a little one at first, full size at Sabio.
+            val grown = rememberGrowth(now).first.scale
             Mochi(
-                Modifier.width(170.dp).height(140.dp),
+                Modifier.width(170.dp).height(140.dp).graphicsLayer {
+                    scaleX = grown; scaleY = grown
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.8f)
+                },
                 color = color,
                 mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
                 jump = actions.jump,
@@ -688,6 +694,8 @@ fun HomeScreen(
             }
           }
         }
+        Spacer(Modifier.height(12.dp))
+        GrowthCard(now)
         if (calendarOk) {
             Spacer(Modifier.height(20.dp))
             Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {

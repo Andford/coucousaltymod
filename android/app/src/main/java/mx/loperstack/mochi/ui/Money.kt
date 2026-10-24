@@ -97,6 +97,7 @@ import mx.loperstack.mochi.data.MoneyKind
 import mx.loperstack.mochi.data.Store
 import mx.loperstack.mochi.data.WeekSummary
 import mx.loperstack.mochi.data.WeekendFrom
+import mx.loperstack.mochi.data.averageMood
 import mx.loperstack.mochi.data.categoryOf
 import mx.loperstack.mochi.data.dayKey
 import mx.loperstack.mochi.data.money

@@ -112,11 +112,8 @@ object CalendarWrite {
         return out.sortedWith(compareByDescending<WritableCalendar> { it.google && it.primary }.thenByDescending { it.google }.thenBy { it.name })
     }
 
-    /**
-     * Adds an event; returns its id, or null if the calendar said no.
-     * `reminderMin` < 0: no reminder.
-     */
-    fun insert(context: Context, calendarId: Long, title: String, begin: Long, end: Long, allDay: Boolean, reminderMin: Int, color: EventColor? = null): Long? {
+    /** Adds an event with up to four reminders (minutes before); returns its id, or null if the calendar said no. */
+    fun insert(context: Context, calendarId: Long, title: String, begin: Long, end: Long, allDay: Boolean, reminders: List<Int>, color: EventColor? = null): Long? {
         val (start, finish) = if (allDay) allDayRange(begin) else begin to end
         val values = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
@@ -125,7 +122,7 @@ object CalendarWrite {
             put(CalendarContract.Events.DTEND, finish)
             put(CalendarContract.Events.ALL_DAY, if (allDay) 1 else 0)
             put(CalendarContract.Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
-            put(CalendarContract.Events.HAS_ALARM, if (reminderMin >= 0) 1 else 0)
+            put(CalendarContract.Events.HAS_ALARM, if (reminders.isNotEmpty()) 1 else 0)
             when {
                 color?.key != null -> put(CalendarContract.Events.EVENT_COLOR_KEY, color.key)
                 color != null -> put(CalendarContract.Events.EVENT_COLOR, color.color)
@@ -133,18 +130,63 @@ object CalendarWrite {
         }
         val uri = runCatching { context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) }.getOrNull() ?: return null
         val id = uri.lastPathSegment?.toLongOrNull() ?: return null
-        if (reminderMin >= 0) {
-            runCatching {
-                context.contentResolver.insert(
-                    CalendarContract.Reminders.CONTENT_URI,
-                    ContentValues().apply {
-                        put(CalendarContract.Reminders.EVENT_ID, id)
-                        put(CalendarContract.Reminders.MINUTES, reminderMin)
-                        put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
-                    },
-                )
+        setReminders(context, id, reminders)
+        return id
+    }
+
+    /** True if the event repeats (then its time is changed in Calendar, for the whole series). */
+    fun repeats(context: Context, eventId: Long): Boolean = runCatching {
+        context.contentResolver.query(
+            android.content.ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+            arrayOf(CalendarContract.Events.RRULE), null, null, null,
+        )?.use { c -> c.moveToFirst() && !c.getString(0).isNullOrBlank() } ?: false
+    }.getOrDefault(false)
+
+    /** Changes an event's title and, for one that doesn't repeat, its time. True if it worked. */
+    fun update(context: Context, eventId: Long, title: String, begin: Long, end: Long, allDay: Boolean, timeToo: Boolean): Boolean = runCatching {
+        val values = ContentValues().apply {
+            put(CalendarContract.Events.TITLE, title.trim().take(200))
+            if (timeToo) {
+                val (start, finish) = if (allDay) allDayRange(begin) else begin to end
+                put(CalendarContract.Events.DTSTART, start)
+                put(CalendarContract.Events.DTEND, finish)
+                put(CalendarContract.Events.ALL_DAY, if (allDay) 1 else 0)
+                put(CalendarContract.Events.EVENT_TIMEZONE, if (allDay) "UTC" else TimeZone.getDefault().id)
             }
         }
-        return id
+        context.contentResolver.update(android.content.ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), values, null, null) > 0
+    }.getOrDefault(false)
+
+    /** The event's reminders, in minutes before, soonest last. */
+    fun reminders(context: Context, eventId: Long): List<Int> = runCatching {
+        val out = mutableListOf<Int>()
+        context.contentResolver.query(
+            CalendarContract.Reminders.CONTENT_URI, arrayOf(CalendarContract.Reminders.MINUTES),
+            "${CalendarContract.Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()), null,
+        )?.use { c -> while (c.moveToNext()) out += c.getInt(0) }
+        out.distinct().sortedDescending()
+    }.getOrDefault(emptyList())
+
+    /** Replaces the event's reminders with these (at most four, as notifications). */
+    fun setReminders(context: Context, eventId: Long, minutes: List<Int>) {
+        runCatching {
+            context.contentResolver.delete(CalendarContract.Reminders.CONTENT_URI, "${CalendarContract.Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()))
+        }
+        for (m in minutes.distinct().take(4)) runCatching {
+            context.contentResolver.insert(
+                CalendarContract.Reminders.CONTENT_URI,
+                ContentValues().apply {
+                    put(CalendarContract.Reminders.EVENT_ID, eventId)
+                    put(CalendarContract.Reminders.MINUTES, m)
+                    put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+                },
+            )
+        }
+        runCatching {
+            context.contentResolver.update(
+                android.content.ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+                ContentValues().apply { put(CalendarContract.Events.HAS_ALARM, if (minutes.isNotEmpty()) 1 else 0) }, null, null,
+            )
+        }
     }
 }

@@ -23,6 +23,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -246,6 +248,30 @@ fun ExpressiveButton(
 
 /** One place on the floating bar. */
 data class NavItem(val label: String, val icon: ImageVector, val iconOn: ImageVector = icon)
+
+/** The same places as the bottom bar, down the side (landscape). */
+@Composable
+fun NavRail(items: List<NavItem>, selected: Int, onSelect: (Int) -> Unit) {
+    Column(
+        Modifier.fillMaxHeight().systemBarsPadding().padding(start = 10.dp, top = 10.dp, bottom = 10.dp)
+            .clip(Squircle(30.dp)).background(Ink.CardHigh).padding(vertical = 10.dp, horizontal = 6.dp),
+        verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        items.forEachIndexed { i, item ->
+            val on = i == selected
+            Column(
+                Modifier.clip(Squircle(18.dp)).clickable { onSelect(i) }.padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier.width(52.dp).height(32.dp).clip(CircleShape).background(if (on) Ink.VioletDeep else Color.Transparent),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(if (on) item.iconOn else item.icon, contentDescription = item.label, tint = if (on) Ink.OnVioletDeep else Ink.Dim, modifier = Modifier.size(22.dp)) }
+                Text(item.label, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, color = if (on) Ink.Text else Ink.Dim)
+            }
+        }
+    }
+}
 
 /** The bottom bar, floating: a rounded slab with pill indicators (PixelPlayer's). */
 @Composable

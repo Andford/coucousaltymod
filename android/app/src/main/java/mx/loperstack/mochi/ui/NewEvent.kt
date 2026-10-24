@@ -1,4 +1,5 @@
-// "Nuevo evento": a title, a day and a time, how long, a reminder and the
+// "Nuevo evento" (and editing one): a title, a day and a time, how long, up
+// to four reminders, a colour and the
 // calendar — saved straight into your Google calendar on this phone.
 
 package mx.loperstack.mochi.ui
@@ -72,27 +73,38 @@ private fun Pill(text: String, on: Boolean, onClick: () -> Unit) {
     )
 }
 
+/** The reminders you can pick (minutes before), up to four at once. */
+private val REMINDERS = listOf(0 to "Al empezar", 5 to "5 min", 10 to "10 min", 15 to "15 min", 30 to "30 min", 60 to "1 h", 120 to "2 h", 1440 to "1 día")
+
 /**
+ * A new event, or `editing` one (its title, time, reminders and colour; a
+ * repeating one keeps its time, changed in Calendar for the whole series).
  * @param onSaved told after the event is in the calendar (reload the agenda).
  */
 @Composable
-fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
+fun NewEventSheet(actions: Actions, editing: mx.loperstack.mochi.data.CalEvent? = null, onSaved: () -> Unit) {
     val context = LocalContext.current
     val calendars = remember { CalendarWrite.calendars(context) }
-    var title by remember { mutableStateOf("") }
-    var begin by remember { mutableLongStateOf(nextSlot(System.currentTimeMillis())) }
-    var minutes by remember { mutableIntStateOf(60) }
-    var allDay by remember { mutableStateOf(false) }
-    var reminder by remember { mutableIntStateOf(10) }
-    var calIndex by remember { mutableIntStateOf(0) }
+    var title by remember { mutableStateOf(editing?.title ?: "") }
+    var begin by remember { mutableLongStateOf(editing?.begin ?: nextSlot(System.currentTimeMillis())) }
+    var minutes by remember { mutableIntStateOf(editing?.let { ((it.end - it.begin) / 60_000L).toInt().coerceAtLeast(5) } ?: 60) }
+    var allDay by remember { mutableStateOf(editing?.allDay ?: false) }
+    var reminders by remember { mutableStateOf(editing?.let { CalendarWrite.reminders(context, it.id) } ?: listOf(10)) }
+    val repeats = remember(editing?.id) { editing?.let { CalendarWrite.repeats(context, it.id) } ?: false }
+    var calIndex by remember { mutableIntStateOf(editing?.let { e -> calendars.indexOfFirst { it.id == e.calendarId }.coerceAtLeast(0) } ?: 0) }
     var error by remember { mutableStateOf("") }
     val cal: WritableCalendar? = calendars.getOrNull(calIndex)
     // Its colour: the calendar's palette (Google's own names), or the calendar's colour.
     val palette = remember(cal?.id) { cal?.let { CalendarWrite.colors(context, it.id) } ?: emptyList() }
-    var color by remember { mutableStateOf<mx.loperstack.mochi.data.EventColor?>(null) }
+    var color by remember { mutableStateOf(editing?.color?.let { c -> palette.firstOrNull { it.color == c } }) }
+    var colorTouched by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-        Text("Nuevo evento", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Text(if (editing != null) "Editar evento" else "Nuevo evento", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        if (repeats) {
+            Spacer(Modifier.height(4.dp))
+            Label("Se repite: aquí cambias nombre, avisos y color; la hora, en Calendar.", Ink.Dim2, 12.sp)
+        }
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = title, onValueChange = { title = it.take(200) }, modifier = Modifier.fillMaxWidth(),
@@ -103,7 +115,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
             ),
         )
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!repeats) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Pill(SimpleDateFormat("EEE d MMM", MX).format(Date(begin)).replaceFirstChar { it.uppercase(MX) }, false) {
                 val c = Calendar.getInstance().apply { timeInMillis = begin }
                 DatePickerDialog(context, { _, y, m, d ->
@@ -122,33 +134,40 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
             Label("Todo el día", Ink.Dim)
             Switch(checked = allDay, onCheckedChange = { allDay = it }, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
         }
-        if (!allDay) {
+        if (!allDay && !repeats) {
             Spacer(Modifier.height(14.dp))
             Label("Duración", Ink.Dim2, 12.sp, FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((m, label) in listOf(15 to "15 min", 30 to "30 min", 60 to "1 h", 90 to "1 h 30", 120 to "2 h")) {
-                    Pill(label, minutes == m) { minutes = m }
-                }
+                val lengths = listOf(15 to "15 min", 30 to "30 min", 60 to "1 h", 90 to "1 h 30", 120 to "2 h", 180 to "3 h")
+                for ((m, label) in lengths) Pill(label, minutes == m) { minutes = m }
+                if (lengths.none { it.first == minutes }) Pill("${minutes / 60} h ${minutes % 60} min", true) {}
             }
         }
         Spacer(Modifier.height(14.dp))
-        Label("Aviso", Ink.Dim2, 12.sp, FontWeight.Bold)
+        Label("Avisos · hasta 4" + if (reminders.isEmpty()) " · sin aviso" else "", Ink.Dim2, 12.sp, FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((m, label) in listOf(-1 to "Sin aviso", 0 to "Al empezar", 10 to "10 min antes", 30 to "30 min")) {
-                Pill(label, reminder == m) { reminder = m }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((m, label) in REMINDERS) {
+                val on = m in reminders
+                Pill(label, on) {
+                    reminders = when {
+                        on -> reminders - m
+                        reminders.size >= 4 -> { error = "Hasta 4 avisos por evento."; reminders }
+                        else -> { error = ""; (reminders + m).sortedDescending() }
+                    }
+                }
             }
         }
         Spacer(Modifier.height(14.dp))
         Label("Color" + (color?.let { " · ${it.name}" } ?: " · el del calendario"), Ink.Dim2, 12.sp, FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        EventColorRow(palette, color?.color) { color = it }
+        EventColorRow(palette, color?.color ?: if (!colorTouched) editing?.color else null) { color = it; colorTouched = true }
         Spacer(Modifier.height(14.dp))
         if (cal != null) {
             Row(
                 Modifier.fillMaxWidth().clip(Squircle(16.dp)).background(Ink.Card)
-                    .clickable(enabled = calendars.size > 1) { calIndex = (calIndex + 1) % calendars.size; color = null }.padding(14.dp),
+                    .clickable(enabled = calendars.size > 1 && editing == null) { calIndex = (calIndex + 1) % calendars.size; color = null }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(cal.color?.let { Color(it) } ?: Ink.Violet))
@@ -156,7 +175,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
                     Text(cal.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Label(if (cal.google) "${cal.account} · Google Calendar" else cal.account, Ink.Dim2, 12.sp)
                 }
-                if (calendars.size > 1) Label("Cambiar", Ink.VioletSoft)
+                if (calendars.size > 1 && editing == null) Label("Cambiar", Ink.VioletSoft)
             }
         } else {
             Label("No hay calendarios donde escribir en este teléfono.", Ink.Red)
@@ -166,10 +185,22 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
             Label(error, Ink.Red)
         }
         Spacer(Modifier.height(18.dp))
-        PrimaryButton("Guardar en el calendario", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
+        PrimaryButton(if (editing != null) "Guardar cambios" else "Guardar en el calendario", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
             val c = cal ?: return@PrimaryButton
             if (title.isBlank()) { error = "Ponle un nombre."; return@PrimaryButton }
-            val id = CalendarWrite.insert(context, c.id, title, begin, begin + minutes * 60_000L, allDay, reminder, color)
+            if (editing != null) {
+                if (!CalendarWrite.update(context, editing.id, title, begin, begin + minutes * 60_000L, allDay, timeToo = !repeats)) {
+                    error = "El calendario no aceptó el cambio."
+                    return@PrimaryButton
+                }
+                CalendarWrite.setReminders(context, editing.id, reminders)
+                if (colorTouched) CalendarWrite.setColor(context, editing.id, color)
+                actions.jump++
+                Sounds.play("approve")
+                onSaved()
+                return@PrimaryButton
+            }
+            val id = CalendarWrite.insert(context, c.id, title, begin, begin + minutes * 60_000L, allDay, reminders, color)
             if (id == null) {
                 error = "El calendario no aceptó el evento."
             } else {

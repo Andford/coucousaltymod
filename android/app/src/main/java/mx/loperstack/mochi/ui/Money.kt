@@ -172,6 +172,7 @@ fun MoneyScreen(data: AppData, color: Color, actions: Actions, addNow: Pair<Stri
     val context = LocalContext.current
     val now = rememberNow(60_000)
     var editing by remember { mutableStateOf<MoneyEntry?>(null) }
+    LaunchedEffect(Unit) { Sounds.play("coin", 0.5f) }
     // From the widget: "Anotar", maybe with a category already picked.
     LaunchedEffect(addNow) {
         if (addNow.second != 0L) editing = blankEntry(System.currentTimeMillis()).let { e ->
@@ -608,7 +609,7 @@ private fun EntryEditor(start: MoneyEntry, isNew: Boolean, actions: Actions, clo
                 val c = cents ?: run { Haptics.thud(context); return@ExpressiveButton }
                 val saved = e.copy(cents = c)
                 Store.setMoney(Store.state.value.money.filter { it.id != saved.id } + saved)
-                if (isNew) { Sounds.play(if (saved.kind == MoneyKind.INGRESO) "approve" else "pop"); actions.jump++ }
+                if (isNew) { Sounds.play(if (saved.kind == MoneyKind.INGRESO) "cash" else "coin"); actions.jump++ }
                 Haptics.success(context)
                 close()
             }
@@ -820,7 +821,7 @@ private fun DebtsCard(debts: List<Debt>, now: Long, edit: (Debt) -> Unit) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircleButton(Icons.Rounded.Check, "Ya pagué", size = 44.dp, container = if (late || (days ?: 9) <= 2) Ink.VioletSoft else Ink.Card, tint = if (late || (days ?: 9) <= 2) Ink.OnViolet else Ink.Text) {
                             Store.payDebt(d.id, due)
-                            Sounds.play("approve")
+                            Sounds.play("coin")
                             Haptics.success(context)
                         }
                         Text("Pagué", fontSize = 10.sp, color = Ink.Dim2)

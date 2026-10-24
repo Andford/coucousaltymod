@@ -141,6 +141,8 @@ fun ScreenTimeScreen(data: AppData, color: Color, actions: Actions) {
     var granted by remember { mutableStateOf(ScreenUsage.granted(context)) }
     // Coming back from Ajustes: check again.
     LaunchedEffect(granted) { while (!granted) { delay(1500); granted = ScreenUsage.granted(context) } }
+    // An 8-bit "on" when you open it.
+    LaunchedEffect(Unit) { mx.loperstack.mochi.mochi.Sounds.play("gb_on", 0.6f) }
     val reading by produceState<ScreenNow?>(ScreenUsage.last, granted, data.screen) {
         while (granted) {
             value = withContext(Dispatchers.IO) { ScreenUsage.refresh(context) }
@@ -172,6 +174,14 @@ fun ScreenTimeScreen(data: AppData, color: Color, actions: Actions) {
             return@Column
         }
         val r = reading
+        // When the level changes while you look: a little jingle, up or down.
+        var heard by remember { mutableStateOf<Int?>(null) }
+        LaunchedEffect(r?.level) {
+            val l = r?.level ?: return@LaunchedEffect
+            val before = heard
+            if (before != null && l != before) mx.loperstack.mochi.mochi.Sounds.play(if (l > before) "gb_warn" else "gb_level")
+            heard = l
+        }
         val today = r?.today
         val level = r?.level ?: 0
         val lvl = DOOM_LEVELS[level]

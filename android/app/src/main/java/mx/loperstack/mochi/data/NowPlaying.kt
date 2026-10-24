@@ -106,6 +106,26 @@ object NowPlaying {
         if (c.playbackState?.state == PlaybackState.STATE_PLAYING) c.transportControls.pause() else c.transportControls.play()
     }
 
+    /** Opens where the music is playing: the app's own player (its session's screen), or the app. */
+    fun openSource(context: Context) {
+        val c = controller ?: return
+        val opened = runCatching {
+            val pi = c.sessionActivity ?: return@runCatching false
+            val opts = android.app.ActivityOptions.makeBasic()
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                @Suppress("DEPRECATION")
+                opts.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+            }
+            pi.send(context, 0, null, null, null, null, opts.toBundle())
+            true
+        }.getOrDefault(false)
+        if (!opened) runCatching {
+            context.packageManager.getLaunchIntentForPackage(c.packageName)?.let {
+                context.startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
+    }
+
     fun next() { controller?.transportControls?.skipToNext() }
     fun previous() { controller?.transportControls?.skipToPrevious() }
 }

@@ -108,3 +108,42 @@ save("page", notes([C6, G6], 0.08), 0.3)
 # Entering Rachas: a twinkle.
 save("spark", notes([E6, G6, C6 * 2], 0.06), 0.3)
 print("ok+")
+
+# ── More section sounds: Enfoque, Tareas, Dinero and a Game Boy-ish Pantalla ──
+def kalimba(f, dur=0.9):
+    """A thumb piano: a warm tone with a quick metallic overtone."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    s = np.sin(2 * np.pi * f * t) + 0.3 * np.sin(2 * np.pi * f * 6.1 * t) * np.exp(-t * 30) + 0.12 * np.sin(2 * np.pi * f * 2 * t) * np.exp(-t * 6)
+    return s * np.exp(-t * 4.5) * np.clip(t / .002, 0, 1)
+
+def at(parts, total):
+    o = np.zeros(int(SR * total))
+    for start, s in parts:
+        a = int(SR * start); b = min(len(o), a + len(s)); o[a:b] += s[:b - a]
+    return o
+
+def square(f, dur, duty=0.25, d=None, slide=None):
+    """A chiptune pulse wave, like an old handheld's."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    f_ = f if slide is None else f * (slide / f) ** (t / dur)
+    ph = np.cumsum(np.full(n, 1.0) * f_) / SR % 1.0
+    w = np.where(ph < duty, 1.0, -1.0)
+    e = np.exp(-t / d) if d else np.ones(n)
+    return w * e * np.clip(t / .002, 0, 1)
+
+# Enfoque: start (two kalimba notes up) and break (down).
+save("focus_start", at([(0, kalimba(D6 / 2 * 2 * 0.75 if False else 880.0)), (0.11, kalimba(1318.5))], 1.1), 0.42)
+save("focus_break", at([(0, kalimba(1318.5)), (0.11, kalimba(988.0)), (0.22, kalimba(784.0))], 1.2), 0.4)
+# Tareas: a bright check — a pluck that rises, with a tiny sparkle.
+save("task_done", at([(0, tone(900, 1700, 0.07, "tri", d=0.03)), (0.06, musicbox(1568.0, 0.5) * 0.6), (0.1, musicbox(2093.0, 0.45) * 0.4)], 0.6), 0.42)
+# Dinero: a coin for spending, a little cash register for money coming in.
+save("coin", at([(0, square(988.0, 0.07, 0.5, d=0.05)), (0.06, square(1318.5, 0.32, 0.5, d=0.12))], 0.42), 0.3)
+save("cash", at([(0, square(1318.5, 0.06, 0.5, d=0.04)), (0.06, square(1568.0, 0.06, 0.5, d=0.04)), (0.12, square(2093.0, 0.3, 0.5, d=0.12)),
+                 (0.0, noise(0.05, d=0.015) * 0.4), (0.13, musicbox(2637.0, 0.4) * 0.5)], 0.5), 0.3)
+# Pantalla: an original 8-bit jingle on pulse waves — "on" when you open it,
+# "level up" for a calm day, "warn" when Tokkip gets dizzy.
+save("gb_on", at([(0, square(523.3, 0.08, 0.125, d=0.06)), (0.09, square(784.0, 0.08, 0.125, d=0.06)), (0.18, square(1046.5, 0.08, 0.25, d=0.06)),
+                  (0.27, square(1568.0, 0.35, 0.25, d=0.14))], 0.7), 0.26)
+save("gb_level", at([(i * 0.07, square(f, 0.07, 0.25, d=0.05)) for i, f in enumerate([659.3, 784.0, 988.0, 1318.5])] + [(0.28, square(1568.0, 0.3, 0.5, d=0.12))], 0.65), 0.26)
+save("gb_warn", at([(0, square(784.0, 0.1, 0.5, d=0.08)), (0.12, square(587.3, 0.1, 0.5, d=0.08)), (0.24, square(392.0, 0.3, 0.5, d=0.12, slide=330.0))], 0.6), 0.26)
+print("ok++")

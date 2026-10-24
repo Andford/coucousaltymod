@@ -35,6 +35,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -214,7 +216,7 @@ class Actions(private val context: Context) {
         TaskSync.toggle(context, task.id)
         if (!task.done) {
             jump++
-            Sounds.play("approve")
+            Sounds.play("task_done")
             Haptics.success(context)
         } else {
             Sounds.play("blip")
@@ -237,7 +239,7 @@ class Actions(private val context: Context) {
         val now = System.currentTimeMillis()
         val p = Store.state.value.pomodoro
         val next = when {
-            p.phase == Phase.IDLE -> p.startFocus(now).also { jump++; Sounds.play("work") }
+            p.phase == Phase.IDLE -> p.startFocus(now).also { jump++; Sounds.play("focus_start") }
             p.isPaused() -> p.resume(now)
             else -> p.pause(now)
         }
@@ -431,35 +433,8 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
             }
             return@MochiTheme
         }
-        if (desk) {
-            DeskScreen(data.tasks, data.pomodoro, events, now, color, actions, startPomodoro, calendarOk) { askCalendar.launch(Manifest.permission.READ_CALENDAR) }
-        } else {
-            Scaffold(
-                containerColor = Ink.Ground,
-                bottomBar = {
-                    val current = Group.of(tab)
-                    FloatingNavBar(NAV_ITEMS, Group.entries.indexOf(current)) { i ->
-                        val g = Group.entries[i]
-                        if (current != g) Haptics.tick(context)
-                        tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
-                    }
-                },
-            ) { pad ->
-              Column(Modifier.padding(pad).fillMaxSize()) {
-                val group = Group.of(tab)
-                // Inicio keeps its own top; the pills show from Agenda, to go back.
-                if (group.tabs.size > 1 && tab != Tab.HOME) {
-                    SubTabs(group.tabs, tab) { Haptics.tick(context); tab = it }
-                }
-                AnimatedContent(
-                    targetState = tab, modifier = Modifier.weight(1f).fillMaxWidth(),
-                    transitionSpec = {
-                        val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                        (fadeIn(tween(240)) + slideInHorizontally(tween(320)) { it / 8 * dir }) togetherWith
-                            (fadeOut(tween(160)) + slideOutHorizontally(tween(260)) { -it / 8 * dir })
-                    },
-                    label = "tab",
-                ) { shown ->
+        // Every screen, by tab (portrait and landscape share them).
+        val screen: @Composable (Tab) -> Unit = { shown ->
                     when (shown) {
                         Tab.HOME -> HomeScreen(
                             data.tasks, data.pomodoro, events, now, color, actions, calendarOk,
@@ -484,7 +459,54 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                         Tab.SCREEN -> ScreenTimeScreen(data, color, actions)
                         Tab.MONEY -> MoneyScreen(data, color, actions, moneyAdd)
                     }
+        }
+        val pickGroup: (Int) -> Unit = { i ->
+            val current = Group.of(tab)
+            val g = Group.entries[i]
+            if (current != g) Haptics.tick(context)
+            tab = if (current == g) tab else lastIn[g] ?: g.tabs.first()
+        }
+        if (desk) {
+            // Landscape: a rail on the side; Inicio is the desk, the rest keep a readable width.
+            Row(Modifier.fillMaxSize().background(Ink.Ground)) {
+                NavRail(NAV_ITEMS, Group.entries.indexOf(Group.of(tab)), pickGroup)
+                Column(Modifier.weight(1f).fillMaxHeight().statusBarsPadding()) {
+                    if (tab == Tab.HOME) {
+                        DeskScreen(
+                            data, events, now, color, actions, startPomodoro, calendarOk,
+                            askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
+                            goAgenda = { tab = Tab.AGENDA }, goMoney = { tab = Tab.MONEY }, goScreen = { tab = Tab.SCREEN },
+                            agendaChanged = { agendaKey++ },
+                        )
+                    } else {
+                        val group = Group.of(tab)
+                        if (group.tabs.size > 1) SubTabs(group.tabs, tab) { Haptics.tick(context); tab = it }
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.widthIn(max = 760.dp).fillMaxSize()) { screen(tab) }
+                        }
+                    }
                 }
+            }
+        } else {
+            Scaffold(
+                containerColor = Ink.Ground,
+                bottomBar = { FloatingNavBar(NAV_ITEMS, Group.entries.indexOf(Group.of(tab)), pickGroup) },
+            ) { pad ->
+              Column(Modifier.padding(pad).fillMaxSize()) {
+                val group = Group.of(tab)
+                // Inicio keeps its own top; the pills show from Agenda, to go back.
+                if (group.tabs.size > 1 && tab != Tab.HOME) {
+                    SubTabs(group.tabs, tab) { Haptics.tick(context); tab = it }
+                }
+                AnimatedContent(
+                    targetState = tab, modifier = Modifier.weight(1f).fillMaxWidth(),
+                    transitionSpec = {
+                        val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                        (fadeIn(tween(240)) + slideInHorizontally(tween(320)) { it / 8 * dir }) togetherWith
+                            (fadeOut(tween(160)) + slideOutHorizontally(tween(260)) { -it / 8 * dir })
+                    },
+                    label = "tab",
+                ) { shown -> screen(shown) }
               }
             }
         }
@@ -836,6 +858,12 @@ fun TasksScreen(tasks: List<Task>, actions: Actions) {
 @Composable
 fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, actions: Actions, start: () -> Unit) {
     val track = rememberNowPlaying()
+    // A break starting while you look: the kalimba goes down.
+    var lastPhase by remember { mutableStateOf(p.phase) }
+    LaunchedEffect(p.phase) {
+        if (lastPhase == Phase.FOCUS && (p.phase == Phase.BREAK || p.phase == Phase.LONG_BREAK)) Sounds.play("focus_break")
+        lastPhase = p.phase
+    }
     var aod by remember { mutableStateOf(false) }
     var tune by remember { mutableStateOf(false) }
     val cfg = Store.state.collectAsState().value.pomodoroConfig
@@ -883,7 +911,7 @@ fun FocusScreen(tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, now
 }
 
 @Composable
-fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, modifier: Modifier, mochi: Boolean = true, dancing: Boolean = false) {
+fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color, modifier: Modifier, mochi: Boolean = true, dancing: Boolean = false, textSize: TextUnit = 46.sp) {
     val ring = if (p.phase == Phase.BREAK || p.phase == Phase.LONG_BREAK) Ink.Green else Ink.Violet
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -914,7 +942,7 @@ fun FocusRing(p: mx.loperstack.mochi.wellness.Pomodoro, now: Long, color: Color,
             if (mochi) {
                 Mochi(Modifier.width(90.dp).height(72.dp), color = color, mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, dancing = dancing)
             }
-            Text(clock(p.left(now)), fontSize = 46.sp, fontWeight = FontWeight.ExtraBold)
+            Text(clock(p.left(now)), fontSize = textSize, fontWeight = FontWeight.ExtraBold, maxLines = 1)
         }
     }
 }
@@ -974,60 +1002,90 @@ fun PcScreen(now: Long) {
 
 // ── Tablet: modo escritorio ───────────────────────────────────────────────────
 
+/**
+ * Inicio lying down (a phone on its side, a tablet): the clock and Tokkip,
+ * what's playing; today and tomorrow with Tokkip's growth and notes and your
+ * money; focus and tasks. Sizes follow the height so nothing spills.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeskScreen(
-    tasks: List<Task>, p: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
+    data: mx.loperstack.mochi.data.AppData, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, start: () -> Unit, calendarOk: Boolean, askCalendar: () -> Unit,
+    goAgenda: () -> Unit, goMoney: () -> Unit, goScreen: () -> Unit, agendaChanged: () -> Unit,
 ) {
-    Row(Modifier.fillMaxSize().background(Ink.Ground).padding(24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        Column(
-            Modifier.weight(1.1f).fillMaxHeight().clip(Squircle(34.dp))
-                .background(Brush.radialGradient(listOf(Ink.VioletDeep, Ink.Card), radius = 1100f))
-                .border(1.dp, Ink.Hairline, Squircle(34.dp)).padding(30.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Label(longDate(now), Ink.Dim, 16.sp, FontWeight.SemiBold)
-                Text(hourMinute(now), fontSize = 100.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 100.sp)
+    val p = data.pomodoro
+    var openEvent by remember { mutableStateOf<CalEvent?>(null) }
+    val doomNow = if (now - data.doomAt < 30 * 60_000L) data.doom else 0
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val short = maxHeight < 520.dp
+        val gap = if (short) 12.dp else 20.dp
+        Row(Modifier.fillMaxSize().padding(gap), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            // The clock and Tokkip.
+            Column(
+                Modifier.weight(1f).fillMaxHeight().clip(Squircle(30.dp))
+                    .background(Brush.radialGradient(listOf(Ink.VioletDeep, Ink.Card), radius = 1100f))
+                    .border(1.dp, Ink.Hairline, Squircle(30.dp)).padding(if (short) 18.dp else 28.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Label(longDate(now), Ink.Dim, if (short) 13.sp else 16.sp, FontWeight.SemiBold)
+                    Text(hourMinute(now), fontSize = if (short) 64.sp else 96.sp, fontWeight = FontWeight.ExtraBold, lineHeight = if (short) 64.sp else 96.sp)
+                }
+                Mochi(
+                    Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(1.3f), color = color,
+                    mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
+                    interactive = true, greet = true, dancing = actions.music,
+                    face = doomNow.takeIf { it >= 2 }?.let { doomEye(it) },
+                )
+                val track = rememberNowPlaying()
+                if (track != null && NowPlaying.granted(LocalContext.current)) NowPlayingCard(track)
+                else if (doomNow >= 2) IconLabel(Icons.Rounded.PhoneAndroid, "Mucho scroll: Tokkip ${if (doomNow >= 3) "mareado" else "cansado"}", DOOM_COLORS[doomNow], Modifier.clickable(onClick = goScreen))
+                else Label("Toca a Tokkip", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
-            Mochi(
-                Modifier.fillMaxWidth().aspectRatio(1.4f), color = color,
-                mood = if (p.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE, jump = actions.jump,
-                interactive = true, greet = true, dancing = actions.music,
-            )
-            Label("Toca a Tokkip", Ink.Dim2, modifier = Modifier.align(Alignment.CenterHorizontally))
-        }
-        Column(
-            Modifier.weight(1.3f).fillMaxHeight().clip(Squircle(34.dp)).background(Ink.Card)
-                .border(1.dp, Ink.Hairline, Squircle(34.dp)).padding(26.dp).verticalScroll(rememberScrollState()),
-        ) {
-            Text("Hoy", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(12.dp))
-            if (!calendarOk) PrimaryButton("Ver mi agenda", onClick = askCalendar) else AgendaList(events, now, actions)
-        }
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Panel(Modifier.fillMaxWidth(), padding = 20.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FocusRing(p, now, color, Modifier.size(96.dp), mochi = false)
-                    Spacer(Modifier.width(16.dp))
-                    Column {
-                        Label(PomodoroScheduler.phaseTitle(p.phase), Ink.VioletSoft, weight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        PrimaryButton(if (p.phase == Phase.IDLE) "Iniciar" else if (p.isPaused()) "Reanudar" else "Pausa", onClick = start)
+            // Today, Tokkip and your money.
+            Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                Panel(Modifier.fillMaxWidth(), padding = 14.dp) {
+                    Row(Modifier.fillMaxWidth().padding(start = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Hoy y mañana", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                        Text("Agenda", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.clip(Squircle(12.dp)).clickable(onClick = goAgenda).padding(8.dp))
+                    }
+                    if (!calendarOk) PrimaryButton("Ver mi agenda", onClick = askCalendar) else AgendaList(events, now, actions, max = 6) { openEvent = it }
+                }
+                Spacer(Modifier.height(gap))
+                GrowthCard(now)
+                MoneyHomeCard(now, goMoney)
+            }
+            // Focus and tasks.
+            Column(Modifier.weight(0.95f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
+                Panel(Modifier.fillMaxWidth(), padding = 16.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FocusRing(p, now, color, Modifier.size(if (short) 84.dp else 104.dp), mochi = false, textSize = if (short) 20.sp else 24.sp)
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Label(PomodoroScheduler.phaseTitle(p.phase), Ink.VioletSoft, weight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            PrimaryButton(if (p.phase == Phase.IDLE) "Iniciar" else if (p.isPaused()) "Reanudar" else "Pausa", onClick = start)
+                        }
                     }
                 }
-            }
-            Panel(Modifier.fillMaxWidth().weight(1f), padding = 14.dp) {
-                Text("Tareas", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    for (t in orderedTasks(tasks)) TaskRow(t, actions)
+                Panel(Modifier.fillMaxWidth().weight(1f), padding = 12.dp) {
+                    Text("Tareas", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        for (t in orderedTasks(data.tasks)) TaskRow(t, actions)
+                    }
+                    NewTaskField(actions)
                 }
-                NewTaskField(actions)
             }
         }
     }
+    openEvent?.let { e ->
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { openEvent = null; agendaChanged() }, containerColor = Ink.CardHigh,
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { EventSheet(e, actions) { changed -> openEvent = null; if (changed) agendaChanged() } }
+    }
 }
-
 
 // ── Google Tasks (in the settings sheet) ──────────────────────────────────────
 

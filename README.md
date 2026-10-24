@@ -40,12 +40,15 @@ octubre, gorro navideño en diciembre.
 ### En tu teléfono (Pixel, Android 12+)
 
 - **Inicio**: Tokkip, tu día de un vistazo, un mini reproductor de lo que suena
-  (anterior, pausa, siguiente) y tus pendientes.
+  (anterior, pausa, siguiente; toca la portada para ir a la app que suena) y tus
+  pendientes. Con el teléfono acostado (o en tablet) se vuelve un tablero:
+  reloj y Tokkip, hoy y mañana, su crecimiento y tu dinero, enfoque y tareas,
+  con un riel a un lado para las demás secciones.
 - **Agenda**: tus eventos como lista (las próximas cinco semanas) o como mes con
   puntitos de color; toca un día para verlo. Cada evento se abre para unirte a
   su Meet, abrirlo en Calendar o cambiarle el color con la paleta de Google
-  Calendar (se sincroniza a la web y la PC). Los eventos nuevos también eligen
-  color.
+  Calendar (se sincroniza a la web y la PC), y editarlo: nombre, día, hora,
+  duración y hasta 4 avisos. Los eventos nuevos también eligen color y avisos.
 - **Tokkip crece contigo**: cada vez que te cuidas (rachas, diario, ánimo,
   respirar, dormir) le das cariño. Pasa por seis etapas, de *Recién llegado* a
   *Leyenda*, y después el ciclo sigue dando vueltas (★1, ★2…). Se calcula con tu
@@ -100,7 +103,9 @@ octubre, gorro navideño en diciembre.
   te dice qué guardó: rachas, días de diario, tareas, noches y fotos.
 - **Empezar de cero**: en Ajustes, un botón que borra todo (con opción de
   guardar una copia antes y escribiendo BORRAR para confirmar).
-- Música de bienvenida estilo lofi y sonidos propios, generados en código.
+- Música de bienvenida estilo lofi y sonidos propios, generados en código:
+  kalimba para Enfoque, un "check" brillante para Tareas, monedas y caja
+  registradora para Dinero, y un jingle de 8 bits para Pantalla.
 
 ### En tu reloj (Wear OS)
 

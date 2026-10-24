@@ -131,15 +131,24 @@ object Widgets {
         pending?.cancel()
         pending = scope.launch {
             delay(500)
-            runCatching { MochiWidget().updateAll(app) }
-            runCatching { BreatheWidget().updateAll(app) }
-            runCatching { PomodoroWidget().updateAll(app) }
-            runCatching { TasksWidget().updateAll(app) }
-            runCatching { SleepWidget().updateAll(app) }
-            runCatching { MoodWidget().updateAll(app) }
-            runCatching { StreaksWidget().updateAll(app) }
-            runCatching { CompanionWidget().updateAll(app) }
-            runCatching { MoneyWidget().updateAll(app) }
+            // Each widget by its own receiver's ids, so one kind never draws over another's.
+            update(app, MochiWidget(), MochiWidgetReceiver::class.java)
+            update(app, BreatheWidget(), BreatheWidgetReceiver::class.java)
+            update(app, PomodoroWidget(), PomodoroWidgetReceiver::class.java)
+            update(app, TasksWidget(), TasksWidgetReceiver::class.java)
+            update(app, SleepWidget(), SleepWidgetReceiver::class.java)
+            update(app, MoodWidget(), MoodWidgetReceiver::class.java)
+            update(app, StreaksWidget(), StreaksWidgetReceiver::class.java)
+            update(app, CompanionWidget(), CompanionWidgetReceiver::class.java)
+            update(app, MoneyWidget(), MoneyWidgetReceiver::class.java)
+        }
+    }
+
+    private suspend fun update(app: Context, widget: GlanceAppWidget, receiver: Class<*>) {
+        runCatching {
+            val ids = android.appwidget.AppWidgetManager.getInstance(app).getAppWidgetIds(android.content.ComponentName(app, receiver))
+            val glance = androidx.glance.appwidget.GlanceAppWidgetManager(app)
+            for (id in ids) runCatching { widget.update(app, glance.getGlanceIdBy(id)) }
         }
     }
 }

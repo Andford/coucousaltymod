@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FormatColorReset
@@ -259,7 +260,8 @@ fun EventColorRow(colors: List<EventColor>, selected: Int?, pick: (EventColor?) 
     }
 }
 
-/** An event: when, where, its colour, open it in your calendar app, join its Meet. */
+/** An event: when, where, its colour, edit it, open it in your calendar app, join its Meet. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventSheet(e: CalEvent, actions: Actions, close: (changed: Boolean) -> Unit) {
     val context = LocalContext.current
@@ -269,6 +271,8 @@ fun EventSheet(e: CalEvent, actions: Actions, close: (changed: Boolean) -> Unit)
     var pending by remember { mutableStateOf<EventColor?>(null) }
     var resetPending by remember { mutableStateOf(false) }
     var changed by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var editPending by remember { mutableStateOf(false) }
     fun apply(c: EventColor?) {
         if (CalendarWrite.setColor(context, e.id, c)) {
             color = c?.color; name = c?.name ?: "El del calendario"; changed = true
@@ -276,8 +280,8 @@ fun EventSheet(e: CalEvent, actions: Actions, close: (changed: Boolean) -> Unit)
         } else android.widget.Toast.makeText(context, "Ese calendario no deja cambiar el color", android.widget.Toast.LENGTH_SHORT).show()
     }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) { if (resetPending) apply(null) else pending?.let { apply(it) } }
-        pending = null; resetPending = false
+        if (ok) { if (editPending) editing = true else if (resetPending) apply(null) else pending?.let { apply(it) } }
+        pending = null; resetPending = false; editPending = false
     }
     val f = SimpleDateFormat("EEEE d 'de' MMMM", MX)
     val when_ = if (e.allDay) f.format(Date(e.begin)).replaceFirstChar { it.uppercase(MX) } + " · todo el día"
@@ -302,6 +306,11 @@ fun EventSheet(e: CalEvent, actions: Actions, close: (changed: Boolean) -> Unit)
         name?.let { Spacer(Modifier.height(6.dp)); Label(it, Ink.Dim2, 12.sp) }
         Label("Se guarda en tu calendario: lo verás igual en Google Calendar.", Ink.Dim2, 12.sp)
         Spacer(Modifier.height(20.dp))
+        ExpressiveButton("Editar: nombre, hora y avisos", icon = Icons.Rounded.Edit, modifier = Modifier.fillMaxWidth()) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED) editing = true
+            else { editPending = true; ask.launch(Manifest.permission.WRITE_CALENDAR) }
+        }
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (e.meetUrl != null) ExpressiveButton("Unirse", icon = Icons.Rounded.Videocam, container = Ink.Green, content = Ink.GreenDeep) { actions.open(e.meetUrl) }
             ExpressiveButton("Abrir en Calendar", icon = Icons.Rounded.OpenInNew, container = Ink.Card, content = Ink.Text) {
@@ -316,5 +325,11 @@ fun EventSheet(e: CalEvent, actions: Actions, close: (changed: Boolean) -> Unit)
         }
         Spacer(Modifier.height(10.dp))
         androidx.compose.material3.TextButton(onClick = { close(changed) }) { Text("Listo") }
+    }
+    if (editing) {
+        ModalBottomSheet(
+            onDismissRequest = { editing = false }, containerColor = Ink.CardHigh,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { NewEventSheet(actions, editing = e) { editing = false; close(true) } }
     }
 }

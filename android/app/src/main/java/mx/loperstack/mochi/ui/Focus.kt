@@ -113,16 +113,18 @@ fun NowPlayingCard(track: NowPlaying.Track?) {
         val spin by androidx.compose.animation.core.rememberInfiniteTransition(label = "art").animateFloat(
             0f, 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(20_000, easing = androidx.compose.animation.core.LinearEasing)), label = "r",
         )
+        // Tap the cover (or the title): straight to the app it's playing in.
         Box(
             Modifier.size(60.dp).graphicsLayer { rotationZ = if (track.playing) spin else 0f }
-                .clip(PolygonShape(MShapes.Cookie9)).background(Ink.VioletDeep),
+                .clip(PolygonShape(MShapes.Cookie9)).background(Ink.VioletDeep)
+                .clickable { NowPlaying.openSource(context) },
             contentAlignment = Alignment.Center,
         ) {
             val art = track.art
             if (art != null) Image(art.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             else Icon(Icons.Rounded.MusicNote, null, tint = Ink.VioletSoft, modifier = Modifier.size(26.dp))
         }
-        Column(Modifier.padding(horizontal = 12.dp).weight(1f)) {
+        Column(Modifier.padding(horizontal = 12.dp).weight(1f).clickable { NowPlaying.openSource(context) }) {
             Text(track.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(listOf(track.artist, track.app).filter { it.isNotBlank() }.joinToString(" · "), fontSize = 12.sp, color = Ink.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

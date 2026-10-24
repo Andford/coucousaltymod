@@ -21,6 +21,11 @@ object Sounds {
         "lullaby" to R.raw.lullaby, "page" to R.raw.page, "spark" to R.raw.spark,
         "focus_start" to R.raw.focus_start, "focus_break" to R.raw.focus_break, "task_done" to R.raw.task_done,
         "coin" to R.raw.coin, "cash" to R.raw.cash, "gb_on" to R.raw.gb_on, "gb_level" to R.raw.gb_level, "gb_warn" to R.raw.gb_warn,
+        "level_up" to R.raw.level_up,
+        // The notification tones, to hear them in Ajustes.
+        "notif_morning" to R.raw.notif_morning, "notif_night" to R.raw.notif_night, "notif_event" to R.raw.notif_event,
+        "notif_task" to R.raw.notif_task, "notif_streak" to R.raw.notif_streak, "notif_money" to R.raw.notif_money,
+        "notif_screen" to R.raw.notif_screen, "notif_focus" to R.raw.notif_focus,
     )
 
     private var pool: SoundPool? = null
@@ -34,7 +39,7 @@ object Sounds {
     fun init(context: Context) {
         if (pool != null) return
         val p = SoundPool.Builder()
-            .setMaxStreams(3)
+            .setMaxStreams(4)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)

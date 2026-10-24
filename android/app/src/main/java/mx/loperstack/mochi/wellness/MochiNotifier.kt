@@ -97,9 +97,15 @@ private val NIGHT = listOf(
 private fun hm(ms: Long) = SimpleDateFormat("HH:mm", Locale("es", "MX")).format(Date(ms))
 
 object MochiNotifier {
-    const val CH_DAY = "mochi_day"
-    const val CH_REMIND = "mochi_remind"
-    const val CH_STREAK = "mochi_streak"
+    // Each kind its own channel and its own tone (tools/make_sounds.py), so each
+    // can be changed or silenced in Android's settings.
+    const val CH_MORNING = "tk_morning"
+    const val CH_NIGHT = "tk_night"
+    const val CH_EVENTS = "tk_events"
+    const val CH_TASKS = "tk_tasks"
+    const val CH_STREAK = "tk_streaks"
+    const val CH_MONEY = "tk_money"
+    const val CH_SCREEN = "tk_screen"
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
     const val EXTRA_TITLE = "title"
@@ -108,11 +114,31 @@ object MochiNotifier {
     const val EXTRA_DUE = "due"
     const val EXTRA_NOTIFICATION = "notification"
 
+    /** A Tokkip tone (shared res/raw) as a notification sound. */
+    fun tone(context: Context, res: Int): Uri = Uri.parse("android.resource://${context.packageName}/$res")
+
+    fun channel(context: Context, id: String, name: String, about: String, importance: Int, res: Int): NotificationChannel =
+        NotificationChannel(id, name, importance).apply {
+            description = about
+            setSound(tone(context, res), android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).build())
+            enableVibration(true)
+        }
+
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH_DAY, "Buenos días y buenas noches", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.createNotificationChannel(NotificationChannel(CH_REMIND, "Eventos y tareas", NotificationManager.IMPORTANCE_HIGH))
-        nm.createNotificationChannel(NotificationChannel(CH_STREAK, "Rachas", NotificationManager.IMPORTANCE_DEFAULT))
+        // The old shared channels (with the system's sound) make way for these.
+        for (old in listOf("mochi_day", "mochi_remind", "mochi_streak")) runCatching { nm.deleteNotificationChannel(old) }
+        nm.createNotificationChannels(
+            listOf(
+                channel(context, CH_MORNING, "Buenos días", "Tu mañana con Tokkip", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_morning),
+                channel(context, CH_NIGHT, "Buenas noches y diario", "La invitación a escribir en tu diario", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_night),
+                channel(context, CH_EVENTS, "Eventos", "Minutos antes de tus eventos", NotificationManager.IMPORTANCE_HIGH, mx.loperstack.mochi.shared.R.raw.notif_event),
+                channel(context, CH_TASKS, "Tareas", "Tus pendientes del día", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_task),
+                channel(context, CH_STREAK, "Rachas", "Los recordatorios de tus hábitos", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_streak),
+                channel(context, CH_MONEY, "Pagos y deudas", "Antes de la fecha de tus pagos", NotificationManager.IMPORTANCE_HIGH, mx.loperstack.mochi.shared.R.raw.notif_money),
+                channel(context, CH_SCREEN, "Pantalla", "Cuando llevas mucho rato de scroll", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_screen),
+            ),
+        )
     }
 
     // ── Planning ──────────────────────────────────────────────────────────────
@@ -208,7 +234,7 @@ object MochiNotifier {
                 val pending = d.tasks.count { !it.done }
                 val extra = listOfNotNull(sleepLine, if (pending > 0) "$pending pendientes" else null).joinToString(" · ")
                 post(
-                    context, 201, CH_DAY,
+                    context, 201, CH_MORNING,
                     title = if (name.isBlank()) "Buenos días" else "Buenos días, $name",
                     text = noted?.let { "${it.text} ${it.tip}" } ?: phrase, sub = extra, theme = Theme.MORNING,
                     face = if (rest == Rest.TIRED) MochiEngine.Eye.TIRED else MochiEngine.Eye.HAPPY,
@@ -219,14 +245,14 @@ object MochiNotifier {
                 val pending = d.tasks.filter { !it.done }
                 if (pending.isEmpty() && preview) {
                     post(
-                        context, 202, CH_REMIND, title = "¡Sin pendientes!", text = "Hoy no te queda nada. Disfruta tu tarde",
+                        context, 202, CH_TASKS, title = "¡Sin pendientes!", text = "Hoy no te queda nada. Disfruta tu tarde",
                         sub = "Así se ve el aviso de tareas", theme = Theme.TASKS, face = MochiEngine.Eye.HAPPY, open = openApp(context, "tasks"),
                     )
                 }
                 if (pending.isNotEmpty()) {
                     val list = pending.take(4).joinToString("\n") { "• ${it.text}" }
                     post(
-                        context, 202, CH_REMIND,
+                        context, 202, CH_TASKS,
                         title = if (pending.size == 1) "Te queda una tarea" else "Te quedan ${pending.size} tareas",
                         text = list, sub = "Una a la vez, tú puedes", theme = Theme.TASKS, face = MochiEngine.Eye.WIDE,
                         open = openApp(context, "tasks"),
@@ -240,7 +266,7 @@ object MochiNotifier {
                 }
                 val sub = if (d.notify.streaks && habitsLeft.isNotEmpty()) "Aún hoy: " + habitsLeft.take(3).joinToString(", ") { it.name } else "Toca para escribir en tu diario"
                 post(
-                    context, 203, CH_DAY,
+                    context, 203, CH_NIGHT,
                     title = if (name.isBlank()) "Buenas noches" else "Buenas noches, $name",
                     text = NIGHT.random(), sub = sub, theme = Theme.NIGHT, face = MochiEngine.Eye.CLOSED,
                     open = openApp(context, "diary", compose = true),
@@ -253,7 +279,7 @@ object MochiNotifier {
                 val meet = intent.getStringExtra(EXTRA_MEET)
                 val minutes = ((at - now) / 60_000).toInt().coerceAtLeast(0)
                 post(
-                    context, 6000 + (title.hashCode() and 0x3FF), CH_REMIND,
+                    context, 6000 + (title.hashCode() and 0x3FF), CH_EVENTS,
                     title = title, text = if (minutes <= 1) "Empieza ahora" else "Empieza en $minutes min · ${hm(at)}",
                     sub = "Respira, ya casi", theme = Theme.EVENT, face = MochiEngine.Eye.DOT,
                     open = openApp(context, "home"),
@@ -280,7 +306,7 @@ object MochiNotifier {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                     post(
-                        context, 9902, CH_REMIND, title = "Llevas ${t.sessionMin} min en $app",
+                        context, 9902, CH_SCREEN, title = "Llevas ${t.sessionMin} min en $app",
                         text = "${lvl.line} ¿Una pausa de un minuto conmigo?", sub = "Tokkip ${lvl.name.lowercase()} · ${t.scrollMin} min de scroll hoy",
                         theme = Theme.NIGHT.takeIf { r.level >= 3 } ?: Theme.EVENT,
                         face = runCatching { MochiEngine.Eye.valueOf(lvl.eye) }.getOrNull(),
@@ -311,7 +337,7 @@ object MochiNotifier {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                     post(
-                        context, code, CH_REMIND, title = "Pago: ${debt.name}", text = text, sub = left,
+                        context, code, CH_MONEY, title = "Pago: ${debt.name}", text = text, sub = left,
                         theme = Theme.MONEY, face = if (days < 0) MochiEngine.Eye.TIRED else MochiEngine.Eye.DOT,
                         open = openApp(context, "money"), action = if (preview) null else "Ya pagué" to paid,
                     )

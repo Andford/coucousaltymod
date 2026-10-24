@@ -276,6 +276,9 @@ fun GrowthSheet(g: Growth, now: Long, close: () -> Unit) {
                 }
             }
             Label("Después de Leyenda el ciclo sigue: cada 600 de cariño, una vuelta más (★).", Ink.Dim2, 12.sp)
+            var party by remember { mutableStateOf(false) }
+            TextButton(onClick = { party = true }) { Text("Celebrar otra vez") }
+            if (party) LevelUpCelebration(g, Color(d.mochiColor), first = false) { party = false }
 
             SectionTitle("Cómo darle cariño")
             val top = (g.byCare.values.maxOrNull() ?: 0).coerceAtLeast(1)
@@ -321,27 +324,8 @@ fun GrowthCelebration(g: Growth) {
     var show by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(key) {
         val seen = Store.growthSeen()
-        if (key > seen) {
-            show = seen
-            Sounds.play("approve")
-            Haptics.success(context)
-        }
+        if (key > seen) show = seen
     }
     val seen = show ?: return
-    val first = seen < 0
-    AlertDialog(
-        onDismissRequest = { Store.setGrowthSeen(key); show = null },
-        icon = {
-            Mochi(Modifier.width(120.dp).height(100.dp), color = Color(Store.state.value.mochiColor), face = MochiEngine.Eye.STAR)
-        },
-        title = { Text(if (first) "Tokkip ahora crece contigo" else "¡Tokkip creció!", textAlign = TextAlign.Center) },
-        text = {
-            Text(
-                if (first) "Cada vez que te cuidas le das cariño. Por todo lo que ya hiciste, hoy es Tokkip ${g.title}. ${g.stage.blurb}"
-                else "Ahora es Tokkip ${g.title}. ${g.stage.blurb}",
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = { TextButton(onClick = { Store.setGrowthSeen(key); show = null }) { Text("¡Vamos!") } },
-    )
+    LevelUpCelebration(g, Color(Store.state.value.mochiColor), first = seen < 0) { Store.setGrowthSeen(key); show = null }
 }

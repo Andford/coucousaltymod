@@ -52,7 +52,10 @@ octubre, gorro navideño en diciembre.
 - **Tokkip crece contigo**: cada vez que te cuidas (rachas, diario, ánimo,
   respirar, dormir) le das cariño. Pasa por seis etapas, de *Recién llegado* a
   *Leyenda*, y después el ciclo sigue dando vueltas (★1, ★2…). Se calcula con tu
-  propio historial, así que una copia restaurada trae su crecimiento.
+  propio historial, así que una copia restaurada trae su crecimiento. Cada vez
+  que suben de nivel hay fiesta: una galleta de Material Expressive que se
+  transforma en trébol y estalla, confeti, Tokkip bailando con ojos de estrella
+  y unas palabras para celebrarte a ti.
 - **Tokkip notó…**: una frase y una sugerencia según tu rutina. Lee cómo y cuándo
   escribes en tu diario, el tono de tus palabras y de qué hablas, y lo cruza con
   tu ánimo, tus rachas, tu sueño y tus respiraciones ("los días que cumples
@@ -92,7 +95,9 @@ octubre, gorro navideño en diciembre.
 - **Rachas**: hábitos con íconos de Material 3 Expressive y recordatorios.
 - **Tareas y agenda**: Google Tasks y Google Calendar.
 - **Mimos**: juega con Tokkip, con física, vibración y sonidos.
-- **Notificaciones bonitas**: buenos días, eventos y pendientes, y diario por la noche.
+- **Notificaciones bonitas**: buenos días, eventos y pendientes, y diario por la
+  noche, cada una con su propio tono de Tokkip (también rachas, pagos, pantalla
+  y enfoque); se escuchan en Ajustes y se pueden cambiar en Android.
 - **Widgets**: Tokkip animado, Respirar, Pomodoro, Tareas, Sueño, ¿Cómo estás?,
   Rachas, Dinero (lo que te queda de la semana y del fin de semana, y anotar un
   gasto en un toque con tus categorías más usadas) y Compañero (4×3, con todo a

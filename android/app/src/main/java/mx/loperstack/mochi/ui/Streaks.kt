@@ -332,6 +332,7 @@ private fun HabitEditor(start: Habit, isNew: Boolean, close: () -> Unit) {
 
 // ── Ajustes → Notificaciones ──────────────────────────────────────────────────
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun NotificationSettings(n: NotifySettings) {
     val context = LocalContext.current
@@ -412,4 +413,31 @@ fun NotificationSettings(n: NotifySettings) {
         pick(n.nightAt) { save(n.copy(nightAt = it)) }
     }
     Item(Icons.Rounded.LocalFireDepartment, "Rachas", "Ánimo a la hora de cada racha que aún no marcas", n.streaks, null, "habit", { save(n.copy(streaks = it)) }, null)
+
+    // Tokkip's own tones: one per kind. Tap to hear it; change any in Android's settings.
+    Spacer(Modifier.height(12.dp))
+    Text("Tonos de Tokkip", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
+    Label("Cada aviso suena distinto. Tócalo para escucharlo.", Ink.Dim2, 12.sp)
+    Spacer(Modifier.height(8.dp))
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for ((label, tone) in listOf(
+            "Buenos días" to "notif_morning", "Eventos" to "notif_event", "Tareas" to "notif_task", "Rachas" to "notif_streak",
+            "Pagos" to "notif_money", "Pantalla" to "notif_screen", "Enfoque" to "notif_focus", "Buenas noches" to "notif_night",
+        )) {
+            Pill(label, false, Icons.Rounded.MusicNote) { mx.loperstack.mochi.mochi.Sounds.play(tone, 1f) }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        "Cambiar tonos en Android", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+        modifier = Modifier.clip(Squircle(14.dp)).clickable {
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        }.padding(horizontal = 10.dp, vertical = 8.dp),
+    )
 }

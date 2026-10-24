@@ -147,3 +147,20 @@ save("gb_on", at([(0, square(523.3, 0.08, 0.125, d=0.06)), (0.09, square(784.0, 
 save("gb_level", at([(i * 0.07, square(f, 0.07, 0.25, d=0.05)) for i, f in enumerate([659.3, 784.0, 988.0, 1318.5])] + [(0.28, square(1568.0, 0.3, 0.5, d=0.12))], 0.65), 0.26)
 save("gb_warn", at([(0, square(784.0, 0.1, 0.5, d=0.08)), (0.12, square(587.3, 0.1, 0.5, d=0.08)), (0.24, square(392.0, 0.3, 0.5, d=0.12, slide=330.0))], 0.6), 0.26)
 print("ok++")
+
+# ── Notification tones, one per kind (a bit longer and clearer than the taps) ──
+C7, E7, G7 = 2093.0, 2637.0, 3136.0
+save("notif_morning", at([(0, kalimba(1046.5, 1.2)), (0.13, kalimba(1318.5, 1.2)), (0.26, kalimba(1568.0, 1.3)), (0.42, musicbox(C7, 1.0) * 0.5)], 1.6), 0.6)
+save("notif_event", at([(0, musicbox(1760.0, 1.2)), (0.22, musicbox(1318.5, 1.3)), (0.7, musicbox(1760.0, 0.9) * 0.45), (0.9, musicbox(1318.5, 0.9) * 0.45)], 1.9), 0.6)
+save("notif_task", at([(0, tone(900, 1800, 0.08, "tri", d=0.04)), (0.07, musicbox(1568.0, 0.8)), (0.15, musicbox(C7, 0.9) * 0.7)], 1.1), 0.58)
+save("notif_streak", at([(i * 0.07, musicbox(f, 0.7) * (0.9 - i * 0.1)) for i, f in enumerate([1318.5, 1568.0, C7, E7])] + [(0.3, tone(1800, 3200, 0.12, "sine", d=0.05) * 0.4)], 1.1), 0.55)
+save("notif_money", at([(0, square(988.0, 0.08, 0.5, d=0.06)), (0.08, square(1318.5, 0.25, 0.5, d=0.1)), (0.34, square(1568.0, 0.07, 0.5, d=0.05)),
+                        (0.41, square(2093.0, 0.35, 0.5, d=0.14)), (0.42, musicbox(2637.0, 0.6) * 0.5)], 1.0), 0.36)
+save("notif_screen", at([(i * 0.09, square(f, 0.09, 0.25, d=0.07)) for i, f in enumerate([1046.5, 784.0, 1046.5, 1318.5])] + [(0.38, square(1046.5, 0.4, 0.125, d=0.15))], 0.9), 0.32)
+save("notif_focus", at([(0, kalimba(1318.5)), (0.16, kalimba(1318.5)), (0.32, kalimba(1318.5)), (0.5, kalimba(1760.0, 1.1))], 1.6), 0.6)
+save("notif_night", at([(0, musicbox(1568.0, 1.3)), (0.32, musicbox(1318.5, 1.3)), (0.64, musicbox(1046.5, 1.6))], 2.2), 0.45)
+# Level up: a music-box arpeggio, an 8-bit sparkle on top, and a puff of confetti.
+save("level_up", at([(i * 0.1, musicbox(f, 1.1)) for i, f in enumerate([1046.5, 1318.5, 1568.0, C7])]
+                    + [(0.42, square(E7 / 2, 0.06, 0.25, d=0.04) * 0.5), (0.48, square(G7 / 2, 0.06, 0.25, d=0.04) * 0.5), (0.54, square(C7, 0.3, 0.25, d=0.12) * 0.5),
+                       (0.4, noise(0.12, d=0.04) * 0.5), (0.44, kalimba(E7, 1.0) * 0.6)], 1.7), 0.6)
+print("ok+++")

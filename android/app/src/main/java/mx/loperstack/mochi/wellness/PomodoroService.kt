@@ -23,8 +23,8 @@ private val NO_ICON: android.graphics.drawable.Icon? = null
 
 object PomodoroScheduler {
     private const val CHANNEL_RUNNING = "pomodoro_running"
-    // v2: with Mochi's own "finish" sound.
-    private const val CHANNEL_DONE = "pomodoro_done_v2"
+    // v3: with Tokkip's own kalimba tone.
+    private const val CHANNEL_DONE = "pomodoro_done_v3"
     private const val ID_RUNNING = 1
     private const val ID_DONE = 2
 
@@ -42,13 +42,14 @@ object PomodoroScheduler {
             },
         )
         nm.deleteNotificationChannel("pomodoro_done")
+        nm.deleteNotificationChannel("pomodoro_done_v2")
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_DONE, "Fin de bloque", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Cuando termina un bloque de enfoque o un descanso"
                 enableVibration(true)
                 lightColor = Color.parseColor("#A78BFA")
                 setSound(
-                    Uri.parse("android.resource://${context.packageName}/${mx.loperstack.mochi.shared.R.raw.finish}"),
+                    Uri.parse("android.resource://${context.packageName}/${mx.loperstack.mochi.shared.R.raw.notif_focus}"),
                     AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build(),
                 )
             },

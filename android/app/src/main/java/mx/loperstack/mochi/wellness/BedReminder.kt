@@ -20,7 +20,8 @@ import mx.loperstack.mochi.data.hhmm
 import java.util.Calendar
 
 object BedReminder {
-    private const val CHANNEL = "bedtime"
+    // v2: with Tokkip's music-box tone.
+    private const val CHANNEL = "bedtime_v2"
     private const val ID = 31
 
     private fun pending(context: Context) = PendingIntent.getBroadcast(
@@ -56,7 +57,10 @@ object BedReminder {
     fun ring(context: Context) {
         Store.init(context)
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Hora de dormir", NotificationManager.IMPORTANCE_DEFAULT))
+        runCatching { nm.deleteNotificationChannel("bedtime") }
+        nm.createNotificationChannel(
+            MochiNotifier.channel(context, CHANNEL, "Hora de dormir", "Media hora antes de tu hora de dormir", NotificationManager.IMPORTANCE_DEFAULT, mx.loperstack.mochi.shared.R.raw.notif_night),
+        )
         val tip = dailyTip(System.currentTimeMillis())
         val open = PendingIntent.getActivity(
             context, 32,

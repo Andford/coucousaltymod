@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -86,8 +87,11 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
     var calIndex by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf("") }
     val cal: WritableCalendar? = calendars.getOrNull(calIndex)
+    // Its colour: the calendar's palette (Google's own names), or the calendar's colour.
+    val palette = remember(cal?.id) { cal?.let { CalendarWrite.colors(context, it.id) } ?: emptyList() }
+    var color by remember { mutableStateOf<mx.loperstack.mochi.data.EventColor?>(null) }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
         Text("Nuevo evento", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
@@ -137,10 +141,14 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
             }
         }
         Spacer(Modifier.height(14.dp))
+        Label("Color" + (color?.let { " · ${it.name}" } ?: " · el del calendario"), Ink.Dim2, 12.sp, FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        EventColorRow(palette, color?.color) { color = it }
+        Spacer(Modifier.height(14.dp))
         if (cal != null) {
             Row(
                 Modifier.fillMaxWidth().clip(Squircle(16.dp)).background(Ink.Card)
-                    .clickable(enabled = calendars.size > 1) { calIndex = (calIndex + 1) % calendars.size }.padding(14.dp),
+                    .clickable(enabled = calendars.size > 1) { calIndex = (calIndex + 1) % calendars.size; color = null }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(cal.color?.let { Color(it) } ?: Ink.Violet))
@@ -161,7 +169,7 @@ fun NewEventSheet(actions: Actions, onSaved: () -> Unit) {
         PrimaryButton("Guardar en el calendario", Modifier.fillMaxWidth(), Ink.VioletSoft, Ink.OnViolet) {
             val c = cal ?: return@PrimaryButton
             if (title.isBlank()) { error = "Ponle un nombre."; return@PrimaryButton }
-            val id = CalendarWrite.insert(context, c.id, title, begin, begin + minutes * 60_000L, allDay, reminder)
+            val id = CalendarWrite.insert(context, c.id, title, begin, begin + minutes * 60_000L, allDay, reminder, color)
             if (id == null) {
                 error = "El calendario no aceptó el evento."
             } else {

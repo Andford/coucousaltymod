@@ -113,6 +113,7 @@ import kotlinx.coroutines.delay
 import mx.loperstack.mochi.data.Agenda
 import mx.loperstack.mochi.data.CalEvent
 import mx.loperstack.mochi.data.Store
+import mx.loperstack.mochi.data.NowPlaying
 import mx.loperstack.mochi.data.breathing
 import mx.loperstack.mochi.data.TaskSync
 import mx.loperstack.mochi.data.WearSync
@@ -159,7 +160,7 @@ import java.util.Date
 import java.util.Locale
 
 enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    HOME("Inicio", Icons.Rounded.Home), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
+    HOME("Inicio", Icons.Rounded.Home), AGENDA("Agenda", Icons.Rounded.CalendarMonth), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
     STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories), MONEY("Dinero", Icons.Rounded.Savings),
     SLEEP("Sueño", Icons.Rounded.Bedtime), PET("Mimos", Icons.Rounded.Favorite),
 }
@@ -175,7 +176,7 @@ private val NAV_ITEMS = listOf(
 
 /** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
 enum class Group(val label: String, val tabs: List<Tab>) {
-    HOME("Inicio", listOf(Tab.HOME)),
+    HOME("Inicio", listOf(Tab.HOME, Tab.AGENDA)),
     TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
     DIARY("Diario", listOf(Tab.DIARY, Tab.MONEY)),
     CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
@@ -446,7 +447,8 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
             ) { pad ->
               Column(Modifier.padding(pad).fillMaxSize()) {
                 val group = Group.of(tab)
-                if (group.tabs.size > 1) {
+                // Inicio keeps its own top; the pills show from Agenda, to go back.
+                if (group.tabs.size > 1 && tab != Tab.HOME) {
                     SubTabs(group.tabs, tab) { Haptics.tick(context); tab = it }
                 }
                 AnimatedContent(
@@ -464,7 +466,8 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
-                            goMoney = { tab = Tab.MONEY },
+                            goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA },
+                            agendaChanged = { agendaKey++ },
                             newEvent = newEvent,
                         )
                         Tab.TASKS -> TasksScreen(data.tasks, actions)
@@ -474,6 +477,10 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                         Tab.SLEEP -> SleepScreen(data, color, actions)
                         Tab.PET -> PetScreen(color, actions)
                         Tab.STREAKS -> StreaksScreen(data.habits, color, actions)
+                        Tab.AGENDA -> AgendaScreen(
+                            calendarOk, askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) }, actions,
+                            newEvent = newEvent, reloadKey = agendaKey,
+                        )
                         Tab.MONEY -> MoneyScreen(data, color, actions, moneyAdd)
                     }
                 }
@@ -573,15 +580,16 @@ fun NewTaskField(actions: Actions, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
+fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions, onClick: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().clip(Squircle(14.dp))
             .background(if (highlight) Ink.Violet.copy(alpha = 0.14f) else Color.Transparent)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .heightIn(min = 52.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(e.color?.let { Color(it) } ?: Ink.Violet))
+        Box(Modifier.size(10.dp).clip(CircleShape).background(e.color?.let { Color(it) } ?: Ink.Violet))
         val started = !e.allDay && e.begin <= now
         Text(
             if (e.allDay) "Todo el día" else if (started) "Ahora" else hourMinute(e.begin),
@@ -600,7 +608,7 @@ fun EventRow(e: CalEvent, highlight: Boolean, now: Long, actions: Actions) {
 }
 
 @Composable
-fun AgendaList(events: List<CalEvent>, now: Long, actions: Actions, max: Int = 20) {
+fun AgendaList(events: List<CalEvent>, now: Long, actions: Actions, max: Int = 20, open: ((CalEvent) -> Unit)? = null) {
     val list = upcoming(events, now).take(max)
     val next = nextEvent(events, now)
     var tomorrowShown = false
@@ -610,7 +618,7 @@ fun AgendaList(events: List<CalEvent>, now: Long, actions: Actions, max: Int = 2
             tomorrowShown = true
             Text("MAÑANA", color = Ink.Dim2, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 4.dp))
         }
-        EventRow(e, e == next, now, actions)
+        EventRow(e, e == next, now, actions, open?.let { o -> { o(e) } })
     }
 }
 
@@ -626,12 +634,15 @@ fun untilText(e: CalEvent, now: Long): String {
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     tasks: List<Task>, pomodoro: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
     goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {}, goMoney: () -> Unit = {},
+    goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {},
 ) {
+    var openEvent by remember { mutableStateOf<CalEvent?>(null) }
     val next = nextEvent(events, now)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 6.dp), verticalAlignment = Alignment.Top) {
@@ -698,17 +709,32 @@ fun HomeScreen(
             }
           }
         }
+        // What's playing, with its controls, when something is.
+        val track = rememberNowPlaying()
+        if (track != null && NowPlaying.granted(LocalContext.current)) {
+            Spacer(Modifier.height(12.dp))
+            NowPlayingCard(track)
+        }
         Spacer(Modifier.height(12.dp))
         GrowthCard(now)
         MoneyHomeCard(now, goMoney)
         if (calendarOk) {
             Spacer(Modifier.height(20.dp))
             Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Agenda", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Row(Modifier.weight(1f).clip(Squircle(12.dp)).clickable(onClick = goAgenda), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Agenda", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                    Icon(Icons.Rounded.ChevronRight, contentDescription = "Ver la agenda", tint = Ink.Dim)
+                }
                 Pill("Evento", true, Icons.Rounded.Add, onClick = newEvent)
             }
             Spacer(Modifier.height(8.dp))
-            Panel(Modifier.fillMaxWidth(), padding = 8.dp) { AgendaList(events, now, actions, max = 5) }
+            Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
+                AgendaList(events, now, actions, max = 5) { openEvent = it }
+                Text(
+                    "Ver toda la agenda", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    modifier = Modifier.clip(Squircle(12.dp)).clickable(onClick = goAgenda).padding(horizontal = 12.dp, vertical = 10.dp),
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -726,6 +752,12 @@ fun HomeScreen(
             NewTaskField(actions, Modifier.padding(6.dp))
         }
         Spacer(Modifier.height(20.dp))
+    }
+    openEvent?.let { e ->
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { openEvent = null; agendaChanged() }, containerColor = Ink.CardHigh,
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { EventSheet(e, actions) { changed -> openEvent = null; if (changed) agendaChanged() } }
     }
 }
 

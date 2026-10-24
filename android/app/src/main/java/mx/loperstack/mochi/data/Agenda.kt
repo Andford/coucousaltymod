@@ -1,4 +1,5 @@
-// Today's and tomorrow's events from the calendars synced on this device —
+// Events from the calendars synced on this device (today's and tomorrow's for
+// Inicio, any range for the Agenda screen) —
 // Google Calendar included — through Android's own calendar provider. No sign-in:
 // the phone already has your account; it only needs READ_CALENDAR.
 
@@ -17,6 +18,8 @@ data class CalEvent(
     val allDay: Boolean,
     val color: Int?,
     val meetUrl: String?,
+    val calendarId: Long = 0,
+    val location: String? = null,
 )
 
 private val MEET = Regex("""https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}""")
@@ -47,8 +50,14 @@ fun isTomorrow(e: CalEvent, now: Long): Boolean {
 }
 
 object Agenda {
+    /** Today's and tomorrow's events. */
     fun load(context: Context, now: Long = System.currentTimeMillis()): List<CalEvent> {
         val (start, end) = agendaWindow(now)
+        return load(context, start, end)
+    }
+
+    /** Every event between `start` and `end` (the Agenda screen: a month, the next weeks). */
+    fun load(context: Context, start: Long, end: Long): List<CalEvent> {
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
             ContentUris.appendId(it, start)
             ContentUris.appendId(it, end)
@@ -64,6 +73,7 @@ object Agenda {
             CalendarContract.Instances.EVENT_LOCATION,
             CalendarContract.Instances.DESCRIPTION,
             CalendarContract.Instances.VISIBLE,
+            CalendarContract.Instances.CALENDAR_ID,
         )
         val out = mutableListOf<CalEvent>()
         try {
@@ -88,6 +98,8 @@ object Agenda {
                         allDay = allDay,
                         color = if (c.isNull(5)) null else c.getInt(5),
                         meetUrl = findMeet(c.getString(7), c.getString(8)),
+                        calendarId = c.getLong(10),
+                        location = c.getString(7)?.takeIf { it.isNotBlank() },
                     )
                 }
             }

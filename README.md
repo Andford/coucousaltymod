@@ -39,7 +39,13 @@ octubre, gorro navideño en diciembre.
 
 ### En tu teléfono (Pixel, Android 12+)
 
-- **Inicio**: Tokkip, tu día de un vistazo, lo que suena y tus pendientes.
+- **Inicio**: Tokkip, tu día de un vistazo, un mini reproductor de lo que suena
+  (anterior, pausa, siguiente) y tus pendientes.
+- **Agenda**: tus eventos como lista (las próximas cinco semanas) o como mes con
+  puntitos de color; toca un día para verlo. Cada evento se abre para unirte a
+  su Meet, abrirlo en Calendar o cambiarle el color con la paleta de Google
+  Calendar (se sincroniza a la web y la PC). Los eventos nuevos también eligen
+  color.
 - **Tokkip crece contigo**: cada vez que te cuidas (rachas, diario, ánimo,
   respirar, dormir) le das cariño. Pasa por seis etapas, de *Recién llegado* a
   *Leyenda*, y después el ciclo sigue dando vueltas (★1, ★2…). Se calcula con tu

@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
         "breathe" -> Tab.BREATHE
         "tasks" -> Tab.TASKS
         "diary" -> Tab.DIARY
+        "agenda" -> Tab.AGENDA
         "sleep" -> Tab.SLEEP
         "streaks" -> Tab.STREAKS
         "money" -> Tab.MONEY

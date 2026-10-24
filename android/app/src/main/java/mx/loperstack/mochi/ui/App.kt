@@ -160,7 +160,7 @@ import java.util.Locale
 
 enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     HOME("Inicio", Icons.Rounded.Home), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
-    STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories),
+    STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories), MONEY("Dinero", Icons.Rounded.Savings),
     SLEEP("Sueño", Icons.Rounded.Bedtime), PET("Mimos", Icons.Rounded.Favorite),
 }
 
@@ -177,7 +177,7 @@ private val NAV_ITEMS = listOf(
 enum class Group(val label: String, val tabs: List<Tab>) {
     HOME("Inicio", listOf(Tab.HOME)),
     TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
-    DIARY("Diario", listOf(Tab.DIARY)),
+    DIARY("Diario", listOf(Tab.DIARY, Tab.MONEY)),
     CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP)),
     PET("Tokkip", listOf(Tab.PET));
 
@@ -462,6 +462,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
+                            goMoney = { tab = Tab.MONEY },
                             newEvent = newEvent,
                         )
                         Tab.TASKS -> TasksScreen(data.tasks, actions)
@@ -471,6 +472,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                         Tab.SLEEP -> SleepScreen(data, color, actions)
                         Tab.PET -> PetScreen(color, actions)
                         Tab.STREAKS -> StreaksScreen(data.habits, color, actions)
+                        Tab.MONEY -> MoneyScreen(data, color, actions)
                     }
                 }
               }
@@ -626,7 +628,7 @@ fun untilText(e: CalEvent, now: Long): String {
 fun HomeScreen(
     tasks: List<Task>, pomodoro: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
-    goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {},
+    goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {}, goMoney: () -> Unit = {},
 ) {
     val next = nextEvent(events, now)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -696,6 +698,7 @@ fun HomeScreen(
         }
         Spacer(Modifier.height(12.dp))
         GrowthCard(now)
+        MoneyHomeCard(now, goMoney)
         if (calendarOk) {
             Spacer(Modifier.height(20.dp))
             Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {

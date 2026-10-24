@@ -1,6 +1,6 @@
 // Tokkip grows with you: every day you look after yourself gives him cariño
 // (care points) — ticking a streak, writing in the diary, logging your mood,
-// breathing, sleeping what you meant to. Enough cariño and he reaches the next
+// breathing, sleeping what you meant to, keeping track of your money. Enough cariño and he reaches the next
 // stage; past the last one the cycle goes round again (Leyenda ★1, ★2…).
 //
 // Nothing is stored: the points are worked out from your own history every
@@ -23,6 +23,9 @@ data class Routine(
     val breaths: List<Long> = emptyList(),
     val nights: List<Night> = emptyList(),
     val sleepGoalMin: Int = 8 * 60,
+    /** Dinero: what you spent and earned, and your budget (data/Money.kt). */
+    val money: List<MoneyEntry> = emptyList(),
+    val budget: Budget = Budget(),
 )
 
 data class Stage(val level: Int, val name: String, val from: Int, val blurb: String)
@@ -41,7 +44,7 @@ const val LOOP = 600
 
 /** The kinds of care, in the order they're shown, with their daily ceiling. */
 enum class Care(val label: String, val cap: Int) {
-    RACHAS("Rachas", 9), DIARIO("Diario", 7), ANIMO("Ánimo", 2), RESPIRAR("Respirar", 6), SUENO("Sueño", 3),
+    RACHAS("Rachas", 9), DIARIO("Diario", 7), ANIMO("Ánimo", 2), RESPIRAR("Respirar", 6), SUENO("Sueño", 3), FINANZAS("Finanzas", 2),
 }
 
 data class Growth(
@@ -88,6 +91,7 @@ fun carePerDay(r: Routine, today: String): Map<String, Map<Care, Int>> {
         add(n.day, Care.SUENO, 1)
         if (n.minutes >= r.sleepGoalMin - 30) add(n.day, Care.SUENO, 2)
     }
+    for (m in r.money) add(dayKey(m.at), Care.FINANZAS, 2)
     return raw.mapValues { (_, m) -> m.mapValues { (c, v) -> minOf(v, c.cap) } }
 }
 

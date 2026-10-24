@@ -23,7 +23,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -107,6 +111,11 @@ fun noteIcon(key: String): ImageVector = when (key) {
     "music" -> Icons.Rounded.MusicNote
     "star" -> Icons.Rounded.Star
     "calendar" -> Icons.Rounded.CalendarMonth
+    "wallet" -> Icons.Rounded.AccountBalanceWallet
+    "piggy" -> Icons.Rounded.Savings
+    "trend" -> Icons.Rounded.TrendingUp
+    "party" -> Icons.Rounded.Celebration
+    "coffee" -> Icons.Rounded.LocalCafe
     else -> Icons.Rounded.AutoAwesome
 }
 
@@ -116,6 +125,7 @@ private fun careIcon(c: Care): ImageVector = when (c) {
     Care.ANIMO -> Icons.Rounded.Favorite
     Care.RESPIRAR -> Icons.Rounded.Air
     Care.SUENO -> Icons.Rounded.Bedtime
+    Care.FINANZAS -> Icons.Rounded.Savings
 }
 
 private fun careHow(c: Care): String = when (c) {
@@ -124,6 +134,7 @@ private fun careHow(c: Care): String = when (c) {
     Care.ANIMO -> "+2 cuando registras cómo te sientes"
     Care.RESPIRAR -> "+3 por sesión (hasta 6 al día)"
     Care.SUENO -> "+1 al registrar tu noche, +2 si cumples tu meta"
+    Care.FINANZAS -> "+2 el día que anotas tus gastos o ingresos"
 }
 
 /** The growth and the note of the day, recomputed when your history changes (and each hour). */
@@ -131,7 +142,7 @@ private fun careHow(c: Care): String = when (c) {
 fun rememberGrowth(now: Long): Pair<Growth, TokkipNote> {
     val d by Store.state.collectAsState()
     val hour = now / 3_600_000
-    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, hour) {
+    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, hour) {
         val r = d.routine()
         growth(r, now) to noteOfTheDay(r, now)
     }
@@ -213,7 +224,7 @@ fun GrowthSheet(g: Growth, now: Long, close: () -> Unit) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
             ScreenTitle("Tu camino con Tokkip", size = 30.sp)
             Spacer(Modifier.height(4.dp))
-            Label("Crece con el cariño que te das: tus rachas, tu diario, tu ánimo, respirar y dormir. Todo se calcula aquí, en tu teléfono.", Ink.Dim2, 12.sp)
+            Label("Crece con el cariño que te das: tus rachas, tu diario, tu ánimo, respirar, dormir y cuidar tu dinero. Todo se calcula aquí, en tu teléfono.", Ink.Dim2, 12.sp)
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Mochi(
@@ -284,7 +295,7 @@ fun GrowthSheet(g: Growth, now: Long, close: () -> Unit) {
                 NoteRow(n)
                 Spacer(Modifier.height(14.dp))
             }
-            Label("Tokkip lo saca de tu diario, ánimo, rachas, sueño y respiraciones, aquí mismo. Nada sale de tu teléfono.", Ink.Dim2, 11.sp)
+            Label("Tokkip lo saca de tu diario, ánimo, rachas, sueño, respiraciones y gastos, aquí mismo. Nada sale de tu teléfono.", Ink.Dim2, 11.sp)
         }
     }
 }

@@ -71,6 +71,8 @@ data class AppData(
     /** Dinero: movements, oldest first, and your budget. */
     val money: List<MoneyEntry> = emptyList(),
     val budget: Budget = Budget(),
+    /** Dinero → Pagos y deudas. */
+    val debts: List<Debt> = emptyList(),
 )
 
 /** Mochi's notifications (Ajustes → Notificaciones). Times in minutes of the day. */
@@ -105,7 +107,7 @@ fun notifyOf(raw: String?): NotifySettings = runCatching {
 fun AppData.routine(): Routine = Routine(
     logs = logs, habits = habits, breaths = sessions.map { it.at },
     nights = sleep.map { Night(it.night, it.minutes, it.quality) }, sleepGoalMin = sleepGoal.minutes,
-    money = money, budget = budget,
+    money = money, budget = budget, debts = debts,
 )
 
 /** The rhythm you picked, for a session of `minutes`. */
@@ -180,7 +182,8 @@ object Store {
             ),
         )
         _state.value = _state.value.copy(habits = habitsOf(prefs.getString("habits", null)), notify = notifyOf(prefs.getString("notify", null)),
-            money = moneyOf(prefs.getString("money", null)), budget = budgetOf(prefs.getString("budget", null)))
+            money = moneyOf(prefs.getString("money", null)), budget = budgetOf(prefs.getString("budget", null)),
+            debts = debtsOf(prefs.getString("debts", null)))
         mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
         mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
@@ -318,6 +321,22 @@ object Store {
         _state.value = _state.value.copy(budget = b)
         prefs.edit().putString("budget", budgetJson(b)).apply()
         Widgets.refresh(app)
+    }
+
+    fun setDebts(list: List<Debt>) {
+        _state.value = _state.value.copy(debts = list)
+        prefs.edit().putString("debts", debtsJson(list)).apply()
+        Widgets.refresh(app)
+        mx.loperstack.mochi.wellness.MochiNotifier.sync(app)
+    }
+
+    /** Pays a debt's due date: marks it and records the expense. */
+    fun payDebt(id: String, due: String, now: Long = System.currentTimeMillis()) {
+        val d = _state.value.debts.firstOrNull { it.id == id } ?: return
+        if (due in d.paidDues) return
+        val (paid, entry) = d.pay(due, now, java.util.UUID.randomUUID().toString().take(12))
+        setMoney(_state.value.money + entry)
+        setDebts(_state.value.debts.map { if (it.id == id) paid else it })
     }
 
     fun setNotify(n: NotifySettings) {

@@ -58,6 +58,12 @@ octubre, gorro navideño en diciembre.
   rápido, si los fines de semana se te van, qué categoría creció, cuánto suman
   los gastos hormiga y si gastas más en tus días de bajón. Anotar tus finanzas
   también le da cariño a Tokkip.
+- **Pagos y deudas**: lo que pagas cada quincena o cada mes (tarjeta, préstamo,
+  renta…), en los días que elijas (o el último del mes), con cuánto te falta y
+  cuántos pagos quedan si la deuda tiene fin. Tokkip te avisa antes de la
+  fecha, el mismo día y mientras esté atrasado, con "Ya pagué" en la
+  notificación, que anota el gasto. Los pagos fijos cuentan en el mes, no en tu
+  presupuesto semanal.
 - **Kit para journaling**: tu diario como recortables para imprimir en hoja
   carta: cada día como tarjeta con cinta washi y fotos tipo polaroid, stickers
   de Tokkip en cada ánimo, sellos de tus rachas, tu mes en colores, etiquetas y

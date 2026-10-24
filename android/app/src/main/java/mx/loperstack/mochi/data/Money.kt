@@ -34,6 +34,7 @@ val EXPENSE_CATEGORIES = listOf(
     MoneyCategory("salud", "Salud", "health", 0xFFF87171),
     MoneyCategory("educacion", "Educación", "school", 0xFFFBBF24),
     MoneyCategory("regalos", "Regalos", "gift", 0xFFFB7185),
+    MoneyCategory(DEBT_CATEGORY, "Deudas y pagos fijos", "card", 0xFF64748B),
     MoneyCategory("otros", "Otros", "dots", 0xFFA5A9B1),
 )
 
@@ -180,7 +181,8 @@ fun weekSummary(list: List<MoneyEntry>, b: Budget, now: Long): WeekSummary {
     val start = weekStartOf(now, b)
     val end = weekEndOf(now, b)
     val week = list.filter { it.at in start until end }
-    val out = week.filter { it.kind == MoneyKind.GASTO }
+    // Fixed payments (Pagos y deudas) count in the month, not in the week's budget.
+    val out = week.filter { it.kind == MoneyKind.GASTO && it.category != DEBT_CATEGORY }
     val spent = out.sumOf { it.cents }
     val weekendSpent = out.filter { isWeekend(it.at, b) }.sumOf { it.cents }
     val weekdaySpent = spent - weekendSpent
@@ -254,7 +256,7 @@ fun recentWeeks(list: List<MoneyEntry>, b: Budget, now: Long, n: Int = 6): List<
     (n - 1 downTo 0).map { back ->
         val s = cal(weekStartOf(now, b)).apply { add(Calendar.DAY_OF_YEAR, -7 * back) }.timeInMillis
         val e = cal(s).apply { add(Calendar.DAY_OF_YEAR, 7) }.timeInMillis
-        s to list.filter { it.kind == MoneyKind.GASTO && it.at in s until e }.sumOf { it.cents }
+        s to list.filter { it.kind == MoneyKind.GASTO && it.category != DEBT_CATEGORY && it.at in s until e }.sumOf { it.cents }
     }
 
 // ── What Tokkip notices ───────────────────────────────────────────────────────
@@ -264,7 +266,7 @@ fun moneyNotes(list: List<MoneyEntry>, b: Budget, moods: Map<String, Int>, now: 
     if (list.isEmpty()) return emptyList()
     val out = ArrayList<TokkipNote>()
     val w = weekSummary(list, b, now)
-    val expenses = list.filter { it.kind == MoneyKind.GASTO }
+    val expenses = list.filter { it.kind == MoneyKind.GASTO && it.category != DEBT_CATEGORY }
 
     // The week's pace.
     if (w.hasBudget) {

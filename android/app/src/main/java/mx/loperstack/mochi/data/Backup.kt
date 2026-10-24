@@ -26,6 +26,7 @@ data class BackupSummary(
     val nights: Int = 0,
     val photos: Int = 0,
     val money: Int = 0,
+    val debts: Int = 0,
     /** An old copy from the Diario screen: only the diary, joined to what's here. */
     val diaryOnly: Boolean = false,
 ) {
@@ -34,7 +35,7 @@ data class BackupSummary(
         if (diaryOnly) return "solo el diario: " + n(days, "día", "días") + " (copia antigua, sin rachas)"
         return listOf(
             n(habits, "racha", "rachas"), n(days, "día de diario", "días de diario"),
-            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(money, "movimiento", "movimientos"), n(photos, "foto", "fotos"),
+            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(money, "movimiento", "movimientos"), n(debts, "pago fijo", "pagos fijos"), n(photos, "foto", "fotos"),
         ).joinToString(" · ")
     }
 }
@@ -51,6 +52,7 @@ object Backup {
         nights = sleepOf(prefs["sleep"] as? String).size,
         photos = photos,
         money = moneyOf(prefs["money"] as? String).size,
+        debts = debtsOf(prefs["debts"] as? String).size,
     )
 
     /** Everything to `out`; what went in, or null if it failed. */

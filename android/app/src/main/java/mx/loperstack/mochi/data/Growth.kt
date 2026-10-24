@@ -26,6 +26,7 @@ data class Routine(
     /** Dinero: what you spent and earned, and your budget (data/Money.kt). */
     val money: List<MoneyEntry> = emptyList(),
     val budget: Budget = Budget(),
+    val debts: List<Debt> = emptyList(),
 )
 
 data class Stage(val level: Int, val name: String, val from: Int, val blurb: String)

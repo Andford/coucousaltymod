@@ -140,7 +140,12 @@
             android:name=".wellness.PomodoroReceiver"
             android:exported="false" />
 
-        <!-- Buenos días, eventos, tareas, buenas noches y rachas (wellness/MochiNotifier.kt). -->
+        <!-- "Ya pagué" on a payment's notification (wellness/MochiNotifier.kt). -->
+        <receiver
+            android:name=".wellness.DebtPaidReceiver"
+            android:exported="false" />
+
+        <!-- Buenos días, eventos, tareas, buenas noches, rachas y pagos (wellness/MochiNotifier.kt). -->
         <receiver
             android:name=".wellness.MochiAlarmReceiver"
             android:exported="true">

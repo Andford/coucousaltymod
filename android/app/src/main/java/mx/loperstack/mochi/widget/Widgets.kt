@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.LocalFireDepartment
@@ -86,6 +87,7 @@ import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.data.addMood
 import mx.loperstack.mochi.data.averageMood
 import mx.loperstack.mochi.data.routine
+import mx.loperstack.mochi.data.nextDue
 import mx.loperstack.mochi.data.dayKey
 import mx.loperstack.mochi.data.doneOn
 import mx.loperstack.mochi.data.hhmm
@@ -743,11 +745,16 @@ class CompanionWidget : GlanceAppWidget() {
             add(if (total == 0) "un paso a la vez" else if (allDone) "¡todo listo!" else "faltan $left")
         }.joinToString(" · ")
 
+        // A payment due today or tomorrow (or late), from Dinero → Pagos y deudas.
+        val payDue = d.debts.mapNotNull { debt -> debt.nextDue(now)?.let { debt to it } }
+            .filter { mx.loperstack.mochi.data.daysUntil(it.second, now) <= 1 }.minByOrNull { it.second }
+
         // The line that matters most right now.
         val headline: Pair<String, Int?> = when {
             focusing -> PomodoroScheduler.phaseTitle(p.phase) to null
             next != null && next.begin - now < 12 * 3_600_000L ->
                 "${next.title} · ${SimpleDateFormat("h:mm a", es).format(Date(next.begin))}" to (next.color ?: 0xFF3D8BD9.toInt())
+            payDue != null -> "Pago de ${payDue.first.name} · ${mx.loperstack.mochi.data.dueText(payDue.second, now).lowercase(es)}" to payDue.first.color.toInt()
             hour >= 20 -> "¿Qué fue lo mejor de tu día?" to null
             allDone -> "Tokkip está orgulloso de ti" to null
             else -> "Un paso a la vez" to null
@@ -1056,6 +1063,14 @@ class MoneyWidget : GlanceAppWidget() {
         ).maxByOrNull { it.weight }
         val noteIcon = note?.let { ImageProvider(iconBitmap(mx.loperstack.mochi.ui.noteIcon(it.icon), colors.primary)) }
         val pct = if (w.hasBudget) "${(w.used * 100).toInt()}%" else "—"
+        // The next payment due in a week (or late), from Pagos y deudas.
+        val nextPay = d.debts.mapNotNull { debt -> debt.nextDue(now)?.let { debt to it } }
+            .filter { mx.loperstack.mochi.data.daysUntil(it.second, now) <= 7 }.minByOrNull { it.second }
+        val payText = nextPay?.let { (debt, due) ->
+            "${mx.loperstack.mochi.data.dueText(due, now)}: ${debt.name} · ${mx.loperstack.mochi.data.money(debt.payment)}"
+        }
+        val payLate = nextPay?.let { mx.loperstack.mochi.data.daysUntil(it.second, now) < 0 } == true
+        val cardIcon = ImageProvider(iconBitmap(Icons.Rounded.CreditCard, if (payLate) 0xFFE5484D.toInt() else colors.primary))
         val m: (Long, Boolean) -> String = { c, s -> mx.loperstack.mochi.data.money(c, s) }
 
         provideContent {
@@ -1109,6 +1124,14 @@ class MoneyWidget : GlanceAppWidget() {
                         if (w.budget.weekend > 0) {
                             Spacer(GlanceModifier.height(7.dp))
                             Split("Fin de semana", w.weekendSpent, w.budget.weekend, weekendBar)
+                        }
+                    }
+                    if (payText != null && size.height >= 200.dp) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        Row(GlanceModifier.fillMaxWidth().clickable(openMoney(context, null)), verticalAlignment = Alignment.CenterVertically) {
+                            Image(cardIcon, contentDescription = null, modifier = GlanceModifier.size(16.dp))
+                            Spacer(GlanceModifier.width(6.dp))
+                            Text(payText, style = TextStyle(color = White, fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                         }
                     }
                     if (note != null && noteIcon != null && size.height >= 250.dp) {

@@ -1,7 +1,8 @@
 // Mochi's notifications, each with its own illustrated card: a good morning
 // (a resilient phrase, or one that knows how you slept), your events a few
 // minutes before, a gentle nudge for pending tasks, a night invitation to
-// write in the diary, and your streaks' reminders. All in Ajustes →
+// write in the diary, your streaks' reminders, and your payments (Dinero →
+// Pagos y deudas) before the date, with "Ya pagué" right there. All in Ajustes →
 // Notificaciones. Alarms are exact and re-planned each time one rings and
 // whenever the app opens.
 
@@ -41,6 +42,10 @@ import mx.loperstack.mochi.data.nudge
 import mx.loperstack.mochi.data.scheduledOn
 import mx.loperstack.mochi.data.upcoming
 import mx.loperstack.mochi.data.routine
+import mx.loperstack.mochi.data.dueToRemind
+import mx.loperstack.mochi.data.nextDue
+import mx.loperstack.mochi.data.nextReminder
+import mx.loperstack.mochi.data.paymentsLeft
 import mx.loperstack.mochi.mochi.MochiEngine
 import mx.loperstack.mochi.mochi.Mood
 import mx.loperstack.mochi.mochi.Rest
@@ -100,6 +105,8 @@ object MochiNotifier {
     const val EXTRA_TITLE = "title"
     const val EXTRA_AT = "at"
     const val EXTRA_MEET = "meet"
+    const val EXTRA_DUE = "due"
+    const val EXTRA_NOTIFICATION = "notification"
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -155,6 +162,12 @@ object MochiNotifier {
                         putExtra(EXTRA_TITLE, e.title); putExtra(EXTRA_AT, e.begin); putExtra(EXTRA_MEET, e.meetUrl)
                     }
                 }
+            }
+            // Pagos y deudas: before the date, on the day, and while it's late.
+            for (i in 0 until 40) {
+                val debt = d.debts.getOrNull(i)
+                val at = debt?.nextReminder(now)
+                if (debt != null && at != null) alarm(context, 9500 + i, at, "debt") { putExtra(EXTRA_ID, debt.id) } else cancel(context, 9500 + i, "debt")
             }
             // Habits with a time.
             for ((i, h) in d.habits.withIndex()) {
@@ -243,6 +256,35 @@ object MochiNotifier {
                     action = meet?.let { "Unirse" to PendingIntent.getActivity(context, 7, Intent(Intent.ACTION_VIEW, Uri.parse(it)), PendingIntent.FLAG_IMMUTABLE) },
                 )
             }
+            "debt" -> {
+                val debt = d.debts.firstOrNull { it.id == intent.getStringExtra(EXTRA_ID) }
+                    ?: if (preview) mx.loperstack.mochi.data.Debt("ejemplo", "Tarjeta", 1_500_00, createdAt = now, day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH) + 1) else null
+                val due = debt?.let { if (preview) it.nextDue(now) else it.dueToRemind(now) }
+                if (debt != null && due != null) {
+                    val days = mx.loperstack.mochi.data.daysUntil(due, now)
+                    val amount = mx.loperstack.mochi.data.money(debt.payment)
+                    val dateText = SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "MX")).format(Date(mx.loperstack.mochi.data.dayStart(due)))
+                    val text = when {
+                        days < 0 -> "Se pasó la fecha de «${debt.name}» ($dateText): $amount."
+                        days == 0 -> "Hoy toca pagar «${debt.name}»: $amount."
+                        days == 1 -> "Mañana toca pagar «${debt.name}»: $amount."
+                        else -> "El $dateText toca pagar «${debt.name}»: $amount."
+                    }
+                    val left = debt.paymentsLeft?.let { if (it == 1) "Es el último pago" else "Te faltan $it pagos" } ?: debt.every.label
+                    val code = 9700 + (debt.id.hashCode() and 0xFF)
+                    val paid = PendingIntent.getBroadcast(
+                        context, code,
+                        Intent(context, DebtPaidReceiver::class.java).setData(Uri.parse("mochi://debt/${debt.id}/$due"))
+                            .putExtra(EXTRA_ID, debt.id).putExtra(EXTRA_DUE, due).putExtra(EXTRA_NOTIFICATION, code),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    post(
+                        context, code, CH_REMIND, title = "Pago: ${debt.name}", text = text, sub = left,
+                        theme = Theme.MONEY, face = if (days < 0) MochiEngine.Eye.TIRED else MochiEngine.Eye.DOT,
+                        open = openApp(context, "money"), action = if (preview) null else "Ya pagué" to paid,
+                    )
+                }
+            }
             "habit" -> {
                 val h: Habit? = d.habits.firstOrNull { it.id == intent.getStringExtra(EXTRA_ID) }
                 if (h == null && preview) {
@@ -279,6 +321,7 @@ object MochiNotifier {
         EVENT(0xFFBFDBFE.toInt(), 0xFFC4B5FD.toInt(), 0xFF6366F1.toInt()),
         NIGHT(0xFF1E1B4B.toInt(), 0xFF4C1D95.toInt(), 0xFFA78BFA.toInt()),
         STREAK(0xFFFED7AA.toInt(), 0xFFFBCFE8.toInt(), 0xFFEA580C.toInt()),
+        MONEY(0xFFBBF7D0.toInt(), 0xFFBAE6FD.toInt(), 0xFF059669.toInt()),
     }
 
     /** The card shown when the notification opens up: a soft gradient, Mochi and the words. */
@@ -350,6 +393,7 @@ object MochiNotifier {
         when (kind) {
             "event" -> i.putExtra(EXTRA_TITLE, "Ejemplo: reunión de equipo").putExtra(EXTRA_AT, System.currentTimeMillis() + Store.state.value.notify.eventLead * 60_000L)
             "habit" -> Store.state.value.habits.firstOrNull()?.let { i.putExtra(EXTRA_ID, it.id) }
+            "debt" -> Store.state.value.debts.firstOrNull()?.let { i.putExtra(EXTRA_ID, it.id) }
         }
         ring(context, i, preview = true)
     }
@@ -359,5 +403,18 @@ class MochiAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) { MochiNotifier.sync(context); BedReminder.sync(context); return }
         MochiNotifier.ring(context, intent)
+    }
+}
+
+/** "Ya pagué" on a payment's notification: marks it paid and records the expense. */
+class DebtPaidReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        Store.init(context)
+        val id = intent.getStringExtra(MochiNotifier.EXTRA_ID) ?: return
+        val due = intent.getStringExtra(MochiNotifier.EXTRA_DUE) ?: return
+        Store.payDebt(id, due)
+        val n = intent.getIntExtra(MochiNotifier.EXTRA_NOTIFICATION, 0)
+        if (n != 0) runCatching { context.getSystemService(NotificationManager::class.java).cancel(n) }
+        MochiNotifier.sync(context)
     }
 }

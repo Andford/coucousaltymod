@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.EditNote
@@ -116,6 +117,7 @@ fun noteIcon(key: String): ImageVector = when (key) {
     "trend" -> Icons.Rounded.TrendingUp
     "party" -> Icons.Rounded.Celebration
     "coffee" -> Icons.Rounded.LocalCafe
+    "card" -> Icons.Rounded.CreditCard
     else -> Icons.Rounded.AutoAwesome
 }
 
@@ -142,7 +144,7 @@ private fun careHow(c: Care): String = when (c) {
 fun rememberGrowth(now: Long): Pair<Growth, TokkipNote> {
     val d by Store.state.collectAsState()
     val hour = now / 3_600_000
-    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, hour) {
+    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, d.debts, hour) {
         val r = d.routine()
         growth(r, now) to noteOfTheDay(r, now)
     }

@@ -31,6 +31,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Celebration
@@ -106,6 +109,17 @@ import mx.loperstack.mochi.data.monthSummary
 import mx.loperstack.mochi.data.parseMoney
 import mx.loperstack.mochi.data.recentWeeks
 import mx.loperstack.mochi.data.weekSummary
+import mx.loperstack.mochi.data.Debt
+import mx.loperstack.mochi.data.DEBT_COLORS
+import mx.loperstack.mochi.data.PayEvery
+import mx.loperstack.mochi.data.daysUntil
+import mx.loperstack.mochi.data.dueText
+import mx.loperstack.mochi.data.finished
+import mx.loperstack.mochi.data.monthlyLoad
+import mx.loperstack.mochi.data.nextDue
+import mx.loperstack.mochi.data.paymentsLeft
+import mx.loperstack.mochi.data.remaining
+import mx.loperstack.mochi.data.unpay
 import mx.loperstack.mochi.mochi.Haptics
 import mx.loperstack.mochi.mochi.Mochi
 import mx.loperstack.mochi.mochi.Sounds
@@ -135,6 +149,7 @@ fun categoryIcon(key: String): ImageVector = when (key) {
     "work" -> Icons.Rounded.Work
     "store" -> Icons.Rounded.Storefront
     "spark" -> Icons.Rounded.AutoAwesome
+    "card" -> Icons.Rounded.CreditCard
     else -> Icons.Rounded.MoreHoriz
 }
 
@@ -169,6 +184,7 @@ fun MoneyScreen(data: AppData, color: Color, actions: Actions, addNow: Pair<Stri
         }
     }
     var budgeting by remember { mutableStateOf(false) }
+    var debtEditing by remember { mutableStateOf<Debt?>(null) }
     val w = remember(data.money, data.budget, now / 60_000) { weekSummary(data.money, data.budget, now) }
     val month = remember(data.money, now / 3_600_000) { monthSummary(data.money, now) }
     val weeks = remember(data.money, data.budget, now / 3_600_000) { recentWeeks(data.money, data.budget, now) }
@@ -190,6 +206,8 @@ fun MoneyScreen(data: AppData, color: Color, actions: Actions, addNow: Pair<Stri
                 Spacer(Modifier.height(14.dp))
                 if (data.money.isEmpty() && !w.hasBudget) EmptyMoney(color, start = { budgeting = true }, add = { editing = blankEntry(now) })
                 else WeekCard(w)
+                Spacer(Modifier.height(12.dp))
+                DebtsCard(data.debts, now) { debtEditing = it }
             }
             if (notes.isNotEmpty()) item {
                 Spacer(Modifier.height(12.dp))
@@ -243,6 +261,12 @@ fun MoneyScreen(data: AppData, color: Color, actions: Actions, addNow: Pair<Stri
             onDismissRequest = { editing = null }, containerColor = Ink.CardHigh,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) { EntryEditor(e, isNew = data.money.none { it.id == e.id }, actions) { editing = null } }
+    }
+    debtEditing?.let { d ->
+        ModalBottomSheet(
+            onDismissRequest = { debtEditing = null }, containerColor = Ink.CardHigh,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { DebtEditor(d, isNew = data.debts.none { it.id == d.id }) { debtEditing = null } }
     }
     if (budgeting) {
         ModalBottomSheet(
@@ -740,5 +764,181 @@ fun MoneyHomeCard(now: Long, open: () -> Unit) {
             }
             Icon(Icons.Rounded.ChevronRight, contentDescription = "Abrir Dinero", tint = Ink.Dim)
         }
+    }
+}
+
+// ── Pagos y deudas ────────────────────────────────────────────────────────────
+
+@Composable
+private fun DebtsCard(debts: List<Debt>, now: Long, edit: (Debt) -> Unit) {
+    val context = LocalContext.current
+    val running = debts.filter { !it.finished }.sortedBy { it.nextDue(now) ?: "9999" }
+    val done = debts.filter { it.finished }
+    Panel(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Pagos y deudas", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                if (running.isNotEmpty()) Label("${money(monthlyLoad(debts))} al mes en pagos fijos", Ink.Dim2, 12.sp)
+            }
+            Pill("Agregar", true, Icons.Rounded.Add) { edit(Debt(UUID.randomUUID().toString().take(12), "", 0, createdAt = System.currentTimeMillis(), color = DEBT_COLORS[debts.size % DEBT_COLORS.size])) }
+        }
+        if (debts.isEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Label("¿Pagas algo cada quincena o cada mes? Una tarjeta, un préstamo, la renta… Agrégalo y Tokkip te avisa antes de la fecha.", Ink.Dim2, 13.sp)
+        }
+        for (d in running) {
+            Spacer(Modifier.height(10.dp))
+            val due = d.nextDue(now)
+            val days = due?.let { daysUntil(it, now) }
+            val late = days != null && days < 0
+            Row(
+                Modifier.fillMaxWidth().clip(Squircle(16.dp)).background(Ink.CardHigh).clickable { edit(d) }.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(40.dp).clip(Squircle(14.dp)).background(Color(d.color).copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.CreditCard, null, tint = Color(d.color), modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(d.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    if (due != null) Text(
+                        "${dueText(due, now)} · ${SimpleDateFormat("EEE d MMM", MX).format(Date(mx.loperstack.mochi.data.dayStart(due)))} · ${money(d.payment)}",
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = when { late -> SPEND; days != null && days <= 2 -> Color(0xFFFBBF24); else -> Ink.Dim },
+                    )
+                    if (d.total > 0) {
+                        Spacer(Modifier.height(5.dp))
+                        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Ink.Track)) {
+                            Box(Modifier.fillMaxWidth((d.paid.toFloat() / d.total).coerceIn(0.02f, 1f)).height(6.dp).clip(CircleShape).background(Color(d.color)))
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Label("Faltan ${money(d.remaining)} · ${d.paymentsLeft} ${if (d.paymentsLeft == 1) "pago" else "pagos"}", Ink.Dim2, 11.sp)
+                    } else Label(d.every.label, Ink.Dim2, 11.sp)
+                }
+                if (due != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircleButton(Icons.Rounded.Check, "Ya pagué", size = 44.dp, container = if (late || (days ?: 9) <= 2) Ink.VioletSoft else Ink.Card, tint = if (late || (days ?: 9) <= 2) Ink.OnViolet else Ink.Text) {
+                            Store.payDebt(d.id, due)
+                            Sounds.play("approve")
+                            Haptics.success(context)
+                        }
+                        Text("Pagué", fontSize = 10.sp, color = Ink.Dim2)
+                    }
+                }
+            }
+        }
+        if (done.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Label("Terminadas: " + done.joinToString(" · ") { it.name }, EARN, 12.sp, FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DebtEditor(start: Debt, isNew: Boolean, close: () -> Unit) {
+    val context = LocalContext.current
+    var d by remember { mutableStateOf(start) }
+    var payment by remember { mutableStateOf(pesos(start.payment)) }
+    var total by remember { mutableStateOf(pesos(start.total)) }
+    var paidSoFar by remember { mutableStateOf(pesos(start.paid)) }
+    val now = System.currentTimeMillis()
+    @Composable
+    fun DayPicker(value: Int, set: (Int) -> Unit) {
+        // 1…31 and "Último día" (0).
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (n in (1..31) + 0) {
+                val on = value == n
+                Box(
+                    Modifier.height(36.dp).clip(Squircle(12.dp)).background(if (on) Ink.VioletSoft else Ink.Card)
+                        .clickable { Haptics.tick(context); set(n) }.padding(horizontal = if (n == 0) 12.dp else 0.dp).width(if (n == 0) 80.dp else 36.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(if (n == 0) "Último" else "$n", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (on) Ink.OnViolet else Ink.Text) }
+            }
+        }
+    }
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        ScreenTitle(if (isNew) "Nuevo pago" else d.name.ifBlank { "Pago" }, size = 30.sp)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = d.name, onValueChange = { d = d.copy(name = it.take(40)) }, singleLine = true,
+            placeholder = { Text("Ej. Tarjeta, préstamo del coche, renta", color = Ink.Dim2) },
+            leadingIcon = { Icon(Icons.Rounded.CreditCard, null, tint = Color(d.color)) },
+            shape = Squircle(18.dp), modifier = Modifier.fillMaxWidth(),
+        )
+        SectionTitle("Cada pago")
+        MoneyField(payment, { payment = it }, "Ej. 1500", Modifier.fillMaxWidth())
+        SectionTitle("¿Cada cuándo?")
+        PillRow {
+            for (e in PayEvery.entries) Pill(e.label, d.every == e) {
+                d = d.copy(every = e, day2 = if (e == PayEvery.QUINCENAL && d.day2 == d.day) 0 else d.day2)
+                if (e == PayEvery.QUINCENAL && d.day == 0) d = d.copy(day = 15)
+            }
+        }
+        SectionTitle(if (d.every == PayEvery.QUINCENAL) "Primer pago del mes" else "Día de pago")
+        DayPicker(d.day) { d = d.copy(day = it) }
+        if (d.every == PayEvery.QUINCENAL) {
+            SectionTitle("Segundo pago del mes")
+            DayPicker(d.day2) { d = d.copy(day2 = it) }
+        }
+        SectionTitle("Deuda total (opcional)")
+        MoneyField(total, { total = it }, "Si tiene fin: lo que debes en total", Modifier.fillMaxWidth())
+        if ((total.toLongOrNull() ?: 0) > 0) {
+            Spacer(Modifier.height(8.dp))
+            MoneyField(paidSoFar, { paidSoFar = it }, "Lo que ya llevas pagado", Modifier.fillMaxWidth())
+            Label("Así Tokkip sabe cuánto te falta y cuántos pagos quedan.", Ink.Dim2, 12.sp)
+        }
+        SectionTitle("Recordatorio")
+        ToggleRow("Avisarme antes de la fecha", "Con \"Ya pagué\" en la notificación", d.remind) { d = d.copy(remind = it) }
+        if (d.remind) {
+            Spacer(Modifier.height(8.dp))
+            PillRow {
+                for ((n, label) in listOf(0 to "El mismo día", 1 to "1 día antes", 2 to "2 días antes", 3 to "3 días antes", 5 to "5 días antes")) {
+                    Pill(label, d.daysBefore == n, Icons.Rounded.NotificationsActive.takeIf { d.daysBefore == n }) { d = d.copy(daysBefore = n) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            PillRow {
+                for (m in listOf(8 * 60, 9 * 60, 12 * 60, 15 * 60, 18 * 60, 20 * 60)) {
+                    Pill(mx.loperstack.mochi.data.hhmm(m), d.remindAt == m) { d = d.copy(remindAt = m) }
+                }
+            }
+        }
+        SectionTitle("Color")
+        PillRow {
+            for (c in DEBT_COLORS) Box(
+                Modifier.size(36.dp).clip(CircleShape).background(Color(c)).clickable { d = d.copy(color = c) },
+                contentAlignment = Alignment.Center,
+            ) { if (d.color == c) Icon(Icons.Rounded.Check, null, tint = Color.Black.copy(alpha = 0.7f), modifier = Modifier.size(20.dp)) }
+        }
+        if (!isNew && d.paidDues.isNotEmpty()) {
+            SectionTitle("Pagos marcados")
+            val last = d.paidDues.sorted().takeLast(4).reversed()
+            for (due in last) Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(SimpleDateFormat("EEEE d 'de' MMMM", MX).format(Date(mx.loperstack.mochi.data.dayStart(due))).replaceFirstChar { it.uppercase(MX) }, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = { d = d.unpay(due); paidSoFar = pesos(d.paid) }) { Text("Desmarcar") }
+            }
+            Label("Desmarcar no borra el gasto que se anotó; bórralo en Movimientos si hace falta.", Ink.Dim2, 11.sp)
+        }
+        Spacer(Modifier.height(22.dp))
+        val pay = (payment.toLongOrNull() ?: 0) * 100
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            ExpressiveButton("Guardar", big = true, modifier = Modifier.weight(1f)) {
+                if (d.name.isBlank() || pay <= 0) { Haptics.thud(context); return@ExpressiveButton }
+                val tot = (total.toLongOrNull() ?: 0) * 100
+                val saved = d.copy(name = d.name.trim(), payment = pay, total = tot, paid = if (tot > 0) ((paidSoFar.toLongOrNull() ?: 0) * 100).coerceAtMost(tot) else d.paid)
+                Store.setDebts(Store.state.value.debts.filter { it.id != saved.id } + saved)
+                Haptics.success(context)
+                Sounds.play("approve")
+                close()
+            }
+            if (!isNew) CircleButton(Icons.Rounded.DeleteOutline, "Borrar") {
+                Store.setDebts(Store.state.value.debts.filter { it.id != d.id })
+                Sounds.play("blip")
+                close()
+            }
+        }
+        if (d.name.isBlank() || pay <= 0) Label("Ponle nombre y el monto de cada pago", Ink.Dim2, 12.sp)
     }
 }

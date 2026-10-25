@@ -1,6 +1,6 @@
 // A copy of all of Tokkip on the phone, in one .zip: your settings, tasks,
-// diary (with its photos), moods, sleep, breathing sessions, streaks, money and
-// Tokkip's look. Restoring it replaces what's here. Nothing leaves the phone
+// diary (with its photos), moods, sleep, breathing sessions, streaks, money,
+// the Cuaderno and Tokkip's look. Restoring it replaces what's here. Nothing leaves the phone
 // unless you save the file somewhere yourself.
 //
 // The Diario screen used to make its own copy with only the diary in it, so
@@ -27,6 +27,9 @@ data class BackupSummary(
     val photos: Int = 0,
     val money: Int = 0,
     val debts: Int = 0,
+    /** Cuaderno: notes and projects. */
+    val notes: Int = 0,
+    val projects: Int = 0,
     /** An old copy from the Diario screen: only the diary, joined to what's here. */
     val diaryOnly: Boolean = false,
 ) {
@@ -35,7 +38,8 @@ data class BackupSummary(
         if (diaryOnly) return "solo el diario: " + n(days, "día", "días") + " (copia antigua, sin rachas)"
         return listOf(
             n(habits, "racha", "rachas"), n(days, "día de diario", "días de diario"),
-            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(money, "movimiento", "movimientos"), n(debts, "pago fijo", "pagos fijos"), n(photos, "foto", "fotos"),
+            n(tasks, "tarea", "tareas"), n(nights, "noche", "noches"), n(money, "movimiento", "movimientos"), n(debts, "pago fijo", "pagos fijos"),
+            n(notes, "nota", "notas"), n(projects, "proyecto", "proyectos"), n(photos, "foto", "fotos"),
         ).joinToString(" · ")
     }
 }
@@ -44,6 +48,7 @@ object Backup {
     private const val PREFS = "mochi"
     private const val ENTRY = "mochi-backup.json"
     private const val DIARY_ENTRY = "diary.json"
+    private const val NOTEBOOK_ENTRY = "cuaderno.json"
 
     private fun summaryOf(prefs: Map<String, Any?>, photos: Int) = BackupSummary(
         habits = habitsOf(prefs["habits"] as? String).size,
@@ -73,7 +78,10 @@ object Backup {
             if (typed != null) values.put(k, typed)
         }
         val photos = DiaryImages.dir(context).listFiles()?.filter { isImageName(it.name) } ?: emptyList()
-        val summary = summaryOf(all, photos.size)
+        val notebook = runCatching { Notebook.exportJson() }.getOrNull()
+        val summary = summaryOf(all, photos.size).copy(
+            notes = notebook?.optJSONArray("notes")?.length() ?: 0, projects = notebook?.optJSONArray("projects")?.length() ?: 0,
+        )
         val root = JSONObject().put("app", "mochi").put("version", 2).put("at", System.currentTimeMillis())
             .put("summary", JSONObject().put("habits", summary.habits).put("days", summary.days).put("tasks", summary.tasks).put("nights", summary.nights))
             .put("prefs", values)
@@ -82,6 +90,11 @@ object Backup {
                 zip.putNextEntry(ZipEntry(ENTRY))
                 zip.write(root.toString().toByteArray())
                 zip.closeEntry()
+                if (notebook != null) {
+                    zip.putNextEntry(ZipEntry(NOTEBOOK_ENTRY))
+                    zip.write(notebook.toString().toByteArray())
+                    zip.closeEntry()
+                }
                 photos.forEach { f ->
                     zip.putNextEntry(ZipEntry("diary/${f.name}"))
                     f.inputStream().use { it.copyTo(zip) }
@@ -100,6 +113,7 @@ object Backup {
     fun restore(context: Context, src: Uri): BackupSummary? = runCatching {
         var json: JSONObject? = null
         var diary: List<DayLog>? = null
+        var notebook: JSONObject? = null
         val photos = File(context.cacheDir, "restore").apply { deleteRecursively(); mkdirs() }
         context.contentResolver.openInputStream(src)?.use { input ->
             ZipInputStream(input).use { zip ->
@@ -114,6 +128,7 @@ object Backup {
                     }
                     when {
                         name == ENTRY -> json = JSONObject(zip.readBytes().decodeToString())
+                        name == NOTEBOOK_ENTRY -> notebook = JSONObject(zip.readBytes().decodeToString())
                         name == DIARY_ENTRY -> diary = logsOf(zip.readBytes().decodeToString())
                         photo != null && isImageName(photo) -> FileOutputStream(File(photos, photo)).use { zip.copyTo(it) }
                     }
@@ -149,7 +164,10 @@ object Backup {
         val count = photos.listFiles()?.size ?: 0
         photos.listFiles()?.forEach { it.copyTo(File(dir, it.name), overwrite = true) }
         photos.deleteRecursively()
+        // A copy from before the Cuaderno leaves yours as it is.
+        val nb = notebook
+        if (nb != null) Notebook.importJson(nb)
         Store.reload()
-        summaryOf(restored, count)
+        summaryOf(restored, count).copy(notes = nb?.optJSONArray("notes")?.length() ?: 0, projects = nb?.optJSONArray("projects")?.length() ?: 0)
     }.getOrNull()
 }

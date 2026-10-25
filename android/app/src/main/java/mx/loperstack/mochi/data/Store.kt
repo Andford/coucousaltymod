@@ -119,6 +119,7 @@ fun AppData.routine(): Routine = Routine(
     logs = logs, habits = habits, breaths = sessions.map { it.at },
     nights = sleep.map { Night(it.night, it.minutes, it.quality) }, sleepGoalMin = sleepGoal.minutes,
     money = money, budget = budget, debts = debts, screenDays = screenDays, screenGoal = screen.goal,
+    notebook = Notebook.index.value,
 )
 
 /** The rhythm you picked, for a session of `minutes`. */
@@ -142,6 +143,7 @@ object Store {
         if (::prefs.isInitialized) return
         app = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences("mochi", Context.MODE_PRIVATE)
+        Notebook.init(app)
         load()
     }
 

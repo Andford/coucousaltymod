@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.AutoStories as OAutoStories
 import androidx.compose.material.icons.outlined.FavoriteBorder as OFavoriteBorder
 import androidx.compose.material.icons.outlined.Home as OHome
 import androidx.compose.material.icons.outlined.Spa as OSpa
+import androidx.compose.material.icons.outlined.EditNote as OEditNote
 import androidx.compose.material.icons.outlined.TaskAlt as OTaskAlt
 import mx.loperstack.mochi.mochi.MShapes
 import mx.loperstack.mochi.mochi.Squircle
@@ -49,6 +50,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -165,6 +167,7 @@ enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.
     HOME("Inicio", Icons.Rounded.Home), AGENDA("Agenda", Icons.Rounded.CalendarMonth), TASKS("Tareas", Icons.Rounded.TaskAlt), FOCUS("Enfoque", Icons.Rounded.Timer),
     STREAKS("Rachas", Icons.Rounded.LocalFireDepartment), BREATHE("Respirar", Icons.Rounded.Air), DIARY("Diario", Icons.Rounded.AutoStories), MONEY("Dinero", Icons.Rounded.Savings),
     SLEEP("Sueño", Icons.Rounded.Bedtime), SCREEN("Pantalla", Icons.Rounded.PhoneAndroid), PET("Mimos", Icons.Rounded.Favorite),
+    NOTES("Cuaderno", Icons.Rounded.EditNote),
 }
 
 /** The floating bar's five places, filled when selected. */
@@ -173,7 +176,7 @@ private val NAV_ITEMS = listOf(
     NavItem("Tareas", Icons.Outlined.OTaskAlt, Icons.Rounded.TaskAlt),
     NavItem("Diario", Icons.Outlined.OAutoStories, Icons.Rounded.AutoStories),
     NavItem("Bienestar", Icons.Outlined.OSpa, Icons.Rounded.Spa),
-    NavItem("Tokkip", Icons.Outlined.OFavoriteBorder, Icons.Rounded.Favorite),
+    NavItem("Cuaderno", Icons.Outlined.OEditNote, Icons.Rounded.EditNote),
 )
 
 /** The bottom bar's five places (Material 3: three to five); two of them hold two screens each. */
@@ -181,8 +184,8 @@ enum class Group(val label: String, val tabs: List<Tab>) {
     HOME("Inicio", listOf(Tab.HOME, Tab.AGENDA)),
     TASKS("Tareas", listOf(Tab.TASKS, Tab.FOCUS, Tab.STREAKS)),
     DIARY("Diario", listOf(Tab.DIARY, Tab.MONEY)),
-    CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP, Tab.SCREEN)),
-    PET("Tokkip", listOf(Tab.PET));
+    CALM("Bienestar", listOf(Tab.BREATHE, Tab.SLEEP, Tab.SCREEN, Tab.PET)),
+    NOTES("Cuaderno", listOf(Tab.NOTES));
 
     companion object {
         fun of(tab: Tab) = entries.first { tab in it.tabs }
@@ -442,6 +445,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
                             goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA }, goScreen = { tab = Tab.SCREEN }, goStreaks = { tab = Tab.STREAKS },
+                            goNotebook = { tab = Tab.NOTES },
                             agendaChanged = { agendaKey++ },
                             newEvent = newEvent,
                         )
@@ -458,6 +462,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                         )
                         Tab.SCREEN -> ScreenTimeScreen(data, color, actions)
                         Tab.MONEY -> MoneyScreen(data, color, actions, moneyAdd)
+                        Tab.NOTES -> NotebookScreen(color, actions)
                     }
         }
         val pickGroup: (Int) -> Unit = { i ->
@@ -490,9 +495,10 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
         } else {
             Scaffold(
                 containerColor = Ink.Ground,
-                bottomBar = { FloatingNavBar(NAV_ITEMS, Group.entries.indexOf(Group.of(tab)), pickGroup) },
+                // Writing a note fills the screen: the bar steps aside.
+                bottomBar = { if (!(tab == Tab.NOTES && NotebookNav.editing)) FloatingNavBar(NAV_ITEMS, Group.entries.indexOf(Group.of(tab)), pickGroup) },
             ) { pad ->
-              Column(Modifier.padding(pad).fillMaxSize()) {
+              Column(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                 val group = Group.of(tab)
                 // Inicio keeps its own top; the pills show from Agenda, to go back.
                 if (group.tabs.size > 1 && tab != Tab.HOME) {
@@ -664,6 +670,7 @@ fun HomeScreen(
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
     goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {}, goMoney: () -> Unit = {},
     goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {}, goScreen: () -> Unit = {}, goStreaks: () -> Unit = {},
+    goNotebook: () -> Unit = {},
 ) {
     var openEvent by remember { mutableStateOf<CalEvent?>(null) }
     var customize by remember { mutableStateOf(false) }
@@ -760,6 +767,7 @@ fun HomeScreen(
             "money" -> MoneyHomeCard(now, goMoney)
             "streaks" -> StreaksHomeCard(now, goStreaks)
             "screen" -> ScreenHomeCard(now, goScreen)
+            "notebook" -> NotebookHomeCard(now, color, actions, goNotebook)
             "agenda" -> {
                 Spacer(Modifier.height(20.dp))
                 if (calendarOk) {

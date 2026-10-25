@@ -274,6 +274,7 @@ fun tokkipNotes(r: Routine, now: Long): List<TokkipNote> {
     out += debtNotes(r.debts, monthSummary(r.money, now).income, now)
     // Your screen (data/ScreenTime.kt).
     out += screenNotes(r.screenDays, r.screenDays.firstOrNull { it.day == today }, r.screenGoal, r.nights, moods, now)
+    out += notebookNotes(r.notebook, now)
 
     if (r.logs.isEmpty() && r.habits.isEmpty() && r.money.isEmpty()) out += TokkipNote("hello", "sparkle", "Todavía te estoy conociendo.",
         "Cuéntame cómo te fue hoy en el Diario, o crea tu primera racha.", 20)

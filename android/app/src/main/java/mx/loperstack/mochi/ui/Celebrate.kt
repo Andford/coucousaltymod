@@ -93,7 +93,17 @@ private class Bit(
  * what you'd done before). Tap anywhere or "¡A celebrar!" to close.
  */
 @Composable
-fun LevelUpCelebration(g: Growth, color: Color, first: Boolean, close: () -> Unit) {
+fun LevelUpCelebration(g: Growth, color: Color, first: Boolean, close: () -> Unit) = Celebration(
+    seed = g.points, color = color,
+    title = if (first) "Tokkip crece contigo" else "¡Subieron de nivel!",
+    badge = "NIVEL ${g.stage.level}${if (g.loops > 0) " · ★${g.loops}" else ""} · ${g.stage.name.uppercase()}",
+    body = if (first) "Por todo lo que ya hiciste por ti, hoy es Tokkip ${g.title}. Cada vez que te cuidas, él crece: es tu reflejo." else cheer(g),
+    foot = "${g.points} de cariño en total", button = "¡A celebrar!", close = close,
+)
+
+/** The party itself: the shape, the confetti, Tokkip dancing and your words. Also for a finished project. */
+@Composable
+fun Celebration(seed: Int, color: Color, title: String, badge: String, body: String, foot: String, button: String, close: () -> Unit) {
     val context = LocalContext.current
     val pop = remember { Animatable(0f) }
     val spinA = remember { Animatable(0f) }
@@ -103,7 +113,7 @@ fun LevelUpCelebration(g: Growth, color: Color, first: Boolean, close: () -> Uni
     var now by remember { mutableLongStateOf(0L) }
     var hop by remember { mutableIntStateOf(0) }
     val shapeMorph = remember { Morph(MShapes.Cookie12, MShapes.Clover4) }
-    val rnd = remember { Random(g.points) }
+    val rnd = remember { Random(seed) }
     // Little shapes bursting from the middle, and confetti falling from above.
     val burst = remember {
         List(14) { i ->
@@ -196,25 +206,24 @@ fun LevelUpCelebration(g: Growth, color: Color, first: Boolean, close: () -> Uni
                 Spacer(Modifier.height(18.dp))
                 Column(Modifier.alpha(words.value).graphicsLayer { translationY = (1f - words.value) * 40f }, horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        if (first) "Tokkip crece contigo" else "¡Subieron de nivel!", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                        title, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
                         color = Color.White, textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "NIVEL ${g.stage.level}${if (g.loops > 0) " · ★${g.loops}" else ""} · ${g.stage.name.uppercase()}",
+                        badge,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1B1530),
                         modifier = Modifier.clip(CircleShape).background(Color(0xFFFBBF24)).padding(horizontal = 14.dp, vertical = 6.dp),
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        if (first) "Por todo lo que ya hiciste por ti, hoy es Tokkip ${g.title}. Cada vez que te cuidas, él crece: es tu reflejo."
-                        else cheer(g),
+                        body,
                         fontSize = 17.sp, color = Color.White.copy(alpha = 0.92f), textAlign = TextAlign.Center, lineHeight = 24.sp,
                     )
                     Spacer(Modifier.height(6.dp))
-                    Text("${g.points} de cariño en total", fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+                    Text(foot, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
                     Spacer(Modifier.height(22.dp))
-                    ExpressiveButton("¡A celebrar!", big = true, container = Color(0xFFFBBF24), content = Color(0xFF1B1530), onClick = close)
+                    ExpressiveButton(button, big = true, container = Color(0xFFFBBF24), content = Color(0xFF1B1530), onClick = close)
                 }
             }
         }

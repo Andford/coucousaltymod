@@ -23,6 +23,9 @@
     <!-- Your Pixel Watch's nights, from Health Connect (read only). -->
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
 
+    <!-- Your headphones' battery for the watch (data/Headphones.kt). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <!-- Pantalla: your own app usage, read on the phone (data/ScreenUsage.kt). You turn it on in Ajustes → Acceso al uso. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 

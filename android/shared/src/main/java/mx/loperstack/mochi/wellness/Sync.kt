@@ -81,6 +81,8 @@ data class Snapshot(
     val doomTop: String = "",
     val doomSession: Int = 0,
     val doomAt: Long = 0,
+    /** Connected headphones' batteries (Pixel Buds and others that report it). */
+    val buds: List<BudLite> = emptyList(),
     val at: Long = 0,
 )
 
@@ -104,7 +106,14 @@ data class BreathSession(
 const val HR_STEP_S = 2
 
 /** A night for the watch's report. */
-data class NightLite(val night: String, val minutes: Int, val quality: Int, val bed: Long, val wake: Long)
+data class NightLite(
+    val night: String, val minutes: Int, val quality: Int, val bed: Long, val wake: Long,
+    /** The watch's stages, in minutes (0 = not measured). */
+    val deep: Int = 0, val rem: Int = 0, val awake: Int = 0,
+)
+
+/** Headphones (or any Bluetooth device) the phone knows the battery of. */
+data class BudLite(val name: String, val level: Int)
 
 /** How much calmer: the drop from the first to the last beats, as a share. 0 when not measured. */
 fun BreathSession.calmDrop(): Float =
@@ -146,8 +155,12 @@ fun Snapshot.toJson(): String = JSONObject()
     .put("focusMin", focusMin).put("breakMin", breakMin)
     .put("sessions", JSONArray().apply { sessions.forEach { put(it.toJsonObject()) } })
     .put("nights", JSONArray().apply {
-        nights.forEach { put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)) }
+        nights.forEach {
+            put(JSONObject().put("night", it.night).put("min", it.minutes).put("q", it.quality).put("bed", it.bed).put("wake", it.wake)
+                .put("deep", it.deep).put("rem", it.rem).put("awake", it.awake))
+        }
     })
+    .put("buds", JSONArray().apply { buds.forEach { put(JSONObject().put("n", it.name).put("l", it.level)) } })
     .put("screen", JSONObject().put("t", screenMin).put("s", scrollMin).put("g", scrollGoal).put("l", doom).put("top", doomTop).put("ses", doomSession).put("at", doomAt))
     .put("at", at)
     .toString()
@@ -195,7 +208,7 @@ fun snapshotOf(raw: String?): Snapshot {
             nights = o.optJSONArray("nights")?.let { a ->
                 (0 until a.length()).mapNotNull { i ->
                     val n = a.optJSONObject(i) ?: return@mapNotNull null
-                    NightLite(n.optString("night"), n.optInt("min"), n.optInt("q"), n.optLong("bed"), n.optLong("wake"))
+                    NightLite(n.optString("night"), n.optInt("min"), n.optInt("q"), n.optLong("bed"), n.optLong("wake"), n.optInt("deep"), n.optInt("rem"), n.optInt("awake"))
                 }
             } ?: emptyList(),
             screenMin = o.optJSONObject("screen")?.optInt("t") ?: 0,
@@ -205,6 +218,9 @@ fun snapshotOf(raw: String?): Snapshot {
             doomTop = o.optJSONObject("screen")?.optString("top", "")?.take(40) ?: "",
             doomSession = o.optJSONObject("screen")?.optInt("ses") ?: 0,
             doomAt = o.optJSONObject("screen")?.optLong("at") ?: 0,
+            buds = o.optJSONArray("buds")?.let { a ->
+                (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { BudLite(it.optString("n").take(30), it.optInt("l", -1)) }?.takeIf { it.level in 0..100 } }
+            } ?: emptyList(),
             at = o.optLong("at"),
         )
     } catch (_: Exception) {

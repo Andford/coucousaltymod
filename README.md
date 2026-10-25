@@ -43,7 +43,9 @@ octubre, gorro navideño en diciembre.
   (anterior, pausa, siguiente; toca la portada para ir a la app que suena) y tus
   pendientes. Con el teléfono acostado (o en tablet) se vuelve un tablero:
   reloj y Tokkip, hoy y mañana, su crecimiento y tu dinero, enfoque y tareas,
-  con un riel a un lado para las demás secciones.
+  con un riel a un lado para las demás secciones. Inicio se personaliza: ordena
+  y oculta sus secciones (Tokkip, música, Tokkip y tú, rachas de hoy, dinero,
+  pantalla, agenda, atajos y tareas).
 - **Agenda**: tus eventos como lista (las próximas cinco semanas) o como mes con
   puntitos de color; toca un día para verlo. Cada evento se abre para unirte a
   su Meet, abrirlo en Calendar o cambiarle el color con la paleta de Google
@@ -79,8 +81,11 @@ octubre, gorro navideño en diciembre.
 - **Kit para journaling**: tu diario como recortables para imprimir en hoja
   carta: cada día como tarjeta con cinta washi y fotos tipo polaroid, stickers
   de Tokkip en cada ánimo, sellos de tus rachas, tu mes en colores, etiquetas y
-  hojas para escribir a mano con un tracker de hábitos para colorear.
-- **Sueño**: lee tus horas desde Health Connect (reloj, Mi Band y lo que escriba
+  hojas para escribir a mano con un tracker de hábitos para colorear. También
+  un solo día (su tarjeta, sus stickers y una tarjeta para escribir). Al
+  terminar se abre el PDF para verlo o imprimirlo.
+- **Sueño**: toca una noche (en la gráfica o la lista) para ver su detalle;
+  lee tus horas desde Health Connect (reloj, Mi Band y lo que escriba
   ahí) y Tokkip lo refleja en su carita.
 - **Pantalla (indicador de doomscrolling)**: cuánto usas el teléfono, tus apps
   más usadas, por tipo (redes, video, juegos, mensajes…), por hora y por semana,
@@ -118,6 +123,9 @@ octubre, gorro navideño en diciembre.
   pendientes, sincronizados con el teléfono.
 - Tile y complicaciones (entre ellas el indicador de doomscrolling), y la
   pantalla de Pantalla con la cara de Tokkip según tu scroll.
+- Sueño bajo las estrellas con Tokkip y los datos de cada noche, Baterías con
+  la de tus audífonos (Pixel Buds y otros que la reporten), y los botones con
+  íconos en formas Expressive.
 - **Carátula** en Watch Face Format (Material 3 Expressive), lista para Wear OS 6:
   tres botones (accesos directos o datos) con formas Expressive (galleta,
   trébol, flor, sol o una mezcla), letra de la hora y de la fecha a elegir

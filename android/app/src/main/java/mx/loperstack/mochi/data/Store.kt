@@ -81,6 +81,9 @@ data class AppData(
     /** Today's most used scroll app, and the scroll session going on (minutes) at the last reading. */
     val doomTop: String = "",
     val doomSession: Int = 0,
+    /** Inicio, your way: the sections' order and the ones hidden (ui/HomeLayout.kt). */
+    val homeLayout: List<String> = emptyList(),
+    val homeHidden: Set<String> = emptySet(),
 )
 
 /** Mochi's notifications (Ajustes → Notificaciones). Times in minutes of the day. */
@@ -194,7 +197,9 @@ object Store {
             debts = debtsOf(prefs.getString("debts", null)),
             screen = screenSettingsOf(prefs.getString("screen", null)), screenDays = screenDaysOf(prefs.getString("screenDays", null)),
             doom = prefs.getInt("doom", 0), doomAt = prefs.getLong("doomAt", 0), doomTop = prefs.getString("doomTop", "") ?: "",
-            doomSession = prefs.getInt("doomSession", 0))
+            doomSession = prefs.getInt("doomSession", 0),
+            homeLayout = (prefs.getString("homeLayout", "") ?: "").split(",").filter { it.isNotBlank() },
+            homeHidden = (prefs.getString("homeHidden", "") ?: "").split(",").filter { it.isNotBlank() }.toSet())
         mx.loperstack.mochi.wellness.PomodoroConfig.current = _state.value.pomodoroConfig
         mx.loperstack.mochi.mochi.Haptics.strength = _state.value.hapticStrength
         mx.loperstack.mochi.mochi.Haptics.enabled = _state.value.haptics
@@ -348,6 +353,11 @@ object Store {
         val (paid, entry) = d.pay(due, now, java.util.UUID.randomUUID().toString().take(12))
         setMoney(_state.value.money + entry)
         setDebts(_state.value.debts.map { if (it.id == id) paid else it })
+    }
+
+    fun setHome(layout: List<String>, hidden: Set<String>) {
+        _state.value = _state.value.copy(homeLayout = layout, homeHidden = hidden)
+        prefs.edit().putString("homeLayout", layout.joinToString(",")).putString("homeHidden", hidden.joinToString(",")).apply()
     }
 
     fun setScreen(sc: ScreenSettings) {

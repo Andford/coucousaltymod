@@ -441,7 +441,7 @@ fun MochiApp(startTab: Tab = Tab.HOME, breatheNow: Pair<Int, Long> = 0 to 0L, co
                             askCalendar = { askCalendar.launch(Manifest.permission.READ_CALENDAR) },
                             openColors = { showColors = true },
                             goFocus = { tab = Tab.FOCUS }, goBreathe = { tab = Tab.BREATHE }, goTasks = { tab = Tab.TASKS },
-                            goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA }, goScreen = { tab = Tab.SCREEN },
+                            goMoney = { tab = Tab.MONEY }, goAgenda = { tab = Tab.AGENDA }, goScreen = { tab = Tab.SCREEN }, goStreaks = { tab = Tab.STREAKS },
                             agendaChanged = { agendaKey++ },
                             newEvent = newEvent,
                         )
@@ -663,9 +663,12 @@ fun HomeScreen(
     tasks: List<Task>, pomodoro: mx.loperstack.mochi.wellness.Pomodoro, events: List<CalEvent>, now: Long, color: Color,
     actions: Actions, calendarOk: Boolean, askCalendar: () -> Unit, openColors: () -> Unit,
     goFocus: () -> Unit, goBreathe: () -> Unit, goTasks: () -> Unit, newEvent: () -> Unit = {}, goMoney: () -> Unit = {},
-    goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {}, goScreen: () -> Unit = {},
+    goAgenda: () -> Unit = {}, agendaChanged: () -> Unit = {}, goScreen: () -> Unit = {}, goStreaks: () -> Unit = {},
 ) {
     var openEvent by remember { mutableStateOf<CalEvent?>(null) }
+    var customize by remember { mutableStateOf(false) }
+    // Reaching a stage: the party, wherever Tokkip y tú is (or even hidden).
+    GrowthCelebration(rememberGrowth(now).first)
     // Bienestar → Pantalla's last reading, if it's from the last half hour.
     val doomData = Store.state.collectAsState().value
     val doomNow = if (now - doomData.doomAt < 30 * 60_000L) doomData.doom else 0
@@ -681,108 +684,127 @@ fun HomeScreen(
             }
             CircleButton(Icons.Rounded.Settings, "Ajustes", onClick = openColors)
         }
-        Spacer(Modifier.height(16.dp))
-        Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
-          Box {
-            Aurora(color, Modifier.matchParentSize())
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            // The cookie sits right behind his body (his centre is a bit below the canvas's).
-            Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
-            MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.padding(top = 18.dp).size(150.dp))
-            // He grows with you (data/Growth.kt): a little one at first, full size at Sabio.
-            val grown = rememberGrowth(now).first.scale
-            Mochi(
-                Modifier.width(170.dp).height(140.dp).graphicsLayer {
-                    scaleX = grown; scaleY = grown
-                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.8f)
-                },
-                color = color,
-                mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
-                // Lots of scrolling (Bienestar → Pantalla, read in the last half hour): tired or dizzy eyes.
-                face = doomNow.takeIf { it >= 2 }?.let { doomEye(it) },
-                jump = actions.jump,
-                interactive = true,
-                greet = true,
-                dancing = actions.music,
-            )
-            }
-            if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Tokkip baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
-            if (doomNow >= 2) IconLabel(
-                Icons.Rounded.PhoneAndroid,
-                if (doomNow >= 3) "Mucho scroll: Tokkip anda mareado" else "Llevas un buen rato de scroll: Tokkip está cansado",
-                DOOM_COLORS[doomNow], Modifier.align(Alignment.CenterHorizontally).clickable(onClick = goScreen),
-            ) else when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
-                mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Tokkip anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
-                mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Tokkip está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
-                else -> Unit
-            }
-            Spacer(Modifier.height(10.dp))
-            when {
-                !calendarOk -> {
-                    Text("Tu agenda aquí", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-                    Label("Tokkip lee los calendarios de este teléfono, Google Calendar incluido.", Ink.Dim)
-                    Spacer(Modifier.height(10.dp))
-                    PrimaryButton("Ver mi agenda", Modifier.align(Alignment.CenterHorizontally), onClick = askCalendar)
-                }
-                next != null -> {
-                    Text(
-                        "SIGUIENTE · ${untilText(next, now).uppercase(ES)}", color = Ink.VioletSoft, fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally),
+        // Inicio, your way: the sections in your order, the hidden ones left out (Personalizar Inicio).
+        val home = Store.state.collectAsState().value
+        for (section in homeSections(home.homeLayout, home.homeHidden)) when (section) {
+            "tokkip" -> {
+                Spacer(Modifier.height(16.dp))
+                Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+                  Box {
+                    Aurora(color, Modifier.matchParentSize())
+                    Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                    // The cookie sits right behind his body (his centre is a bit below the canvas's).
+                    Box(Modifier.align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
+                    MorphingBlob(Ink.VioletDeep.copy(alpha = 0.9f), Modifier.padding(top = 18.dp).size(150.dp))
+                    // He grows with you (data/Growth.kt): a little one at first, full size at Sabio.
+                    val grown = rememberGrowth(now).first.scale
+                    Mochi(
+                        Modifier.width(170.dp).height(140.dp).graphicsLayer {
+                            scaleX = grown; scaleY = grown
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.8f)
+                        },
+                        color = color,
+                        mood = if (pomodoro.phase == Phase.FOCUS) Mood.FOCUS else Mood.IDLE,
+                        // Lots of scrolling (Bienestar → Pantalla, read in the last half hour): tired or dizzy eyes.
+                        face = doomNow.takeIf { it >= 2 }?.let { doomEye(it) },
+                        jump = actions.jump,
+                        interactive = true,
+                        greet = true,
+                        dancing = actions.music,
                     )
-                    Text(next.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    Label("${hourMinute(next.begin)} – ${hourMinute(next.end)}", modifier = Modifier.align(Alignment.CenterHorizontally))
-                    if (next.meetUrl != null) {
-                        Spacer(Modifier.height(12.dp))
-                        PrimaryButton("Unirse", Modifier.align(Alignment.CenterHorizontally), Ink.Green, Ink.GreenDeep) { actions.open(next.meetUrl) }
+                    }
+                    if (actions.music) IconLabel(Icons.Rounded.MusicNote, "Tokkip baila con tu música", Ink.VioletSoft, Modifier.align(Alignment.CenterHorizontally))
+                    if (doomNow >= 2) IconLabel(
+                        Icons.Rounded.PhoneAndroid,
+                        if (doomNow >= 3) "Mucho scroll: Tokkip anda mareado" else "Llevas un buen rato de scroll: Tokkip está cansado",
+                        DOOM_COLORS[doomNow], Modifier.align(Alignment.CenterHorizontally).clickable(onClick = goScreen),
+                    ) else when (mx.loperstack.mochi.mochi.MochiStyle.rest) {
+                        mx.loperstack.mochi.mochi.Rest.TIRED -> IconLabel(Icons.Rounded.Bedtime, "Dormiste poco: Tokkip anda con ojeras", Ink.Dim, Modifier.align(Alignment.CenterHorizontally))
+                        mx.loperstack.mochi.mochi.Rest.GREAT -> IconLabel(Icons.Rounded.AutoAwesome, "Descansaste: Tokkip está de muy buen humor", Ink.GreenSoft, Modifier.align(Alignment.CenterHorizontally))
+                        else -> Unit
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    when {
+                        !calendarOk -> {
+                            Text("Tu agenda aquí", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
+                            Label("Tokkip lee los calendarios de este teléfono, Google Calendar incluido.", Ink.Dim)
+                            Spacer(Modifier.height(10.dp))
+                            PrimaryButton("Ver mi agenda", Modifier.align(Alignment.CenterHorizontally), onClick = askCalendar)
+                        }
+                        next != null -> {
+                            Text(
+                                "SIGUIENTE · ${untilText(next, now).uppercase(ES)}", color = Ink.VioletSoft, fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally),
+                            )
+                            Text(next.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                            Label("${hourMinute(next.begin)} – ${hourMinute(next.end)}", modifier = Modifier.align(Alignment.CenterHorizontally))
+                            if (next.meetUrl != null) {
+                                Spacer(Modifier.height(12.dp))
+                                PrimaryButton("Unirse", Modifier.align(Alignment.CenterHorizontally), Ink.Green, Ink.GreenDeep) { actions.open(next.meetUrl) }
+                            }
+                        }
+                        else -> Text("Nada más en tu agenda hoy", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
+                    }
+                  }
+                }
+            }
+            "music" -> {
+                val track = rememberNowPlaying()
+                if (track != null && NowPlaying.granted(LocalContext.current)) {
+                    Spacer(Modifier.height(12.dp))
+                    NowPlayingCard(track)
+                }
+            }
+            "growth" -> { Spacer(Modifier.height(12.dp)); GrowthCard(now) }
+            "money" -> MoneyHomeCard(now, goMoney)
+            "streaks" -> StreaksHomeCard(now, goStreaks)
+            "screen" -> ScreenHomeCard(now, goScreen)
+            "agenda" -> {
+                Spacer(Modifier.height(20.dp))
+                if (calendarOk) {
+                    Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f).clip(Squircle(12.dp)).clickable(onClick = goAgenda), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Agenda", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = "Ver la agenda", tint = Ink.Dim)
+                        }
+                        Pill("Evento", true, Icons.Rounded.Add, onClick = newEvent)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
+                        AgendaList(events, now, actions, max = 5) { openEvent = it }
+                        Text(
+                            "Ver toda la agenda", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                            modifier = Modifier.clip(Squircle(12.dp)).clickable(onClick = goAgenda).padding(horizontal = 12.dp, vertical = 10.dp),
+                        )
                     }
                 }
-                else -> Text("Nada más en tu agenda hoy", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
-            }
-          }
-        }
-        // What's playing, with its controls, when something is.
-        val track = rememberNowPlaying()
-        if (track != null && NowPlaying.granted(LocalContext.current)) {
-            Spacer(Modifier.height(12.dp))
-            NowPlayingCard(track)
-        }
-        Spacer(Modifier.height(12.dp))
-        GrowthCard(now)
-        MoneyHomeCard(now, goMoney)
-        if (calendarOk) {
-            Spacer(Modifier.height(20.dp))
-            Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f).clip(Squircle(12.dp)).clickable(onClick = goAgenda), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Agenda", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                    Icon(Icons.Rounded.ChevronRight, contentDescription = "Ver la agenda", tint = Ink.Dim)
+            "shortcuts" -> {
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "%d:00".format(mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin) else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.OnVioletDeep, Modifier.weight(1f), goFocus, icon = Icons.Rounded.Timer, shape = MShapes.Cookie9)
+                    Tile("Respirar", "Toma un respiro", Ink.Green.copy(alpha = 0.12f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true, icon = Icons.Rounded.Air, shape = MShapes.Clover4)
                 }
-                Pill("Evento", true, Icons.Rounded.Add, onClick = newEvent)
             }
-            Spacer(Modifier.height(8.dp))
-            Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
-                AgendaList(events, now, actions, max = 5) { openEvent = it }
-                Text(
-                    "Ver toda la agenda", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                    modifier = Modifier.clip(Squircle(12.dp)).clickable(onClick = goAgenda).padding(horizontal = 12.dp, vertical = 10.dp),
-                )
+            "tasks" -> {
+                Spacer(Modifier.height(20.dp))
+                Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.Bottom) {
+                    Text("Tareas", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                    Pill("${pendingCount(tasks)} pendientes", false, Icons.Rounded.ChevronRight, onClick = goTasks)
+                }
+                Spacer(Modifier.height(8.dp))
+                Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
+                    for (t in orderedTasks(tasks).filter { !it.done }.take(4)) TaskRow(t, actions)
+                    NewTaskField(actions, Modifier.padding(6.dp))
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("Enfoque", if (pomodoro.phase == Phase.IDLE) "%d:00".format(mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin) else clock(pomodoro.left(now)), Ink.VioletDeep, Ink.VioletLine, Ink.OnVioletDeep, Modifier.weight(1f), goFocus, icon = Icons.Rounded.Timer, shape = MShapes.Cookie9)
-            Tile("Respirar", "Toma un respiro", Ink.Green.copy(alpha = 0.12f), Ink.Green.copy(alpha = 0.22f), Ink.GreenSoft, Modifier.weight(1f), goBreathe, small = true, icon = Icons.Rounded.Air, shape = MShapes.Clover4)
-        }
-        Spacer(Modifier.height(20.dp))
-        Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.Bottom) {
-            Text("Tareas", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            Pill("${pendingCount(tasks)} pendientes", false, Icons.Rounded.ChevronRight, onClick = goTasks)
-        }
-        Spacer(Modifier.height(8.dp))
-        Panel(Modifier.fillMaxWidth(), padding = 8.dp) {
-            for (t in orderedTasks(tasks).filter { !it.done }.take(4)) TaskRow(t, actions)
-            NewTaskField(actions, Modifier.padding(6.dp))
-        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Personalizar Inicio", color = Ink.VioletSoft, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally).clip(Squircle(14.dp)).clickable { customize = true }.padding(horizontal = 14.dp, vertical = 10.dp),
+        )
         Spacer(Modifier.height(20.dp))
     }
     openEvent?.let { e ->
@@ -790,6 +812,12 @@ fun HomeScreen(
             onDismissRequest = { openEvent = null; agendaChanged() }, containerColor = Ink.CardHigh,
             sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) { EventSheet(e, actions) { changed -> openEvent = null; if (changed) agendaChanged() } }
+    }
+    if (customize) {
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { customize = false }, containerColor = Ink.CardHigh,
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { HomeCustomizer() }
     }
 }
 

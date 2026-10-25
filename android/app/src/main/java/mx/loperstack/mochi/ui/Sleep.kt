@@ -5,6 +5,8 @@
 
 package mx.loperstack.mochi.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.rounded.*
@@ -115,6 +117,8 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
     val scope = rememberCoroutineScope()
     var logging by remember { mutableStateOf<SleepEntry?>(null) }
     var showLog by remember { mutableStateOf(false) }
+    // A night you tapped (in the chart or the list): its own details.
+    var viewing by remember { mutableStateOf<SleepEntry?>(null) }
     val now = rememberNow(60_000)
     val goal = data.sleepGoal
     val last = data.sleep.lastOrNull()
@@ -166,7 +170,8 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
             Panel(Modifier.fillMaxWidth()) {
                 Label("Últimas noches", Ink.Dim, weight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
-                NightsChart(data.sleep.takeLast(14), goal)
+                NightsChart(data.sleep.takeLast(14), goal) { viewing = it }
+                Label("Toca una barra para ver esa noche", Ink.Dim2, 11.sp)
             }
         }
 
@@ -180,13 +185,21 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
         if (data.sleep.isNotEmpty()) {
             Text("Registro", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 22.dp, bottom = 8.dp))
             for (e in data.sleep.sortedByDescending { it.night }.take(30)) {
-                NightRow(e) { logging = e; showLog = true }
+                NightRow(e) { viewing = e }
                 Spacer(Modifier.height(8.dp))
             }
         }
         Spacer(Modifier.height(24.dp))
     }
 
+    viewing?.let { e ->
+        ModalBottomSheet(
+            onDismissRequest = { viewing = null }, containerColor = Ink.CardHigh,
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            NightDetail(e, goal, color, now) { viewing = null; logging = e; showLog = true }
+        }
+    }
     if (showLog) {
         ModalBottomSheet(onDismissRequest = { showLog = false }, containerColor = Ink.CardHigh) {
             LogNightSheet(logging, goal) { e ->
@@ -204,7 +217,7 @@ fun SleepScreen(data: AppData, color: Color, actions: Actions) {
 
 /** Last night under the stars: Mochi asleep, the hours, the times, the stages and the score. */
 @Composable
-private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
+private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long, label: String? = null) {
     val stars = remember { List(46) { floatArrayOf(Random.nextFloat(), Random.nextFloat() * 0.75f, 0.6f + Random.nextFloat() * 1.6f, Random.nextFloat() * 6.28f, 0.6f + Random.nextFloat() * 1.6f) } }
     // The sky's clock: stars twinkle, a shooting star crosses now and then.
     var t by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
@@ -236,7 +249,7 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
             drawCircle(Night1, 15.dp.toPx(), Offset(size.width - 36.dp.toPx(), 34.dp.toPx()))
         }
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            Text(if (fresh) "ANOCHE" else "ÚLTIMA NOCHE REGISTRADA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA5B4FC))
+            Text(label ?: if (fresh) "ANOCHE" else "ÚLTIMA NOCHE REGISTRADA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA5B4FC))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     if (last == null) {
@@ -281,6 +294,57 @@ private fun NightHero(last: SleepEntry?, score: Int?, color: Color, now: Long) {
     }
 }
 
+/** One night, on its own: under the stars as Anoche, against your goal, what played a part, your note. */
+@Composable
+private fun NightDetail(e: SleepEntry, goal: SleepGoal, color: Color, now: Long, edit: () -> Unit) {
+    val title = SimpleDateFormat("EEEE d 'de' MMMM", MX).format(Date(dayStart(e.night))).uppercase(MX)
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
+        NightHero(e, null, color, now, label = "LA NOCHE DEL $title")
+        Spacer(Modifier.height(12.dp))
+        val diff = e.minutes - goal.minutes
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatBox(durationText(e.minutes), "dormido", Modifier.weight(1f))
+            StatBox(
+                if (diff >= 0) "+${durationText(diff)}" else "−${durationText(-diff)}",
+                if (diff >= 0) "sobre tu meta" else "bajo tu meta", Modifier.weight(1f),
+            )
+            StatBox(if (e.awakeMin > 0) durationText(e.awakeMin) else "—", "despierto", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatBox(timeOf(e.bed), "te acostaste", Modifier.weight(1f))
+            StatBox(timeOf(e.wake), "despertaste", Modifier.weight(1f))
+            StatBox(if (e.source == "health") "Reloj" else "A mano", "registro", Modifier.weight(1f))
+        }
+        if (e.factors.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Label("Lo que influyó", Ink.Dim, weight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (id in e.factors) {
+                    val name = SLEEP_FACTORS.firstOrNull { it.first == id }?.second ?: id
+                    Row(
+                        Modifier.clip(Squircle(12.dp)).background(Ink.Card).padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MIcon.sleepFactor[id]?.let { Icon(it, null, tint = Ink.Dim, modifier = Modifier.size(16.dp)) }
+                        Text(" $name", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+        if (e.note.isNotBlank()) {
+            Spacer(Modifier.height(14.dp))
+            Panel(Modifier.fillMaxWidth(), padding = 14.dp) {
+                Label("Tu nota", Ink.Dim, weight = FontWeight.Bold)
+                Text(e.note, fontSize = 15.sp)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        PrimaryButton("Editar esta noche", Modifier.fillMaxWidth(), Ink.CardHigh, Ink.Text, onClick = edit)
+    }
+}
+
 /** Deep, REM, light and awake as one bar, from the watch's stages. */
 @Composable
 private fun Stages(e: SleepEntry) {
@@ -320,12 +384,20 @@ private fun StatBox(value: String, label: String, modifier: Modifier) {
 
 /** Bars per night (height = hours, colour = how rested), and the goal as a dashed line. */
 @Composable
-private fun NightsChart(nights: List<SleepEntry>, goal: SleepGoal) {
+private fun NightsChart(nights: List<SleepEntry>, goal: SleepGoal, pick: (SleepEntry) -> Unit = {}) {
     val maxMin = maxOf(goal.minutes + 60, nights.maxOfOrNull { it.minutes } ?: 0)
     val dim = Ink.Track
     val goalColor = Ink.Dim2
     val accent = Ink.Violet
-    Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+    Canvas(
+        Modifier.fillMaxWidth().height(140.dp).pointerInput(nights) {
+            detectTapGestures { o ->
+                val n = maxOf(nights.size, 7)
+                val i = (o.x / (size.width.toFloat() / n)).toInt() - (n - nights.size)
+                nights.getOrNull(i)?.let(pick)
+            }
+        },
+    ) {
         val n = maxOf(nights.size, 7)
         val slot = size.width / n
         val bw = slot * 0.6f

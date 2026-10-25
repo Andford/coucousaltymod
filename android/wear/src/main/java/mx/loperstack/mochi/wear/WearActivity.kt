@@ -8,6 +8,8 @@
 
 package mx.loperstack.mochi.wear
 
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import android.Manifest
@@ -196,7 +198,8 @@ fun WearApp() {
             composable("breathe") { Breathe(snap) { nav.navigate(it) } }
             composable("history") { BreathHistory(snap) { nav.navigate("session/$it") } }
             composable("session/{at}") { entry -> SessionScreen(entry.arguments?.getString("at")?.toLongOrNull() ?: 0L, snap) }
-            composable("sleep") { SleepReport(snap) }
+            composable("sleep") { SleepReport(snap) { nav.navigate(it) } }
+            composable("night/{day}") { entry -> NightReport(snap, entry.arguments?.getString("day") ?: "") }
             composable("battery") { Batteries(snap) }
             composable("mood") { MoodPicker(snap) { nav.popBackStack() } }
             composable("pet") { WatchPet(snap) }
@@ -257,7 +260,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     val lvl = DOOM_LEVELS[doomNow(snap)]
                     Chip(
                         onClick = { go("screen") },
-                        icon = { Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize), tint = DOOM_TINTS[lvl.level]) },
+                        icon = { ShapedIcon(Icons.Rounded.PhoneAndroid, 1, DOOM_TINTS[lvl.level]) },
                         label = { Text("Pantalla · ${lvl.name}") },
                         secondaryLabel = { Text("${screenMins(snap.scrollMin)} de scroll de ${screenMins(snap.scrollGoal)}") },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -279,7 +282,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("pet") },
-                    icon = { Icon(Icons.Rounded.Favorite, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.Favorite, 2) },
                     label = { Text("Mimos") },
                     secondaryLabel = { Text("Juega y apapacha a Tokkip") },
                     colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
@@ -289,7 +292,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("tasks") },
-                    icon = { Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.TaskAlt, 3) },
                     label = { Text("Pendientes · ${pendingCount(snap.tasks)}") },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
@@ -298,7 +301,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("breathe") },
-                    icon = { Icon(Icons.Rounded.Air, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.Air, 4) },
                     label = { Text("Respirar") },
                     secondaryLabel = { Text("Con vibración y pulso") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -311,7 +314,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                     val m = snap.sleepMin % 60
                     Chip(
                         onClick = { go("sleep") },
-                    icon = { Icon(Icons.Rounded.Bedtime, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.Bedtime, 5) },
                         label = { Text("Dormiste $h h ${"%02d".format(m)}") },
                         secondaryLabel = { Text(if (snap.sleepNight == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) "Anoche" else "Última noche registrada") },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -322,7 +325,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("mood") },
-                    icon = { Icon(Icons.Rounded.Mood, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.Mood, 6) },
                     label = { Text("¿Cómo te sientes?") },
                     secondaryLabel = { Text(moodOf(WatchStore.todayMood())?.let { "Hoy: ${it.label}" } ?: "Anótalo en tu diario") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -332,7 +335,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
             item {
                 Chip(
                     onClick = { go("battery") },
-                    icon = { Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.BatteryChargingFull, 7) },
                     label = { Text("Baterías") },
                     secondaryLabel = { Text(if (snap.phoneBattery >= 0) "Teléfono ${snap.phoneBattery}%" else "Sin datos del teléfono") },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -343,7 +346,7 @@ fun Home(snap: Snapshot, jump: Int, go: (String) -> Unit) {
                 item {
                     Chip(
                         onClick = { WatchStore.pomodoro() },
-                        icon = { Icon(Icons.Rounded.Timer, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                        icon = { ShapedIcon(Icons.Rounded.Timer, 8) },
                         label = { Text("Iniciar Pomodoro") },
                         secondaryLabel = { Text("${mx.loperstack.mochi.wellness.PomodoroConfig.current.focusMin} min de enfoque") },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -646,14 +649,26 @@ fun Batteries(snap: Snapshot) {
     val context = LocalContext.current
     val now = rememberNow(30_000)
     val watch = remember(now) { context.getSystemService(BatteryManager::class.java).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) }
-    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Baterías", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                BatteryRing(if (snap.phoneBattery >= 0) snap.phoneBattery else null, if (snap.phoneCharging) "Teléfono ⚡" else "Teléfono", Green)
-                BatteryRing(watch, "Reloj", Violet)
+    val listState = rememberScalingLazyListState()
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            item { Text("Baterías", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    BatteryRing(if (snap.phoneBattery >= 0) snap.phoneBattery else null, if (snap.phoneCharging) "Teléfono ⚡" else "Teléfono", Green)
+                    BatteryRing(watch, "Reloj", Violet)
+                }
             }
-            Text("Tablet y PC llegan con la Fase 2", color = Color(0xFF6B7079), fontSize = 10.sp)
+            // Your headphones, from the phone (Ajustes → Tus dispositivos).
+            if (snap.buds.isEmpty()) {
+                item { Text("Audífonos: conéctalos al teléfono y aparecen aquí", color = Color(0xFF6B7079), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 16.dp)) }
+            } else {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        for (b in snap.buds.take(2)) BatteryRing(b.level, b.name.take(12), Color(0xFFFDBA74))
+                    }
+                }
+            }
         }
     }
 }
@@ -816,49 +831,126 @@ fun SessionScreen(at: Long, snap: Snapshot) {
 // ── Sueño ─────────────────────────────────────────────────────────────────────
 
 @Composable
-fun SleepReport(snap: Snapshot) {
+fun SleepReport(snap: Snapshot, open: (String) -> Unit = {}) {
     val listState = rememberScalingLazyListState()
     val nights = snap.nights
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
-        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            item { Text("Sueño", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-            if (nights.isEmpty()) {
-                item { Text("Registra tus noches en el teléfono", color = Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
-                return@ScalingLazyColumn
-            }
-            val last = nights.last()
-            val avg = nights.map { it.minutes }.average().toInt()
-            item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${last.minutes / 60} h ${"%02d".format(last.minutes % 60)}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("${HM.format(Date(last.bed))} → ${HM.format(Date(last.wake))}", color = VioletSoft, fontSize = 13.sp)
-                    moodOf(last.quality)?.let { Text(it.label, color = Color(it.color), fontSize = 12.sp) }
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0B1033), Color(0xFF1E1B4B))))) {
+        NightSky(Modifier.fillMaxSize())
+        Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+            ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (nights.isEmpty()) {
+                    item { Mochi(Modifier.width(96.dp).height(80.dp), color = Color(snap.mochiColor), mood = Mood.SLEEPY) }
+                    item { Text("Registra tus noches en el teléfono", color = Color(0xFFC7D2FE), fontSize = 13.sp, textAlign = TextAlign.Center) }
+                    return@ScalingLazyColumn
                 }
-            }
-            item {
-                val maxMin = maxOf(9 * 60, nights.maxOf { it.minutes })
-                Canvas(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 12.dp)) {
-                    val n = nights.size
-                    val slot = size.width / maxOf(n, 7)
-                    val bw = slot * 0.6f
-                    val goalY = size.height * (1 - 8 * 60f / maxMin)
-                    drawLine(Color(0x55FFFFFF), Offset(0f, goalY), Offset(size.width, goalY), 1.5f)
-                    nights.forEachIndexed { i, e ->
-                        val h = size.height * e.minutes / maxMin
-                        val c = moodOf(e.quality)?.let { Color(it.color) } ?: Violet
-                        val x = slot * (i + (maxOf(n, 7) - n)) + (slot - bw) / 2
-                        drawRoundRect(c, Offset(x, size.height - h), Size(bw, h), androidx.compose.ui.geometry.CornerRadius(bw / 2))
+                val last = nights.last()
+                item { Text(if (last.night == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())) "ANOCHE" else "ÚLTIMA NOCHE", color = Color(0xFFA5B4FC), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                item { NightSummary(last, Color(snap.mochiColor)) }
+                item {
+                    val maxMin = maxOf(9 * 60, nights.maxOf { it.minutes })
+                    Canvas(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 14.dp)) {
+                        val n = nights.size
+                        val slot = size.width / maxOf(n, 7)
+                        val bw = slot * 0.6f
+                        val goalY = size.height * (1 - 8 * 60f / maxMin)
+                        drawLine(Color(0x55FFFFFF), Offset(0f, goalY), Offset(size.width, goalY), 1.5f)
+                        nights.forEachIndexed { i, e ->
+                            val h = size.height * e.minutes / maxMin
+                            val c = moodOf(e.quality)?.let { Color(it.color) } ?: Violet
+                            val x = slot * (i + (maxOf(n, 7) - n)) + (slot - bw) / 2
+                            drawRoundRect(c, Offset(x, size.height - h), Size(bw, h), androidx.compose.ui.geometry.CornerRadius(bw / 2))
+                        }
                     }
                 }
-            }
-            item { Text("Promedio ${avg / 60} h ${"%02d".format(avg % 60)} · ${nights.size} noches", color = Dim, fontSize = 12.sp) }
-            items(nights.reversed()) { e ->
-                Text(
-                    "${e.night.takeLast(5).replace('-', '/')}  ${e.minutes / 60} h ${"%02d".format(e.minutes % 60)}",
-                    fontSize = 13.sp, color = moodOf(e.quality)?.let { Color(it.color) } ?: Color.White,
-                )
+                val avg = nights.map { it.minutes }.average().toInt()
+                item { Text("Promedio ${avg / 60} h ${"%02d".format(avg % 60)} · ${nights.size} noches", color = Color(0xFFC7D2FE), fontSize = 12.sp) }
+                items(nights.reversed()) { e ->
+                    Chip(
+                        onClick = { open("night/${e.night}") },
+                        icon = { ShapedIcon(Icons.Rounded.Bedtime, nights.indexOf(e)) },
+                        label = { Text("${e.minutes / 60} h ${"%02d".format(e.minutes % 60)}") },
+                        secondaryLabel = { Text(java.text.SimpleDateFormat("EEE d MMM", java.util.Locale("es", "MX")).format(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(e.night) ?: Date())) },
+                        colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0x332A2460)),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
+    }
+}
+
+/** One night, under the stars, like the phone's Sueño. */
+@Composable
+fun NightReport(snap: Snapshot, night: String) {
+    val e = snap.nights.firstOrNull { it.night == night } ?: return
+    val listState = rememberScalingLazyListState()
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0B1033), Color(0xFF1E1B4B))))) {
+        NightSky(Modifier.fillMaxSize())
+        Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
+            ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                item {
+                    Text(
+                        java.text.SimpleDateFormat("EEEE d 'de' MMMM", java.util.Locale("es", "MX")).format(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(e.night) ?: Date()).uppercase(),
+                        color = Color(0xFFA5B4FC), fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    )
+                }
+                item { NightSummary(e, Color(snap.mochiColor)) }
+            }
+        }
+    }
+}
+
+/** Tokkip resting (or with tired eyes), the hours, bed → wake, how rested, and the stages. */
+@Composable
+fun NightSummary(e: mx.loperstack.mochi.wellness.NightLite, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Mochi(
+            Modifier.width(86.dp).height(70.dp), color = color,
+            face = when { e.quality in 1..2 -> mx.loperstack.mochi.mochi.MochiEngine.Eye.TIRED; e.quality >= 4 -> mx.loperstack.mochi.mochi.MochiEngine.Eye.HAPPY; else -> null },
+            mood = if (e.quality in 1..2) Mood.SLEEPY else Mood.IDLE,
+        )
+        Text("${e.minutes / 60} h ${"%02d".format(e.minutes % 60)}", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Text("${HM.format(Date(e.bed))} → ${HM.format(Date(e.wake))}", color = Color(0xFFC7D2FE), fontSize = 13.sp)
+        moodOf(e.quality)?.let { m ->
+            val label = mapOf(5 to "Descansado", 4 to "Bien", 3 to "Regular", 2 to "Cansado", 1 to "Agotado")[e.quality] ?: m.label
+            Text(label, color = Color(m.color), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+        if (e.deep + e.rem > 0) {
+            val total = ((e.wake - e.bed) / 60_000L).toInt().coerceAtLeast(1)
+            val light = (total - e.deep - e.rem - e.awake).coerceAtLeast(0)
+            val parts = listOf(e.deep to Color(0xFF6366F1), e.rem to Color(0xFF22D3EE), light to Color(0xFFA5B4FC), e.awake to Color(0xFFF472B6))
+            Spacer(Modifier.height(6.dp))
+            Canvas(Modifier.width(130.dp).height(8.dp).clip(CircleShape)) {
+                var x = 0f
+                for ((m, c) in parts) { val w = size.width * m / total; drawRect(c, Offset(x, 0f), Size(w, size.height)); x += w }
+            }
+            Text("Profundo ${e.deep} · REM ${e.rem} · despierto ${e.awake} min", fontSize = 10.sp, color = Color(0xFFC7D2FE), textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** Twinkling stars, a shooting star every 7 s, and a moon. */
+@Composable
+fun NightSky(modifier: Modifier) {
+    val stars = remember { List(34) { floatArrayOf(kotlin.random.Random.nextFloat(), kotlin.random.Random.nextFloat() * 0.8f, 0.6f + kotlin.random.Random.nextFloat() * 1.4f, kotlin.random.Random.nextFloat() * 6.28f, 0.6f + kotlin.random.Random.nextFloat() * 1.6f) } }
+    var t by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val t0 = withFrameMillis { it }
+        while (true) withFrameMillis { t = (it - t0) / 1000f }
+    }
+    val star = Color(0xFFFDF4FF)
+    Canvas(modifier) {
+        for (st in stars) {
+            val tw = 0.5f + 0.5f * kotlin.math.sin(t * st[4] + st[3])
+            drawCircle(star.copy(alpha = ((0.15f + 0.75f * tw) * (0.5f + st[2] / 4f)).coerceIn(0f, 1f)), st[2] * density * (0.8f + 0.4f * tw), Offset(st[0] * size.width, st[1] * size.height))
+        }
+        val k = t % 7f
+        if (k < 1f) {
+            val sx = size.width * (0.2f + 0.5f * k); val sy = size.height * (0.15f + 0.25f * k)
+            drawLine(star.copy(alpha = 0.8f * (1 - k)), Offset(sx - 40f, sy - 20f), Offset(sx, sy), strokeWidth = 2.5f)
+        }
+        drawCircle(Color(0xFFFDE68A), 12.dp.toPx(), Offset(size.width * 0.72f, size.height * 0.2f))
+        drawCircle(Color(0xFF0B1033), 10.dp.toPx(), Offset(size.width * 0.72f + 6.dp.toPx(), size.height * 0.2f - 4.dp.toPx()))
     }
 }
 
@@ -905,7 +997,7 @@ fun ScreenReport(snap: Snapshot) {
             if (level >= 2) item {
                 Chip(
                     onClick = { WatchStore.openScreen.value = "breathe" },
-                    icon = { Icon(Icons.Rounded.Air, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
+                    icon = { ShapedIcon(Icons.Rounded.Air, 9) },
                     label = { Text("Respira 1 minuto") },
                     colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF3B2A63)),
                     modifier = Modifier.fillMaxWidth(),
@@ -913,5 +1005,22 @@ fun ScreenReport(snap: Snapshot) {
             }
         }
     }
+}
+
+// ── Expressive bits ───────────────────────────────────────────────────────────
+
+/** A chip's icon in a Material 3 Expressive shape (cookie, clover, sunny…), a different one per chip. */
+@Composable
+fun ShapedIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, index: Int, tint: Color = Color(0xFF14102A)) {
+    val shapes = listOf(
+        mx.loperstack.mochi.mochi.MShapes.Cookie9, mx.loperstack.mochi.mochi.MShapes.Clover4, mx.loperstack.mochi.mochi.MShapes.Sunny,
+        mx.loperstack.mochi.mochi.MShapes.Flower, mx.loperstack.mochi.mochi.MShapes.Cookie6, mx.loperstack.mochi.mochi.MShapes.SoftBurst,
+        mx.loperstack.mochi.mochi.MShapes.Puffy, mx.loperstack.mochi.mochi.MShapes.Gem, mx.loperstack.mochi.mochi.MShapes.Clover8,
+    )
+    val fills = listOf(Color(0xFFC4B5FD), Color(0xFF86EFAC), Color(0xFFFDBA74), Color(0xFF93C5FD), Color(0xFFF9A8D4), Color(0xFFFDE68A))
+    Box(
+        Modifier.size(30.dp).clip(mx.loperstack.mochi.mochi.PolygonShape(shapes[index % shapes.size])).background(fills[index % fills.size]),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp), tint = if (tint == Color(0xFF14102A)) tint else tint) }
 }
 

@@ -167,15 +167,30 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
     }
     // The printable kit for a paper journal (data/JournalKit.kt): pick the days, then where to save it.
     var kitRange by remember { mutableStateOf<mx.loperstack.mochi.data.KitRange?>(null) }
+    var kitDay by remember { mutableStateOf<String?>(null) }
     var askKit by remember { mutableStateOf(false) }
     val saveKit = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val range = kitRange
-        if (uri == null || range == null) return@rememberLauncherForActivityResult
+        val one = kitDay
+        if (uri == null || (range == null && one == null)) return@rememberLauncherForActivityResult
         scope.launch {
             toast(context, "Armando tu kit…")
-            val ok = withContext(Dispatchers.IO) { mx.loperstack.mochi.data.JournalKit.pdf(context, Store.state.value, range, uri) }
-            toast(context, if (ok) "Kit listo: imprímelo en hoja carta al 100 % y recorta ✂" else "No se pudo armar el kit")
-            if (ok) Sounds.play("approve")
+            val ok = withContext(Dispatchers.IO) {
+                mx.loperstack.mochi.data.JournalKit.pdf(context, Store.state.value, range ?: mx.loperstack.mochi.data.KitRange.WEEK, uri, day = one)
+            }
+            if (ok) {
+                Sounds.play("approve")
+                // Straight to it, to look at it or print it.
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(uri, "application/pdf")
+                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                            "Abrir tu kit",
+                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }.onFailure { toast(context, "Kit listo: imprímelo en hoja carta al 100 % y recorta ✂") }
+            } else toast(context, "No se pudo armar el kit")
         }
     }
     if (askKit) {
@@ -184,13 +199,20 @@ fun DiaryScreen(logs: List<DayLog>, color: Color, actions: Actions, composeNow: 
             title = { Text("Kit para journaling") },
             text = {
                 Column {
-                    Text("Un PDF para imprimir y recortar: tus días como tarjetas con cinta washi y fotos tipo polaroid, stickers de Tokkip, tus rachas, tu mes en colores y hojas para escribir a mano.")
+                    Text("Un PDF para imprimir y recortar: tus días como tarjetas con cinta washi y fotos tipo polaroid, stickers de Tokkip, tus rachas, tu mes en colores y hojas para escribir a mano. Al terminar se abre para que lo veas o lo imprimas.")
                     Spacer(Modifier.height(12.dp))
+                    val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                    // Just the day you're looking at.
+                    val dayName = java.text.SimpleDateFormat("EEEE d 'de' MMMM", java.util.Locale("es", "MX"))
+                        .format(java.util.Date(mx.loperstack.mochi.data.dayStart(selected))).replaceFirstChar { it.uppercase() }
+                    androidx.compose.material3.TextButton(onClick = {
+                        askKit = false; kitRange = null; kitDay = selected
+                        saveKit.launch("Tokkip-dia-$selected.pdf")
+                    }) { Text("Solo este día · $dayName", fontWeight = FontWeight.Bold) }
                     for (r in mx.loperstack.mochi.data.KitRange.entries) {
                         androidx.compose.material3.TextButton(onClick = {
                             askKit = false
-                            kitRange = r
-                            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                            kitRange = r; kitDay = null
                             saveKit.launch("Tokkip-journal-$stamp.pdf")
                         }) { Text(r.label, fontWeight = FontWeight.Bold) }
                     }

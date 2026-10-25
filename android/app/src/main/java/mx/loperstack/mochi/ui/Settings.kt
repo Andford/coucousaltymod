@@ -186,6 +186,24 @@ fun Devices(google: GoogleTasks.Status) {
         if (tablet) Icons.Rounded.PhoneAndroid else Icons.Rounded.TabletAndroid, if (tablet) "Tu teléfono" else "Tu tablet",
         if (google.connected) "Las mismas tareas por Google Tasks" else "Conecta Google Tasks para compartir tareas", google.connected, MShapes.Sunny,
     )
+    // Headphones: their battery for the watch's Baterías (data/Headphones.kt).
+    var btOk by remember { mutableStateOf(mx.loperstack.mochi.data.Headphones.granted(context)) }
+    val askBt = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        btOk = it
+        if (it) mx.loperstack.mochi.data.WearSync.push(context)
+    }
+    val buds = remember(btOk) { mx.loperstack.mochi.data.Headphones.levels(context) }
+    Box(Modifier.clickable(enabled = !btOk) { askBt.launch(android.Manifest.permission.BLUETOOTH_CONNECT) }) {
+        DeviceRow(
+            Icons.Rounded.Headphones, buds.firstOrNull()?.first ?: "Tus audífonos",
+            when {
+                !btOk -> "Toca para ver su batería en el reloj (permiso de dispositivos cercanos)"
+                buds.isEmpty() -> "Conéctalos y su batería aparece en Baterías del reloj"
+                else -> buds.joinToString(" · ") { "${it.first} ${it.second} %" }
+            },
+            btOk && buds.isNotEmpty(), MShapes.Sunny,
+        )
+    }
     DeviceRow(
         Icons.Rounded.Laptop, "Tu laptop (Coucou)",
         if (google.connected) "Mismas tareas que la isla · el puente directo llega pronto" else "Con Google Tasks, la isla y Tokkip comparten tareas",

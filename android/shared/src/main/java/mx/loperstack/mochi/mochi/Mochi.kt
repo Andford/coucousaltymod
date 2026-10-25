@@ -7,6 +7,10 @@
 
 package mx.loperstack.mochi.mochi
 
+import androidx.compose.ui.Alignment
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -168,28 +172,52 @@ fun Mochi(
     }
 }
 
-/** The PC's "confused" card, above Mochi: he took too many hits. */
+/** A little cloud above Tokkip, bobbing: he took too many hits and he's dizzy. */
 @Composable
 private fun DizzyBubble() {
     val small = LocalConfiguration.current.screenWidthDp < 300
+    val bob by androidx.compose.animation.core.rememberInfiniteTransition(label = "cloud").animateFloat(
+        0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "bob",
+    )
     Popup(popupPositionProvider = AboveAnchor) {
-        Column(
-            Modifier.widthIn(max = if (small) 170.dp else 280.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xF22A1422))
-                .border(1.dp, Color(0x80F472B6), RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+        Box(
+            Modifier.graphicsLayer { translationY = -6f * bob }
+                .drawBehind { cloud(Color(0xFFFFF7FB), Color(0xFFF9A8D4)) }
+                .padding(start = if (small) 18.dp else 26.dp, end = if (small) 18.dp else 26.dp, top = if (small) 14.dp else 20.dp, bottom = if (small) 22.dp else 30.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            BasicText(
-                "Demasiados golpes a la vez.",
-                style = TextStyle(color = Color.White, fontSize = if (small) 13.sp else 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-            )
-            BasicText(
-                if (small) "Dame un segundo…" else "Dame un segundo — de vuelta en tres segundos.",
-                style = TextStyle(color = Color(0xFFF9A8D4), fontSize = if (small) 11.sp else 13.sp, textAlign = TextAlign.Center),
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                BasicText(
+                    "¡Me mareaste! 💫",
+                    style = TextStyle(color = Color(0xFF3B2340), fontSize = if (small) 13.sp else 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                )
+                BasicText(
+                    if (small) "Dame un segundo…" else "Dame tres segunditos…",
+                    style = TextStyle(color = Color(0xFFB0457E), fontSize = if (small) 11.sp else 13.sp, textAlign = TextAlign.Center),
+                )
+            }
         }
     }
+}
+
+/** A puffy cloud filling the box (its bottom part is the tail of little puffs), with a soft outline. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.cloud(fill: Color, line: Color) {
+    val w = size.width; val h = size.height
+    val body = h * 0.78f
+    fun puffs(grow: Float, c: Color) {
+        val r = body * 0.36f + grow
+        drawRoundRect(c, androidx.compose.ui.geometry.Offset(w * 0.06f - grow, body * 0.34f - grow), androidx.compose.ui.geometry.Size(w * 0.88f + 2 * grow, body * 0.52f + 2 * grow), androidx.compose.ui.geometry.CornerRadius(body * 0.26f + grow))
+        drawCircle(c, r, androidx.compose.ui.geometry.Offset(w * 0.3f, body * 0.42f))
+        drawCircle(c, r * 1.12f, androidx.compose.ui.geometry.Offset(w * 0.55f, body * 0.36f))
+        drawCircle(c, r * 0.9f, androidx.compose.ui.geometry.Offset(w * 0.78f, body * 0.48f))
+        drawCircle(c, r * 0.8f, androidx.compose.ui.geometry.Offset(w * 0.16f, body * 0.6f))
+        drawCircle(c, r * 0.8f, androidx.compose.ui.geometry.Offset(w * 0.86f, body * 0.66f))
+        // The tail: two little puffs down toward Tokkip.
+        drawCircle(c, body * 0.1f + grow, androidx.compose.ui.geometry.Offset(w * 0.46f, body + h * 0.06f))
+        drawCircle(c, body * 0.06f + grow, androidx.compose.ui.geometry.Offset(w * 0.42f, body + h * 0.17f))
+    }
+    puffs(2.5f * density, line)
+    puffs(0f, fill)
 }
 
 private object AboveAnchor : PopupPositionProvider {

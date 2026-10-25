@@ -217,7 +217,12 @@ object JournalKit {
 
     // ── The kit ──────────────────────────────────────────────────────────────
 
-    fun pdf(context: Context, data: AppData, range: KitRange, out: Uri, now: Long = System.currentTimeMillis()): Boolean = runCatching {
+    /**
+     * The kit for `range`, or — with `day` (yyyy-MM-dd) — just that day: its
+     * card, its stickers and a card to write by hand, on one page if it fits.
+     */
+    fun pdf(context: Context, data: AppData, range: KitRange, out: Uri, now: Long = System.currentTimeMillis(), day: String? = null): Boolean = runCatching {
+        if (day != null) return@runCatching oneDay(context, data, day, out, now)
         val k = Ctx(context)
         val (from, to) = kitDays(range, now)
         val days = data.logs.filter { it.day in from..to && (it.notes.isNotEmpty() || it.averageMood > 0) }
@@ -240,6 +245,53 @@ object JournalKit {
         doc.close()
         true
     }.getOrDefault(false)
+
+    private fun oneDay(context: Context, data: AppData, day: String, out: Uri, now: Long): Boolean {
+        val k = Ctx(context)
+        val doc = PdfDocument()
+        val pages = Pages(doc, k, "Tokkip · tu día para el journal · imprime en hoja carta al 100 % y recorta por la línea punteada")
+        val log = data.logs.firstOrNull { it.day == day }
+        val title = SimpleDateFormat("EEEE d 'de' MMMM", MX).format(Date(dayStart(day))).replaceFirstChar { it.uppercase(MX) }
+        var bottom = if (log != null) dayCards(context, pages, k, data, listOf(log), title) else 0f
+        if (bottom == 0f) {
+            val c = pages.next()
+            c.drawText(title, M, M + 22f, k.text(28f, k.handBold))
+            bottom = M + 40f
+        }
+        val routine = data.routine()
+        val flow = Flow(pages, bottom + 4f)
+        flow.heading(k, "Stickers del día")
+        // Tokkip with that day's mood (or happy), his seal, and what he noticed.
+        val mood = log?.averageMood?.takeIf { it > 0 } ?: 4
+        val m = flow.place(110f, 120f)
+        moodSticker(pages.c, k, m.centerX(), m.top + 48f, 86f, mood, data.mochiColor)
+        val seal = flow.place(128f, 128f)
+        growthSeal(pages.c, k, seal, growth(routine, now), data.mochiColor)
+        val q = flow.place(W - 2 * M - 110f - 128f - 32f, 120f)
+        quote(pages.c, k, q, noteOfTheDay(routine, now))
+        flow.newRow(14f)
+        for (i in 0 until 2) {
+            val r = flow.place(266f, 30f, 20f)
+            washi(pages.c, r.centerX(), r.centerY(), r.width(), 24f, 0f, TAPES[(i + 2) % TAPES.size], i)
+            pages.c.drawRect(r.left - 3f, r.top - 1f, r.right + 3f, r.bottom + 1f, cutPaint)
+        }
+        flow.newRow(12f)
+        for ((i, t) in listOf("hoy", "gracias", "logré", "me sentí").withIndex()) {
+            val r = flow.place(124f, 34f, 12f)
+            tag(pages.c, k, r, t, TAPES[i % TAPES.size])
+        }
+        flow.newRow(16f)
+        // A card to finish the day by hand.
+        val card = flow.place(W - 2 * M, 150f)
+        pages.c.drawRoundRect(card, 10f, 10f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = (TAPES[1] and 0x00FFFFFF) or 0x30000000 })
+        cut(pages.c, card)
+        pages.c.drawText("Hoy agradezco…", card.left + 14f, card.top + 30f, k.text(20f, k.handBold))
+        lines(pages.c, card.left + 14f, card.right - 14f, card.top + 58f, 4)
+        pages.finish()
+        context.contentResolver.openOutputStream(out)?.use { doc.writeTo(it) } ?: return false
+        doc.close()
+        return true
+    }
 
     /** Places boxes left to right, row by row, page by page. */
     private class Flow(val pages: Pages, var y: Float) {
@@ -430,8 +482,9 @@ object JournalKit {
         class Photo(val bmp: Bitmap, val time: String, h: Float) : Piece(h)
     }
 
-    private fun dayCards(context: Context, pages: Pages, k: Ctx, data: AppData, days: List<DayLog>) {
-        if (days.isEmpty()) return
+    /** The days as cards in two columns; returns how far down the last page they reach. */
+    private fun dayCards(context: Context, pages: Pages, k: Ctx, data: AppData, days: List<DayLog>, title: String = "Mis días"): Float {
+        if (days.isEmpty()) return 0f
         val colW = (W - 2 * M - 20f) / 2
         val inner = colW - 28f
         val headH = 64f
@@ -442,7 +495,7 @@ object JournalKit {
 
         fun begin() {
             val c = pages.next()
-            c.drawText("Mis días", M, M + 22f, k.text(28f, k.handBold))
+            c.drawText(title, M, M + 22f, k.text(28f, k.handBold))
             cols[0] = M + 40f; cols[1] = M + 40f
             started = true
         }
@@ -480,6 +533,7 @@ object JournalKit {
                 cols[col] += cardH + 22f
             }
         }
+        return maxOf(cols[0], cols[1])
     }
 
     private fun dayCard(c: Canvas, k: Ctx, r: RectF, d: DayLog, pieces: List<Piece>, more: Boolean, mochiColor: Long, seed: Int) {

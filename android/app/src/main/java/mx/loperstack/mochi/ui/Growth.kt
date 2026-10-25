@@ -198,7 +198,6 @@ fun GrowthCard(now: Long, modifier: Modifier = Modifier) {
         NoteRow(note, big = true)
     }
     if (open) GrowthSheet(g, now) { open = false }
-    GrowthCelebration(g)
 }
 
 @Composable

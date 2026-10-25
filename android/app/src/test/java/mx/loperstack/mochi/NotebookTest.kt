@@ -1,18 +1,13 @@
 package mx.loperstack.mochi
 
 import mx.loperstack.mochi.data.BlockKind
-import mx.loperstack.mochi.data.Care
 import mx.loperstack.mochi.data.NoteHead
-import mx.loperstack.mochi.data.NotebookDay
 import mx.loperstack.mochi.data.NotebookIndex
 import mx.loperstack.mochi.data.Project
-import mx.loperstack.mochi.data.Routine
 import mx.loperstack.mochi.data.blocksOf
 import mx.loperstack.mochi.data.bodyOf
 import mx.loperstack.mochi.data.captureOf
-import mx.loperstack.mochi.data.dayKey
 import mx.loperstack.mochi.data.factsOf
-import mx.loperstack.mochi.data.growth
 import mx.loperstack.mochi.data.halfDone
 import mx.loperstack.mochi.data.notebookNotes
 import mx.loperstack.mochi.data.progress
@@ -80,14 +75,5 @@ class NotebookTest {
         val ids = notebookNotes(NotebookIndex(listOf(p), notes), now).map { it.id }
         assertTrue("nb-inbox" in ids)
         assertTrue("nb-stale" in ids)
-    }
-
-    @Test fun cuadernoGivesCarino() {
-        val today = dayKey(now)
-        val r = Routine(notebook = NotebookIndex(days = listOf(NotebookDay(today, 3, 10, 1))))
-        // Capped at 5 a day.
-        assertEquals(5, growth(r, now).byCare[Care.CUADERNO])
-        val r2 = Routine(notebook = NotebookIndex(days = listOf(NotebookDay(today, 1, 1, 0))))
-        assertEquals(3, growth(r2, now).byCare[Care.CUADERNO])
     }
 }

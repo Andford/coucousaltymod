@@ -44,29 +44,15 @@ octubre, gorro navideño en diciembre.
   pendientes. Con el teléfono acostado (o en tablet) se vuelve un tablero:
   reloj y Tokkip, hoy y mañana, su crecimiento y tu dinero, enfoque y tareas,
   con un riel a un lado para las demás secciones. Inicio se personaliza: ordena
-  y oculta sus secciones (Tokkip, música, Tokkip y tú, rachas de hoy,
-  cuaderno, dinero, pantalla, agenda, atajos y tareas).
-- **Cuaderno**: tus notas y proyectos, pensado para una cabeza que brinca de
-  idea en idea. Un campo arriba para sacar lo que traes en la cabeza en un
-  toque (espera en la Bandeja hasta que lo acomodes); debajo, lo que dejaste a
-  medias con su siguiente paso para marcarlo ahí mismo. Cada proyecto es una
-  cajita con su color, su forma de Material Expressive, su ícono y el porqué te
-  importa; sus notas tienen texto, títulos, viñetas y pasos (escribe «[] » al
-  inicio de una línea), su avance y "lo siguiente" siempre a la vista. Un paso
-  se manda a Tareas, una nota se comparte y todo se busca (sin importar
-  acentos). Al escribir, la nota llena la pantalla para que solo esté ella.
-  Terminar un proyecto es fiesta, y escribir, marcar pasos y terminar le dan
-  cariño a Tokkip, que también te avisa si la Bandeja se llena o un proyecto
-  lleva días quieto. Vive en una base de datos aparte en el teléfono: en
-  memoria solo están los títulos, así que cientos de notas no hacen más pesada
-  la app. Por ahora texto; la pluma viene después.
+  y oculta sus secciones (Tokkip, música, Tokkip y tú, rachas de hoy, dinero,
+  pantalla, agenda, atajos y tareas).
 - **Agenda**: tus eventos como lista (las próximas cinco semanas) o como mes con
   puntitos de color; toca un día para verlo. Cada evento se abre para unirte a
   su Meet, abrirlo en Calendar o cambiarle el color con la paleta de Google
   Calendar (se sincroniza a la web y la PC), y editarlo: nombre, día, hora,
   duración y hasta 4 avisos. Los eventos nuevos también eligen color y avisos.
 - **Tokkip crece contigo**: cada vez que te cuidas (rachas, diario, ánimo,
-  respirar, dormir, dinero, pantalla, cuaderno) le das cariño. Pasa por seis etapas, de *Recién llegado* a
+  respirar, dormir, dinero, pantalla) le das cariño. Pasa por seis etapas, de *Recién llegado* a
   *Leyenda*, y después el ciclo sigue dando vueltas (★1, ★2…). Se calcula con tu
   propio historial, así que una copia restaurada trae su crecimiento. Cada vez
   que suben de nivel hay fiesta: una galleta de Material Expressive que se
@@ -113,7 +99,7 @@ octubre, gorro navideño en diciembre.
   modo AOD.
 - **Rachas**: hábitos con íconos de Material 3 Expressive y recordatorios.
 - **Tareas y agenda**: Google Tasks y Google Calendar.
-- **Mimos** (en Bienestar): juega con Tokkip, con física, vibración y sonidos.
+- **Mimos**: juega con Tokkip, con física, vibración y sonidos.
 - **Notificaciones bonitas**: buenos días, eventos y pendientes, y diario por la
   noche, cada una con su propio tono de Tokkip (también rachas, pagos, pantalla
   y enfoque); se escuchan en Ajustes y se pueden cambiar en Android.
@@ -124,13 +110,42 @@ octubre, gorro navideño en diciembre.
   que notó). Siguen el modo claro u oscuro.
 - **Ícono por especie**: el ícono de la app cambia según tu Tokkip.
 - **Respaldo**: exporta y restaura todo en un .zip (también desde el Diario), y
-  te dice qué guardó: rachas, días de diario, tareas, noches, notas y proyectos
-  del Cuaderno, y fotos.
+  te dice qué guardó: rachas, días de diario, tareas, noches y fotos. Si tenías
+  notas en el Cuaderno (1.12), Ajustes te deja pasarlas a Tokkip Notas.
 - **Empezar de cero**: en Ajustes, un botón que borra todo (con opción de
   guardar una copia antes y escribiendo BORRAR para confirmar).
 - Música de bienvenida estilo lofi y sonidos propios, generados en código:
   kalimba para Enfoque, un "check" brillante para Tareas, monedas y caja
   registradora para Dinero, y un jingle de 8 bits para Pantalla.
+
+### Tokkip Notas (app aparte, Android)
+
+Tu cuaderno estilo Notion, con el diseño de Tokkip y sin lo tedioso: todo es
+una página, y las páginas viven dentro de otras.
+
+- **Inicio que no te deja en blanco**: Tokkip te saluda, un campo para sacar
+  lo que traes en la cabeza (llega a la **Bandeja** y luego lo acomodas), lo
+  que tienes para hoy en tus tableros, lo último que abriste, tus favoritos y
+  el árbol de tus páginas.
+- **Plantillas**: página en blanco, proyecto (con su porqué, lo siguiente y un
+  tablero de tareas), tablero, apuntes de clase, lluvia de ideas, reunión,
+  lista de lecturas y pelis, y viaje.
+- **Escribir por líneas**: escribe «/» o toca + para escoger qué es cada
+  línea (título, subtítulo, viñetas, lista numerada, pasos para marcar, cita,
+  aviso con Tokkip, separador) o para meter una subpágina, un tablero o una
+  tabla. Atajos: «[] », «- », «1. », «# », «> », «---».
+- **Tableros y tablas**: las mismas tarjetas vistas como kanban (Por hacer ·
+  Haciendo · Hecho, o tus columnas; mantén presionada una tarjeta y arrástrala)
+  o como tabla con columnas de estado, fecha, etiquetas, texto, número o
+  casilla, que se ordenan al tocarlas. Cada tarjeta se abre como página. Llevar
+  una tarjeta a Hecho es fiesta para Tokkip.
+- Cada página con su ícono, color y forma de Material Expressive; favoritos,
+  búsqueda sin acentos, mover a otra página, compartir y Papelera de 30 días.
+- En tablet acostada (Legion Tab), el árbol de páginas queda a un lado.
+- Lo que compartas desde otra app (un texto, un link) llega a la Bandeja.
+- Todo local, en una base de datos del teléfono con solo los títulos en
+  memoria. Copia en un archivo para guardarla donde quieras. La pluma y la
+  versión de Windows vienen después.
 
 ### En tu reloj (Wear OS)
 
@@ -192,7 +207,7 @@ Por ahora Tokkip se instala desde GitHub Actions (no está en ninguna tienda).
 
 | Plataforma | De dónde | Qué bajar |
 |---|---|---|
-| Teléfono y reloj | Pestaña **Actions** → workflow **Android** → la última ejecución | APK del teléfono, del reloj y de la carátula |
+| Teléfono y reloj | Pestaña **Actions** → workflow **Android** → la última ejecución | APK del teléfono, del reloj, de la carátula y de Tokkip Notas |
 | Windows | Pestaña **Actions** → workflow **Tokkip PC** → la última ejecución | `Tokkip-Windows-setup` (instalador) o `Tokkip-Windows-portable` |
 
 - **Android**: instala el APK. Cada compilación usa la misma firma, así que se

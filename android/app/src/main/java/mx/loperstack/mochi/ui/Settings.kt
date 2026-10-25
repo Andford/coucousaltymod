@@ -42,6 +42,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -278,6 +279,7 @@ fun SettingsSheet(
             NotificationSettings(data.notify)
             SectionTitle("Copia de seguridad")
             BackupRow()
+            NotebookMoveRow()
             SectionTitle("Tus dispositivos")
             Devices(google)
         }
@@ -591,5 +593,65 @@ fun TokkipColors(data: AppData) {
         Spacer(Modifier.height(8.dp))
         Label("Brillo", Ink.Dim, 12.sp, FontWeight.Bold)
         GradientSlider(value, Brush.horizontalGradient(listOf(Color.Black, fromHsv(hue, sat, 1f))), fromHsv(hue, sat, value)) { value = it; apply() }
+    }
+}
+
+/**
+ * The Cuaderno moved out to its own app, Tokkip Notas. While Tokkip still has
+ * notes from it, this hands them over (Tokkip Notas brings them in as pages)
+ * and, once they're there, lets you clear them from here.
+ */
+@Composable
+fun NotebookMoveRow() {
+    val context = LocalContext.current
+    val nb by mx.loperstack.mochi.data.Notebook.index.collectAsState()
+    if (nb.notes.isEmpty() && nb.projects.isEmpty()) return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var clearing by remember { mutableStateOf(false) }
+    SectionTitle("Tu Cuaderno se mudó")
+    Label(
+        "Las notas y proyectos ahora viven en Tokkip Notas, su propia app. Aquí quedan ${nb.notes.size} notas y ${nb.projects.size} proyectos: pásalos y luego bórralos de Tokkip.",
+        Ink.Dim2, 12.sp,
+    )
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ExpressiveButton("Pasar a Tokkip Notas", icon = Icons.Rounded.Send) {
+            scope.launch {
+                val uri = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val dir = java.io.File(context.cacheDir, "share").apply { mkdirs() }
+                        val f = java.io.File(dir, "cuaderno.json")
+                        f.writeText(mx.loperstack.mochi.data.Notebook.exportJson().toString())
+                        androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", f)
+                    }.getOrNull()
+                }
+                if (uri == null) {
+                    android.widget.Toast.makeText(context, "No se pudo preparar el Cuaderno", android.widget.Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                val intent = android.content.Intent("mx.loperstack.tokkipnotas.IMPORT_TOKKIP")
+                    .setPackage("mx.loperstack.tokkipnotas")
+                    .setDataAndType(uri, "application/json")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                runCatching { context.startActivity(intent) }.onFailure {
+                    android.widget.Toast.makeText(context, "Primero instala Tokkip Notas", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        ExpressiveButton("Borrar de aquí", container = Ink.CardHigh, content = Ink.Red) { clearing = true }
+    }
+    if (clearing) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { clearing = false },
+            title = { Text("¿Ya están en Tokkip Notas?") },
+            text = { Text("Se borran de Tokkip. Si todavía no los pasas, se pierden (salvo que estén en una copia .zip).") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    clearing = false
+                    scope.launch { withContext(Dispatchers.IO) { mx.loperstack.mochi.data.Notebook.wipe() } }
+                }) { Text("Borrar", color = Ink.Red) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { clearing = false }) { Text("Cancelar") } },
+        )
     }
 }

@@ -112,7 +112,6 @@ class MainActivity : ComponentActivity() {
         "streaks" -> Tab.STREAKS
         "money" -> Tab.MONEY
         "pet" -> Tab.PET
-        "notes" -> Tab.NOTES
         else -> Tab.HOME
     }
 }

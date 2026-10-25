@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -73,7 +72,6 @@ val HOME_SECTIONS = listOf(
     HomeSection("music", "Lo que suena", Icons.Rounded.MusicNote, "El mini reproductor, cuando hay música"),
     HomeSection("growth", "Tokkip y tú", Icons.Rounded.AutoAwesome, "Su nivel y lo que notó"),
     HomeSection("streaks", "Rachas de hoy", Icons.Rounded.LocalFireDepartment, "Marca tus hábitos desde aquí"),
-    HomeSection("notebook", "Cuaderno", Icons.Rounded.EditNote, "Anota rápido y retoma lo que dejaste a medias"),
     HomeSection("money", "Dinero", Icons.Rounded.AccountBalanceWallet, "Lo que te queda de la semana"),
     HomeSection("screen", "Pantalla", Icons.Rounded.PhoneAndroid, "Tu scroll de hoy y la cara de Tokkip"),
     HomeSection("agenda", "Agenda", Icons.Rounded.CalendarMonth, "Hoy y mañana"),

@@ -82,7 +82,6 @@ import androidx.compose.ui.unit.sp
 import mx.loperstack.mochi.data.Care
 import mx.loperstack.mochi.data.Growth
 import mx.loperstack.mochi.data.STAGES
-import mx.loperstack.mochi.data.Notebook
 import mx.loperstack.mochi.data.Store
 import mx.loperstack.mochi.data.TokkipNote
 import mx.loperstack.mochi.data.growth
@@ -132,7 +131,6 @@ private fun careIcon(c: Care): ImageVector = when (c) {
     Care.SUENO -> Icons.Rounded.Bedtime
     Care.FINANZAS -> Icons.Rounded.Savings
     Care.PANTALLA -> Icons.Rounded.PhoneAndroid
-    Care.CUADERNO -> Icons.Rounded.EditNote
 }
 
 private fun careHow(c: Care): String = when (c) {
@@ -143,16 +141,14 @@ private fun careHow(c: Care): String = when (c) {
     Care.SUENO -> "+1 al registrar tu noche, +2 si cumples tu meta"
     Care.FINANZAS -> "+2 el día que anotas tus gastos o ingresos"
     Care.PANTALLA -> "+3 cada día que te quedas dentro de tu meta de scroll"
-    Care.CUADERNO -> "+2 el día que escribes, +1 por paso marcado, +3 al terminar un proyecto (hasta 5)"
 }
 
 /** The growth and the note of the day, recomputed when your history changes (and each hour). */
 @Composable
 fun rememberGrowth(now: Long): Pair<Growth, TokkipNote> {
     val d by Store.state.collectAsState()
-    val nb by Notebook.index.collectAsState()
     val hour = now / 3_600_000
-    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, d.debts, d.screenDays, d.screen, nb, hour) {
+    return remember(d.logs, d.habits, d.sessions, d.sleep, d.sleepGoal, d.money, d.budget, d.debts, d.screenDays, d.screen, hour) {
         val r = d.routine()
         growth(r, now) to noteOfTheDay(r, now)
     }

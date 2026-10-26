@@ -17,7 +17,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
-private class Helper(context: Context) : SQLiteOpenHelper(context, "notas.db", null, 1) {
+private class Helper(context: Context) : SQLiteOpenHelper(context, "notas.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """CREATE TABLE pages (id TEXT PRIMARY KEY, parent TEXT, title TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL DEFAULT 'doc',
@@ -27,9 +27,18 @@ private class Helper(context: Context) : SQLiteOpenHelper(context, "notas.db", n
                preview TEXT NOT NULL DEFAULT '', steps INTEGER NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0, body TEXT NOT NULL DEFAULT '')""",
         )
         db.execSQL("CREATE INDEX pages_parent ON pages(parent)")
+        syncTables(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
+        if (old < 2) syncTables(db)
+    }
+
+    private fun syncTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_rows (id TEXT PRIMARY KEY, ver INTEGER NOT NULL, dirty INTEGER NOT NULL DEFAULT 1, deleted INTEGER NOT NULL DEFAULT 0, base TEXT)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS sync_rows_dirty ON sync_rows(dirty)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    }
 }
 
 private const val META = "id,parent,title,icon,color,shape,kind,ord,created,updated,opened,favorite,trashed,props,schema,preview,steps,done"
@@ -38,6 +47,8 @@ object Store {
     private var helper: Helper? = null
     private val db get() = helper!!.writableDatabase
     private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "notas-db").apply { isDaemon = true } }
+    /** Called after every change that should travel (Sync.soon). */
+    var onChange: () -> Unit = {}
     private val _index = MutableStateFlow(Index())
     val index: StateFlow<Index> = _index.asStateFlow()
     val now get() = System.currentTimeMillis()
@@ -47,9 +58,11 @@ object Store {
         helper = Helper(context.applicationContext)
         runCatching {
             // The Papelera keeps things 30 days.
-            db.delete("pages", "trashed > 0 AND trashed < ?", arrayOf((now - 30 * DAY_MS).toString()))
+            val old = ArrayList<String>()
+            db.rawQuery("SELECT id FROM pages WHERE trashed > 0 AND trashed < ?", arrayOf((now - 30 * DAY_MS).toString())).use { c -> while (c.moveToNext()) old += c.getString(0) }
+            for (id in old) { db.delete("pages", "id=?", arrayOf(id)); mark(db, id, true) }
             _index.value = load()
-            if (_index.value.page(INBOX_ID) == null) put(Page(INBOX_ID, null, "Bandeja", "inbox", 0xFF94A3B8, 0, created = now, updated = now), "")
+            ensureInbox()
         }
     }
 
@@ -74,7 +87,29 @@ object Store {
         put("preview", p.preview); put("steps", p.steps); put("done", p.done)
     }
 
-    private fun write(block: SQLiteDatabase.() -> Unit) = io.execute { runCatching { db.block() } }
+    private fun write(quiet: Boolean = false, block: SQLiteDatabase.() -> Unit) {
+        io.execute { runCatching { db.block() } }
+        if (!quiet) onChange()
+    }
+
+    /** The Bandeja exists on every device with the same id; making it isn't news for the others. */
+    private fun ensureInbox() {
+        if (_index.value.page(INBOX_ID) != null) return
+        val p = Page(INBOX_ID, null, "Bandeja", "inbox", 0xFF94A3B8, 0, created = now, updated = now)
+        setPages(listOf(p))
+        write(quiet = true) { insertWithOnConflict("pages", null, values(p).apply { put("body", "") }, SQLiteDatabase.CONFLICT_REPLACE) }
+    }
+
+    /** Notes a change for sync: a version newer than any before, waiting to go up (keeps `base`). */
+    internal fun mark(db: SQLiteDatabase, id: String, deleted: Boolean) {
+        val t = System.currentTimeMillis()
+        val old = db.rawQuery("SELECT ver FROM sync_rows WHERE id=?", arrayOf(id)).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        val ver = if (old == null) t else maxOf(t, old + 1)
+        db.execSQL(
+            "INSERT INTO sync_rows (id, ver, dirty, deleted) VALUES (?, ?, 1, ?) ON CONFLICT(id) DO UPDATE SET ver=excluded.ver, dirty=1, deleted=excluded.deleted",
+            arrayOf<Any>(id, ver, if (deleted) 1 else 0),
+        )
+    }
 
     private fun setPages(changed: List<Page>, removed: Set<String> = emptySet()) {
         val ids = changed.map { it.id }.toSet()
@@ -88,14 +123,14 @@ object Store {
         val f = factsOf(body)
         val full = p.copy(preview = f.preview, steps = f.steps, done = f.done)
         setPages(listOf(full))
-        write { insertWithOnConflict("pages", null, values(full).apply { put("body", body) }, SQLiteDatabase.CONFLICT_REPLACE) }
+        write { insertWithOnConflict("pages", null, values(full).apply { put("body", body) }, SQLiteDatabase.CONFLICT_REPLACE); mark(this, full.id, false) }
     }
 
     /** Changes a page's details (title, icon, values, columns…), not its body. */
-    fun update(p: Page, touch: Boolean = true) {
+    fun update(p: Page, touch: Boolean = true, quiet: Boolean = false) {
         val q = if (touch) p.copy(updated = now) else p
         setPages(listOf(q))
-        write { update("pages", values(q), "id=?", arrayOf(q.id)) }
+        write(quiet) { update("pages", values(q), "id=?", arrayOf(q.id)); if (!quiet) mark(this, q.id, false) }
     }
 
     private fun lastOrd(parent: String?) = _index.value.children(parent).maxOfOrNull { it.ord }
@@ -142,12 +177,14 @@ object Store {
                 "UPDATE pages SET title=?, body=?, preview=?, steps=?, done=?, updated=? WHERE id=?",
                 arrayOf(p.title, body, p.preview, p.steps, p.done, p.updated, id),
             )
+            mark(this, id, false)
         }
     }
 
+    /** When you open a page: only for this device (recents), not synced. */
     fun opened(id: String) {
         val p = page(id) ?: return
-        update(p.copy(opened = now), touch = false)
+        update(p.copy(opened = now), touch = false, quiet = true)
     }
 
     /** Moves a page under another (at the end); not into itself. */
@@ -164,7 +201,7 @@ object Store {
         val t = now
         val all = _index.value.subtree(id).filter { it.trashed == 0L }.map { it.copy(trashed = t) }
         setPages(all)
-        write { for (p in all) execSQL("UPDATE pages SET trashed=? WHERE id=?", arrayOf(t, p.id)) }
+        write { for (p in all) { execSQL("UPDATE pages SET trashed=? WHERE id=?", arrayOf(t, p.id)); mark(this, p.id, false) } }
     }
 
     /** Back from the Papelera (what went with it comes back too). If its parent is gone, to the top. */
@@ -175,14 +212,14 @@ object Store {
             if (it.id == id && (page(it.parent)?.trashed ?: 0L) != 0L) it.copy(parent = null) else it
         }
         setPages(back)
-        write { for (q in back) update("pages", values(q), "id=?", arrayOf(q.id)) }
+        write { for (q in back) { update("pages", values(q), "id=?", arrayOf(q.id)); mark(this, q.id, false) } }
     }
 
     /** Gone for good, with everything inside. */
     fun purge(id: String) {
         val ids = _index.value.subtree(id).map { it.id }.toSet()
         setPages(emptyList(), ids)
-        write { for (i in ids) delete("pages", "id=?", arrayOf(i)) }
+        write { for (i in ids) { delete("pages", "id=?", arrayOf(i)); mark(this, i, true) } }
     }
 
     fun emptyTrash() { for (p in _index.value.trash) purge(p.id) }
@@ -255,10 +292,18 @@ object Store {
         io.submit {
             db.beginTransaction()
             try {
-                if (replace) db.delete("pages", null, null)
+                if (replace) {
+                    // What the copy doesn't have goes away everywhere.
+                    val keep = list.map { it.first.id }.toSet()
+                    val gone = ArrayList<String>()
+                    db.rawQuery("SELECT id FROM pages", null).use { c -> while (c.moveToNext()) c.getString(0).let { if (it !in keep) gone += it } }
+                    db.delete("pages", null, null)
+                    for (id in gone) mark(db, id, true)
+                }
                 for ((p, body) in list) {
                     val f = factsOf(body)
                     db.insertWithOnConflict("pages", null, values(p.copy(preview = f.preview, steps = f.steps, done = f.done)).apply { put("body", body) }, SQLiteDatabase.CONFLICT_REPLACE)
+                    mark(db, p.id, false)
                 }
                 db.setTransactionSuccessful()
             } finally {
@@ -266,6 +311,27 @@ object Store {
             }
         }.get()
         _index.value = io.submit<Index> { load() }.get()
-        if (_index.value.page(INBOX_ID) == null) put(Page(INBOX_ID, null, "Bandeja", "inbox", 0xFF94A3B8, 0, created = now, updated = now), "")
+        ensureInbox()
+        onChange()
+    }
+
+    // ── For sync (Sync.kt): run on the database's own thread ──────────────────
+
+    internal fun <T> onDb(job: SQLiteDatabase.() -> T): T = io.submit<T> { db.job() }.get()
+
+    /** Reads everything again (after the server sent changes). */
+    fun reload() {
+        _index.value = io.submit<Index> { load() }.get()
+        ensureInbox()
+    }
+
+    internal fun rowOf(db: SQLiteDatabase, id: String): Pair<Page, String>? =
+        db.rawQuery("SELECT $META,body FROM pages WHERE id=?", arrayOf(id)).use { c -> if (c.moveToFirst()) pageOf(c) to c.getString(18) else null }
+
+    /** Writes a page as is (keeping when it was opened here). */
+    internal fun putRaw(db: SQLiteDatabase, p: Page, body: String) {
+        val opened = db.rawQuery("SELECT opened FROM pages WHERE id=?", arrayOf(p.id)).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        val f = factsOf(body)
+        db.insertWithOnConflict("pages", null, values(p.copy(opened = opened, preview = f.preview, steps = f.steps, done = f.done)).apply { put("body", body) }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 }

@@ -105,6 +105,22 @@ export function DocEditor({ p, ix }: { p: Page; ix: Index }) {
     };
   }, [id]);
 
+  // The page changed on another device: show it, unless you're in the middle of writing here.
+  useEffect(
+    () =>
+      Store.onRemote((ids) => {
+        if (!ids.has(id) || dirty.current) return;
+        Store.body(id).then((body) => {
+          if (dirty.current || !list.current) return;
+          if (bodyOf(list.current) === body) return;
+          const bs = blocksOf(body).map(eb);
+          list.current = bs;
+          setBlocks(bs);
+        });
+      }),
+    [id],
+  );
+
   // Save on the way out of the app too.
   useEffect(() => {
     const out = () => save();

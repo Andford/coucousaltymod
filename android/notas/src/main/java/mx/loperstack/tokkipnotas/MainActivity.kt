@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import mx.loperstack.mochi.mochi.Sounds
 import mx.loperstack.tokkipnotas.data.INBOX_ID
 import mx.loperstack.tokkipnotas.data.Store
+import mx.loperstack.tokkipnotas.data.Sync
 import mx.loperstack.tokkipnotas.ui.Hop
 import mx.loperstack.tokkipnotas.ui.Nav
 import mx.loperstack.tokkipnotas.ui.NotasApp
@@ -28,10 +29,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Store.init(this)
+        Sync.init(this)
         Prefs.init(this)
         Sounds.init(this)
         if (savedInstanceState == null) handle(intent)
         setContent { NotasApp() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Sync.now()
     }
 
     override fun onNewIntent(intent: Intent) {

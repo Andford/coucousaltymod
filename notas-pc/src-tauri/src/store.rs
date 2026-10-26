@@ -3,6 +3,11 @@
 // The window keeps the index in memory and asks for a page's body when it
 // opens it. Once a day, before opening, the database is copied to backups/
 // (the last 7 are kept), and the Papelera forgets what's older than 30 days.
+//
+// For sync (sync.rs), every change is also noted in `sync_rows`: the page's
+// version (when it last changed here) and whether the server has it yet.
+// Deleting leaves a tombstone there so other devices delete it too. Opening a
+// page ("quiet" writes) stays on this PC.
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -19,7 +24,10 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS pages (
     created INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL DEFAULT 0, opened INTEGER NOT NULL DEFAULT 0,
     favorite INTEGER NOT NULL DEFAULT 0, trashed INTEGER NOT NULL DEFAULT 0, props TEXT NOT NULL DEFAULT '', schema TEXT NOT NULL DEFAULT '',
     preview TEXT NOT NULL DEFAULT '', steps INTEGER NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0, body TEXT NOT NULL DEFAULT '');
-  CREATE INDEX IF NOT EXISTS pages_parent ON pages(parent);";
+  CREATE INDEX IF NOT EXISTS pages_parent ON pages(parent);
+  CREATE TABLE IF NOT EXISTS sync_rows (id TEXT PRIMARY KEY, ver INTEGER NOT NULL, dirty INTEGER NOT NULL DEFAULT 1, deleted INTEGER NOT NULL DEFAULT 0, base TEXT);
+  CREATE INDEX IF NOT EXISTS sync_rows_dirty ON sync_rows(dirty);
+  CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);";
 
 const META: &str = "id,parent,title,icon,color,shape,kind,ord,created,updated,opened,favorite,trashed,props,schema,preview,steps,done";
 
@@ -73,6 +81,13 @@ fn row_of(r: &rusqlite::Row, with_body: bool) -> rusqlite::Result<Row> {
     })
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SyncState {
+    pub ver: i64,
+    pub dirty: bool,
+    pub base: Option<String>,
+}
+
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
@@ -103,8 +118,20 @@ impl Db {
 
     /// Every page without its body; the Papelera keeps things 30 days.
     pub fn load(&self, now: i64) -> rusqlite::Result<Vec<Row>> {
-        let c = self.c();
-        c.execute("DELETE FROM pages WHERE trashed > 0 AND trashed < ?1", params![now - 30 * DAY_MS])?;
+        let mut c = self.c();
+        {
+            let tx = c.transaction()?;
+            let old: Vec<String> = {
+                let mut q = tx.prepare("SELECT id FROM pages WHERE trashed > 0 AND trashed < ?1")?;
+                let ids = q.query_map(params![now - 30 * DAY_MS], |r| r.get(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+                ids
+            };
+            for id in &old {
+                tx.execute("DELETE FROM pages WHERE id=?1", params![id])?;
+                mark(&tx, id, true, now)?;
+            }
+            tx.commit()?;
+        }
         let mut st = c.prepare(&format!("SELECT {META} FROM pages"))?;
         let rows = st.query_map([], |r| row_of(r, false))?.collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
@@ -115,20 +142,27 @@ impl Db {
         Ok(c.query_row("SELECT body FROM pages WHERE id=?1", params![id], |r| r.get(0)).optional()?.unwrap_or_default())
     }
 
-    pub fn upsert(&self, rows: &[Row]) -> rusqlite::Result<()> {
+    /// Writes pages; unless `quiet`, they're marked to go to the other devices.
+    pub fn upsert(&self, rows: &[Row], quiet: bool) -> rusqlite::Result<()> {
+        let now = now_ms();
         let mut c = self.c();
         let tx = c.transaction()?;
         for r in rows {
             put(&tx, r)?;
+            if !quiet {
+                mark(&tx, &r.id, false, now)?;
+            }
         }
         tx.commit()
     }
 
     pub fn remove(&self, ids: &[String]) -> rusqlite::Result<()> {
+        let now = now_ms();
         let mut c = self.c();
         let tx = c.transaction()?;
         for id in ids {
             tx.execute("DELETE FROM pages WHERE id=?1", params![id])?;
+            mark(&tx, id, true, now)?;
         }
         tx.commit()
     }
@@ -141,16 +175,158 @@ impl Db {
     }
 
     pub fn bulk(&self, rows: &[Row], replace: bool) -> rusqlite::Result<()> {
+        let now = now_ms();
         let mut c = self.c();
         let tx = c.transaction()?;
         if replace {
+            // What the copy doesn't have goes away everywhere.
+            let keep: std::collections::HashSet<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+            let gone: Vec<String> = {
+                let mut q = tx.prepare("SELECT id FROM pages")?;
+                let ids = q.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+                ids.into_iter().filter(|i| !keep.contains(i.as_str())).collect()
+            };
             tx.execute("DELETE FROM pages", [])?;
+            for id in &gone {
+                mark(&tx, id, true, now)?;
+            }
         }
         for r in rows {
             put(&tx, r)?;
+            mark(&tx, &r.id, false, now)?;
         }
         tx.commit()
     }
+
+    // ── For sync ──────────────────────────────────────────────────────────────
+
+    pub fn meta(&self, k: &str) -> Option<String> {
+        self.c().query_row("SELECT v FROM meta WHERE k=?1", params![k], |r| r.get(0)).optional().ok().flatten()
+    }
+
+    pub fn set_meta(&self, k: &str, v: Option<&str>) -> rusqlite::Result<()> {
+        let c = self.c();
+        match v {
+            Some(v) => c.execute("INSERT OR REPLACE INTO meta (k, v) VALUES (?1, ?2)", params![k, v])?,
+            None => c.execute("DELETE FROM meta WHERE k=?1", params![k])?,
+        };
+        Ok(())
+    }
+
+    /// Joining a server: everything here goes up, each page with the version of
+    /// its last edit (so the same page on two devices keeps the newest).
+    pub fn mark_all_for_join(&self) -> rusqlite::Result<()> {
+        let mut c = self.c();
+        let tx = c.transaction()?;
+        tx.execute("UPDATE sync_rows SET dirty=1", [])?;
+        tx.execute(
+            "INSERT OR IGNORE INTO sync_rows (id, ver, dirty, deleted)
+             SELECT id, MAX(updated, created, 1), 1, 0 FROM pages",
+            [],
+        )?;
+        tx.commit()
+    }
+
+    /// Pages waiting to go up: (id, ver, deleted, row with body if it still exists).
+    pub fn dirty(&self, limit: usize) -> rusqlite::Result<Vec<(String, i64, bool, Option<Row>)>> {
+        let c = self.c();
+        let mut q = c.prepare("SELECT id, ver, deleted FROM sync_rows WHERE dirty=1 LIMIT ?1")?;
+        let list = q
+            .query_map(params![limit as i64], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)? != 0)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut page = c.prepare(&format!("SELECT {META},body FROM pages WHERE id=?1"))?;
+        let mut out = Vec::with_capacity(list.len());
+        for (id, ver, deleted) in list {
+            let row = if deleted { None } else { page.query_row(params![id], |r| row_of(r, true)).optional()? };
+            let gone = row.is_none();
+            out.push((id, ver, deleted || gone, row));
+        }
+        Ok(out)
+    }
+
+    pub fn dirty_count(&self) -> i64 {
+        self.c().query_row("SELECT COUNT(*) FROM sync_rows WHERE dirty=1", [], |r| r.get(0)).unwrap_or(0)
+    }
+
+    /// The server took this version: clean, unless it changed again meanwhile.
+    /// `base` is the fingerprint of the text the server now has.
+    pub fn mark_clean(&self, id: &str, ver: i64, base: Option<&str>) -> rusqlite::Result<()> {
+        self.c().execute("UPDATE sync_rows SET dirty=0, base=?3 WHERE id=?1 AND ver=?2", params![id, ver, base])?;
+        Ok(())
+    }
+
+    /// What sync knows of a page: its version, whether it waits to go up, and
+    /// the fingerprint of its text when it was last in step with the server.
+    pub fn sync_state(&self, id: &str) -> rusqlite::Result<Option<SyncState>> {
+        self.c()
+            .query_row("SELECT ver, dirty, base FROM sync_rows WHERE id=?1", params![id], |r| {
+                Ok(SyncState { ver: r.get(0)?, dirty: r.get::<_, i64>(1)? != 0, base: r.get(2)? })
+            })
+            .optional()
+    }
+
+    pub fn row(&self, id: &str) -> rusqlite::Result<Option<Row>> {
+        self.c().query_row(&format!("SELECT {META},body FROM pages WHERE id=?1"), params![id], |r| row_of(r, true)).optional()
+    }
+
+    /// A page from another device: written as is (keeping when it was opened
+    /// here), at its version, already in sync.
+    pub fn apply_remote(&self, row: Option<&Row>, id: &str, ver: i64, base: Option<&str>) -> rusqlite::Result<()> {
+        let mut c = self.c();
+        let tx = c.transaction()?;
+        match row {
+            Some(r) => {
+                let opened: i64 = tx.query_row("SELECT opened FROM pages WHERE id=?1", params![id], |x| x.get(0)).optional()?.unwrap_or(0);
+                let mut r = r.clone();
+                r.opened = opened;
+                put(&tx, &r)?;
+            }
+            None => {
+                tx.execute("DELETE FROM pages WHERE id=?1", params![id])?;
+            }
+        }
+        tx.execute(
+            "INSERT OR REPLACE INTO sync_rows (id, ver, dirty, deleted, base) VALUES (?1, ?2, 0, ?3, ?4)",
+            params![id, ver, row.is_none() as i64, base],
+        )?;
+        tx.commit()
+    }
+
+    /// Settles a page in favour of this device (maybe merged with the server's):
+    /// written if given, and waiting to go up with version `ver`.
+    pub fn keep(&self, row: Option<&Row>, id: &str, ver: i64, base: Option<&str>, deleted: bool) -> rusqlite::Result<()> {
+        let mut c = self.c();
+        let tx = c.transaction()?;
+        if let Some(r) = row {
+            put(&tx, r)?;
+        }
+        tx.execute(
+            "INSERT OR REPLACE INTO sync_rows (id, ver, dirty, deleted, base) VALUES (?1, ?2, 1, ?3, ?4)",
+            params![id, ver, deleted as i64, base],
+        )?;
+        tx.commit()
+    }
+
+    /// Forget the server (sync turned off): next time, everything goes up again.
+    pub fn forget_sync(&self) -> rusqlite::Result<()> {
+        let c = self.c();
+        c.execute("DELETE FROM sync_rows WHERE deleted=1", [])?;
+        c.execute("DELETE FROM meta WHERE k LIKE 'sync.%'", [])?;
+        Ok(())
+    }
+}
+
+/// Notes a change for sync: a version newer than any before it, waiting to go up.
+fn mark(c: &Connection, id: &str, deleted: bool, now: i64) -> rusqlite::Result<()> {
+    let old: Option<i64> = c.query_row("SELECT ver FROM sync_rows WHERE id=?1", params![id], |r| r.get(0)).optional()?;
+    let ver = old.map_or(now, |o| now.max(o + 1));
+    // Keep `base` (what the server last had) so a clash can be told from a plain edit.
+    c.execute(
+        "INSERT INTO sync_rows (id, ver, dirty, deleted) VALUES (?1, ?2, 1, ?3)
+         ON CONFLICT(id) DO UPDATE SET ver=excluded.ver, dirty=1, deleted=excluded.deleted",
+        params![id, ver, deleted as i64],
+    )?;
+    Ok(())
 }
 
 /// Insert or replace one row; without a body, the stored body stays.
@@ -244,10 +420,10 @@ mod tests {
     #[test]
     fn a_write_without_body_keeps_the_body() {
         let db = Db::memory();
-        db.upsert(&[row("a", None, Some("# Hola\n[ ] algo"))]).unwrap();
+        db.upsert(&[row("a", None, Some("# Hola\n[ ] algo"))], false).unwrap();
         let mut r = row("a", None, None);
         r.title = "Otro".into();
-        db.upsert(&[r]).unwrap();
+        db.upsert(&[r], true).unwrap();
         assert_eq!(db.body("a").unwrap(), "# Hola\n[ ] algo");
         let all = db.load(now_ms()).unwrap();
         assert_eq!(all.len(), 1);
@@ -263,7 +439,7 @@ mod tests {
         old.trashed = now - 31 * DAY_MS;
         let mut recent = row("recent", None, Some(""));
         recent.trashed = now - 2 * DAY_MS;
-        db.upsert(&[old, recent, row("live", None, Some(""))]).unwrap();
+        db.upsert(&[old, recent, row("live", None, Some(""))], false).unwrap();
         let ids: Vec<String> = db.load(now).unwrap().into_iter().map(|r| r.id).collect();
         assert!(!ids.contains(&"old".to_string()));
         assert!(ids.contains(&"recent".to_string()));
@@ -273,7 +449,7 @@ mod tests {
     #[test]
     fn bulk_replaces_or_joins() {
         let db = Db::memory();
-        db.upsert(&[row("a", None, Some("uno"))]).unwrap();
+        db.upsert(&[row("a", None, Some("uno"))], false).unwrap();
         db.bulk(&[row("b", None, Some("dos"))], false).unwrap();
         assert_eq!(db.dump().unwrap().len(), 2);
         db.bulk(&[row("c", Some("b"), Some("tres"))], true).unwrap();
@@ -283,6 +459,39 @@ mod tests {
         db.remove(&["c".into()]).unwrap();
         assert!(db.dump().unwrap().is_empty());
         assert_eq!(db.body("zzz").unwrap(), "");
+    }
+
+    #[test]
+    fn changes_are_noted_for_sync() {
+        let db = Db::memory();
+        db.upsert(&[row("a", None, Some("uno")), row("b", None, Some("dos"))], false).unwrap();
+        db.upsert(&[row("q", None, Some(""))], true).unwrap();
+        assert_eq!(db.dirty_count(), 2);
+        let st = db.sync_state("a").unwrap().unwrap();
+        assert!(st.dirty);
+        let ver = st.ver;
+        db.mark_clean("a", ver, Some("h1")).unwrap();
+        assert_eq!(db.sync_state("a").unwrap(), Some(SyncState { ver, dirty: false, base: Some("h1".into()) }));
+        // A second change gets a newer version even within the same millisecond, and keeps the base.
+        db.upsert(&[row("a", None, Some("uno!"))], false).unwrap();
+        let st = db.sync_state("a").unwrap().unwrap();
+        assert!(st.ver > ver && st.dirty && st.base.as_deref() == Some("h1"));
+        db.remove(&["b".into()]).unwrap();
+        let d = db.dirty(10).unwrap();
+        let b = d.iter().find(|x| x.0 == "b").unwrap();
+        assert!(b.2 && b.3.is_none());
+        let a = d.iter().find(|x| x.0 == "a").unwrap();
+        assert_eq!(a.3.as_ref().unwrap().body.as_deref(), Some("uno!"));
+        // A page from another device lands clean and keeps when it was opened here.
+        let mut r = row("a", None, Some("de lejos"));
+        r.opened = 0;
+        db.c().execute("UPDATE pages SET opened=77 WHERE id='a'", []).unwrap();
+        db.apply_remote(Some(&r), "a", 10_000_000_000_000, Some("h2")).unwrap();
+        assert_eq!(db.sync_state("a").unwrap(), Some(SyncState { ver: 10_000_000_000_000, dirty: false, base: Some("h2".into()) }));
+        assert_eq!(db.row("a").unwrap().unwrap().opened, 77);
+        assert_eq!(db.body("a").unwrap(), "de lejos");
+        db.apply_remote(None, "a", 10_000_000_000_001, None).unwrap();
+        assert!(db.row("a").unwrap().is_none());
     }
 
     #[test]

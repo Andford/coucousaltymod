@@ -45,16 +45,22 @@ mismas páginas, tableros, tablas y plantillas, pensadas para teclado y mouse.
 
 ## Tus notas
 
-Todo vive en tu PC, sin cuentas ni internet: una base de datos SQLite
+Todo vive en tu PC, sin cuentas: una base de datos SQLite
 (`notas.db`, la misma tabla que en Android) en
 `%APPDATA%\mx.loperstack.tokkipnotas`. Solo los títulos están en memoria; el
 texto de una página se lee al abrirla. Cada día, al abrir la app, se guarda una
 copia en `backups\` (se quedan las últimas 7).
 
-**Pasar notas entre el teléfono, la tablet y la PC**: en Ajustes → Tus notas,
-«Guardar una copia» hace un archivo `.json`; ábrelo en la otra con «Abrir una
-copia» (Juntar o Reemplazar). Es el mismo formato en Android y en Windows. La
-sincronización automática viene después.
+**Sincronizar con el teléfono y la tablet**: sube `notas-sync/sync.php` a tu
+hosting ([cómo](../notas-sync/README.md)) y en Ajustes → Sincronizar pon su
+dirección, la clave y tu frase secreta. Se sincroniza al abrir, unos segundos
+después de cada cambio, cada pocos minutos y al volver a la ventana. Las notas
+viajan cifradas con tu frase; la clave y la frase se guardan en el
+Administrador de credenciales de Windows.
+
+**Copias**: en Ajustes → Tus notas, «Guardar una copia» hace un archivo
+`.json`; ábrelo en otro aparato con «Abrir una copia» (Juntar o Reemplazar).
+Es el mismo formato en Android y en Windows.
 
 ## Compilar
 

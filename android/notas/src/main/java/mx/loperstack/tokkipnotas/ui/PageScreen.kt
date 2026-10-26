@@ -118,6 +118,7 @@ import mx.loperstack.tokkipnotas.data.PALETTE
 import mx.loperstack.tokkipnotas.data.Page
 import mx.loperstack.tokkipnotas.data.PageKind
 import mx.loperstack.tokkipnotas.data.Store
+import mx.loperstack.tokkipnotas.data.Sync
 import mx.loperstack.tokkipnotas.data.blockOf
 import mx.loperstack.tokkipnotas.data.blocksOf
 import mx.loperstack.tokkipnotas.data.bodyOf
@@ -363,16 +364,37 @@ private fun DocScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
     val focusManager = LocalFocusManager.current
     val titleFocus = remember { FocusRequester() }
 
+    // What's stored (or was last saved): leaving or pausing only writes when something changed,
+    // so a page you just looked at doesn't travel to your other devices.
+    var saved by remember(id) { mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(id) {
         val body = withContext(Dispatchers.IO) { Store.body(id) }
         blocks = mutableStateListOf<EditBlock>().apply { addAll(blocksOf(body).map { EditBlock(it.kind, it.text) }) }
+        saved = p.title.trim() to bodyOf(blocksOf(body).map { Block(it.kind, if (it.kind == BlockKind.PAGE) it.text.trim() else it.text) })
         if (p.title.isEmpty() && body.isEmpty() && collection == null) runCatching { delay(150); titleFocus.requestFocus() }
     }
     fun current(): Pair<String, String>? {
         val bs = blocks ?: return null
         return title.text.trim() to bodyOf(bs.map { Block(it.kind, if (it.kind == BlockKind.PAGE) it.text.trim() else it.text) })
     }
-    fun save() { current()?.let { (t, b) -> Store.saveBody(id, t, b) } }
+    fun save() {
+        val c = current() ?: return
+        if (c == saved) return
+        Store.saveBody(id, c.first, c.second)
+        saved = c
+    }
+    // The page changed on another device: show it, unless you're in the middle of writing here.
+    LaunchedEffect(id) {
+        Sync.remote.collect { ids ->
+            if (id !in ids || current() != saved) return@collect
+            val body = withContext(Dispatchers.IO) { Store.body(id) }
+            val t = Store.page(id)?.title ?: return@collect
+            if (current() != saved) return@collect
+            blocks = mutableStateListOf<EditBlock>().apply { addAll(blocksOf(body).map { EditBlock(it.kind, it.text) }) }
+            title = TextFieldValue(t)
+            saved = t.trim() to bodyOf(blocksOf(body).map { Block(it.kind, if (it.kind == BlockKind.PAGE) it.text.trim() else it.text) })
+        }
+    }
     LaunchedEffect(version) { if (version > 0) { delay(600); save() } }
     DisposableEffect(id) {
         onDispose {

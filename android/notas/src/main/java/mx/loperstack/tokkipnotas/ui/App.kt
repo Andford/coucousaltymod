@@ -108,6 +108,10 @@ fun NotasApp() {
     val newPage: (String?) -> Unit = { parent -> templates = parent; picking = true }
 
     BackHandler(enabled = Nav.stack.isNotEmpty()) { Nav.back() }
+    // Every few minutes while the app is open (it also syncs when it comes back and after changes).
+    LaunchedEffect(Unit) {
+        while (true) { delay(3 * 60_000L); mx.loperstack.tokkipnotas.data.Sync.now() }
+    }
     // A page that's gone (to the Papelera) leaves the way back.
     LaunchedEffect(ix) {
         val gone = Nav.stack.filter { it.startsWith("p:") }.map { it.removePrefix("p:") }.filter { (ix.page(it)?.trashed ?: 1L) != 0L }.toSet()

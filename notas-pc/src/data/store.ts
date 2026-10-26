@@ -3,12 +3,17 @@
 // written a moment after you stop typing. Writes go to the backend one after
 // another, so the screen never waits for the disk and nothing lands out of order.
 
-import { type Backend, copyRows, pageOfRow, rowOf } from "./backend";
+import { type Backend, type SyncReport, type SyncStatus, copyRows, pageOfRow, rowOf } from "./backend";
 import { captureOf, factsOf, plainOf } from "./blocks";
 import { type CopyRow, type Page, type PageKind, INBOX_ID, Index, between, copyJson, copyOf, dayKey, defaultSchema, newId, page as mkPage, searchScore, snippet } from "./model";
 import { type Draft, flatten } from "./templates";
 
 type Listener = (ix: Index) => void;
+
+/** How sync is doing, for the sidebar and Ajustes. */
+export interface SyncView extends SyncStatus {
+  running: boolean;
+}
 
 export interface Hit {
   page: Page;
@@ -20,6 +25,10 @@ class StoreImpl {
   private ix = new Index();
   private listeners = new Set<Listener>();
   private chain: Promise<unknown> = Promise.resolve();
+  private remote = new Set<(ids: Set<string>) => void>();
+  private syncListeners = new Set<(s: SyncView) => void>();
+  private syncTimer: ReturnType<typeof setTimeout> | undefined;
+  syncView: SyncView = { enabled: false, url: "", last: 0, pending: 0, error: null, running: false };
   ready = false;
 
   get index(): Index {
@@ -41,10 +50,11 @@ class StoreImpl {
     for (const l of this.listeners) l(this.ix);
   }
 
-  private write(job: (b: Backend) => Promise<unknown>): Promise<unknown> {
+  private write(job: (b: Backend) => Promise<unknown>, quiet = false): Promise<unknown> {
     const b = this.backend;
     if (!b) return Promise.resolve();
     this.chain = this.chain.then(() => job(b)).catch((e) => console.error("[notas] write", e));
+    if (!quiet) this.syncSoon();
     return this.chain;
   }
 
@@ -58,8 +68,113 @@ class StoreImpl {
     const rows = await backend.load();
     this.ix = new Index(rows.map(pageOfRow));
     this.ready = true;
-    if (!this.ix.page(INBOX_ID)) this.put(mkPage({ id: INBOX_ID, title: "Bandeja", icon: "inbox", color: 0xff94a3b8, created: this.now, updated: this.now }), "");
-    else for (const l of this.listeners) l(this.ix);
+    this.ensureInbox();
+    for (const l of this.listeners) l(this.ix);
+    if (backend.sync) {
+      await this.refreshSync();
+      if (this.syncView.enabled) void this.syncNow();
+      // Every few minutes, and when you come back to the window.
+      setInterval(() => void this.syncNow(), 3 * 60_000);
+      window.addEventListener("focus", () => {
+        if (Date.now() - this.syncView.last > 30_000) void this.syncNow();
+      });
+    }
+  }
+
+  /** The Bandeja exists on every device with the same id; making it isn't news for the others. */
+  private ensureInbox() {
+    if (this.ix.page(INBOX_ID)) return;
+    const p = mkPage({ id: INBOX_ID, title: "Bandeja", icon: "inbox", color: 0xff94a3b8, created: this.now, updated: this.now });
+    this.set([p]);
+    this.write((b) => b.upsert([rowOf(p, "")], true), true);
+  }
+
+  // ── Sync ────────────────────────────────────────────────────────────────────
+
+  onRemote(fn: (ids: Set<string>) => void): () => void {
+    this.remote.add(fn);
+    return () => this.remote.delete(fn);
+  }
+
+  onSync(fn: (s: SyncView) => void): () => void {
+    this.syncListeners.add(fn);
+    return () => this.syncListeners.delete(fn);
+  }
+
+  get canSync(): boolean {
+    return !!this.backend?.sync;
+  }
+
+  private setSync(s: Partial<SyncView>) {
+    this.syncView = { ...this.syncView, ...s };
+    for (const l of this.syncListeners) l(this.syncView);
+  }
+
+  async refreshSync() {
+    const api = this.backend?.sync;
+    if (!api) return;
+    try {
+      this.setSync(await api.status());
+    } catch (e) {
+      console.error("[notas] sync status", e);
+    }
+  }
+
+  /** A sync a few seconds after the last change. */
+  private syncSoon() {
+    if (!this.syncView.enabled) return;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => void this.syncNow(), 4000);
+  }
+
+  /** Brings in what the server sent: the index again, and the open pages told. */
+  private async takeReport(r: SyncReport) {
+    if (!r.changed.length || !this.backend) return;
+    const rows = await this.backend.load();
+    this.ix = new Index(rows.map(pageOfRow));
+    this.ensureInbox();
+    for (const l of this.listeners) l(this.ix);
+    const ids = new Set(r.changed);
+    for (const l of this.remote) l(ids);
+  }
+
+  async syncNow(): Promise<SyncReport | null> {
+    const api = this.backend?.sync;
+    if (!api || !this.syncView.enabled || this.syncView.running) return null;
+    clearTimeout(this.syncTimer);
+    this.setSync({ running: true });
+    await this.flush();
+    try {
+      const r = await api.now();
+      if (r) await this.takeReport(r);
+      return r;
+    } catch (e) {
+      console.warn("[notas] sync", e);
+      return null;
+    } finally {
+      this.setSync({ running: false });
+      await this.refreshSync();
+    }
+  }
+
+  async connectSync(url: string, key: string, phrase: string): Promise<SyncReport> {
+    const api = this.backend?.sync;
+    if (!api) throw new Error("Aquí no se puede sincronizar");
+    this.setSync({ running: true });
+    await this.flush();
+    try {
+      const r = await api.connect(url, key, phrase);
+      await this.takeReport(r);
+      return r;
+    } finally {
+      this.setSync({ running: false });
+      await this.refreshSync();
+    }
+  }
+
+  async disconnectSync() {
+    await this.backend?.sync?.disconnect();
+    await this.refreshSync();
   }
 
   page(id: string | null | undefined) {
@@ -150,9 +265,13 @@ class StoreImpl {
     this.write((b) => b.upsert([rowOf(p, body)]));
   }
 
+  /** When you open a page: only for this device (Inicio's recents), not synced. */
   opened(id: string) {
     const p = this.page(id);
-    if (p) this.update({ ...p, opened: this.now }, false);
+    if (!p) return;
+    const q = { ...p, opened: this.now };
+    this.set([q]);
+    this.write((b) => b.upsert([rowOf(q)], true), true);
   }
 
   /** Moves a page under another (at the end, or at `ord`); not into itself. */
@@ -254,8 +373,9 @@ class StoreImpl {
     await this.backend.bulk(copyRows(withFacts), replace);
     const rows = await this.backend.load();
     this.ix = new Index(rows.map(pageOfRow));
-    if (!this.ix.page(INBOX_ID)) this.put(mkPage({ id: INBOX_ID, title: "Bandeja", icon: "inbox", color: 0xff94a3b8, created: this.now, updated: this.now }), "");
+    this.ensureInbox();
     for (const l of this.listeners) l(this.ix);
+    this.syncSoon();
     return list.length;
   }
 

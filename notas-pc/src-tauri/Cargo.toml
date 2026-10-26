@@ -2,7 +2,7 @@
 name = "tokkip-notas"
 description = "Tokkip Notas para Windows: tus páginas, tableros y tablas, con el diseño de Tokkip"
 authors = ["Andy (LoperStack)"]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 
@@ -22,6 +22,23 @@ serde_json = "1"
 # The pages live in SQLite, like on Android (the same table). Bundled, so
 # nothing has to be installed on the PC.
 rusqlite = { version = "0.32", features = ["bundled"] }
+# Sync with your own server (sync.rs): HTTPS, and the pages encrypted with a
+# key from your phrase (AES-256-GCM, PBKDF2-SHA256).
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+aes-gcm = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+unicode-normalization = "0.1"
+
+# The sync key and phrase live in Windows' Credential Manager.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[profile.dev.package."*"]
+# PBKDF2 and AES are slow unoptimised; tests and `tauri dev` stay quick.
+opt-level = 2
 
 [profile.release]
 opt-level = "s"

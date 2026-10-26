@@ -146,6 +146,12 @@ una página, y las páginas viven dentro de otras.
 - Todo local, en una base de datos del teléfono con solo los títulos en
   memoria. Copia en un archivo para guardarla donde quieras. La pluma viene
   después.
+- **Sincronizar con tu propio hosting** (0.2): sube
+  [`notas-sync/sync.php`](notas-sync/README.md) a tu hosting (Hostinger con
+  hPanel, o cualquiera con PHP y MySQL) y conecta cada aparato en Ajustes →
+  Sincronizar. Las notas viajan cifradas con tu frase secreta: tu hosting no
+  puede leerlas. Si cambias la misma página en dos aparatos, se juntan los
+  cambios cuando se puede, y si no, el otro queda como «(conflicto)».
 
 ### Tokkip Notas para Windows
 
@@ -155,7 +161,9 @@ que filtra mientras escribes, tableros con arrastrar y soltar, tablas que se
 editan en la celda, las ocho plantillas, búsqueda con `Ctrl+K`, tema claro u
 oscuro y los sonidos de Tokkip. Todo se queda en la PC, con una copia
 automática al día; las copias de Ajustes son el mismo archivo que en Android,
-así que las notas pasan del teléfono a la PC y de vuelta.
+así que las notas pasan del teléfono a la PC y de vuelta. Desde la 0.2 también
+se sincroniza con tu hosting, igual que en Android (la clave y la frase se
+guardan en el Administrador de credenciales de Windows).
 
 ### En tu reloj (Wear OS)
 
@@ -271,6 +279,7 @@ cd notas-pc && npm install && npm run tauri dev
 | `android/tools` | Generadores de íconos, sonidos y música |
 | `windows/` | La isla para Windows (Tauri 2: Rust y TypeScript) |
 | `notas-pc/` | Tokkip Notas para Windows (Tauri 2: Rust, Preact y TypeScript) |
+| `notas-sync/` | `sync.php`, el servidor de sincronización de Tokkip Notas para tu hosting |
 | `NotchBuddy/`, `linux/`, `relay/` | El Coucou original para Mac, iPhone y Linux; se conserva como referencia |
 
 ## Privacidad

@@ -80,8 +80,8 @@ export interface Backend {
   /** Every page without its body (and the Papelera's old things gone). */
   load(): Promise<Row[]>;
   body(id: string): Promise<string>;
-  /** Inserts or replaces; a row whose body is null keeps its stored body. */
-  upsert(rows: Row[]): Promise<void>;
+  /** Inserts or replaces; a row whose body is null keeps its stored body. `quiet` changes stay on this device (not synced). */
+  upsert(rows: Row[], quiet?: boolean): Promise<void>;
   remove(ids: string[]): Promise<void>;
   /** Everything, with bodies (for a copy and for search). */
   dump(): Promise<Row[]>;
@@ -93,6 +93,32 @@ export interface Backend {
   openCopy(): Promise<string | null>;
   /** Where the database lives, to show in Ajustes. */
   where(): Promise<string>;
+  /** Sync with your own server (null where there's none, as in the browser preview). */
+  sync: SyncApi | null;
+}
+
+export interface SyncStatus {
+  enabled: boolean;
+  url: string;
+  last: number;
+  pending: number;
+  error: string | null;
+}
+
+export interface SyncReport {
+  pushed: number;
+  pulled: number;
+  conflicts: number;
+  changed: string[];
+  at: number;
+}
+
+export interface SyncApi {
+  status(): Promise<SyncStatus>;
+  connect(url: string, key: string, phrase: string): Promise<SyncReport>;
+  /** null when it isn't set up or one is already running. */
+  now(): Promise<SyncReport | null>;
+  disconnect(): Promise<void>;
 }
 
 // ── Tauri ─────────────────────────────────────────────────────────────────────
@@ -109,13 +135,19 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const tauriBackend: Backend = {
   load: () => call<Row[]>("notas_load"),
   body: (id) => call<string>("notas_body", { id }),
-  upsert: (rows) => call("notas_upsert", { rows }),
+  upsert: (rows, quiet) => call("notas_upsert", { rows, quiet: !!quiet }),
   remove: (ids) => call("notas_remove", { ids }),
   dump: () => call<Row[]>("notas_dump"),
   bulk: (rows, replace) => call("notas_bulk", { rows, replace }),
   saveCopy: (json, name) => call<string | null>("notas_save_copy", { json, name }),
   openCopy: () => call<string | null>("notas_open_copy"),
   where: () => call<string>("notas_where"),
+  sync: {
+    status: () => call<SyncStatus>("sync_status"),
+    connect: (url, key, phrase) => call<SyncReport>("sync_connect", { url, key, phrase }),
+    now: () => call<SyncReport | null>("sync_now"),
+    disconnect: () => call("sync_disconnect"),
+  },
 };
 
 // ── Browser preview ───────────────────────────────────────────────────────────
@@ -192,6 +224,7 @@ export function memoryBackend(persist = true): Backend {
     async where() {
       return "este navegador (vista previa)";
     },
+    sync: null,
   };
 }
 

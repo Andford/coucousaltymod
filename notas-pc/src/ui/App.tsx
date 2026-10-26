@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowRightLeft,
   ChevronRight,
+  CloudOff,
   FilePlus2,
   House,
   Inbox,
@@ -17,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   Star,
@@ -27,9 +29,9 @@ import { Store } from "../data/store";
 import { Tokkip } from "../tokkip/Tokkip";
 import { play } from "../tokkip/sound";
 import { Home } from "./Home";
-import { Menu, PageIcon, ToastView } from "./kit";
+import { Menu, PageIcon, ToastView, useNow } from "./kit";
 import { MoveDialog, PageView, StyleDialog } from "./PageView";
-import { SearchView, SettingsView, TemplateSheet, TrashView } from "./Screens";
+import { SearchView, SettingsView, TemplateSheet, TrashView, ago, useSync } from "./Screens";
 import { Hop, Nav, Templates, Toast, useIndex } from "./state";
 
 const SIDEBAR_KEY = "notas.sidebar";
@@ -175,8 +177,23 @@ function Sidebar({ ix, route, onSearch, onHide }: { ix: Index; route: string; on
       <div class="side-foot">
         <SideItem icon={Trash2} label="Papelera" count={ix.trash.length || undefined} on={route === "trash"} onClick={() => Nav.go("trash")} />
         <SideItem icon={Settings} label="Ajustes" on={route === "settings"} onClick={() => Nav.go("settings")} />
+        <SyncChip />
       </div>
     </aside>
+  );
+}
+
+/** Sync, at a glance: syncing, all good, or something's wrong (click: Ajustes). */
+function SyncChip() {
+  const s = useSync();
+  useNow(30_000);
+  if (!s.enabled) return null;
+  const label = s.error ? "Sin sincronizar" : s.running ? "Sincronizando…" : `Sincronizado ${ago(s.last)}`;
+  return (
+    <button class={`sync-chip ${s.error ? "bad" : ""}`} title={s.error ?? s.url} onClick={() => (s.error ? Nav.go("settings") : void Store.syncNow())}>
+      {s.error ? <CloudOff size={14} /> : <RefreshCw size={14} class={s.running ? "spin" : ""} />}
+      <span>{label}</span>
+    </button>
   );
 }
 

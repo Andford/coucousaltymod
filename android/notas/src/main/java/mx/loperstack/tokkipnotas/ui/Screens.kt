@@ -72,6 +72,19 @@ import mx.loperstack.tokkipnotas.data.Index
 import mx.loperstack.tokkipnotas.data.PALETTE
 import mx.loperstack.tokkipnotas.data.Page
 import mx.loperstack.tokkipnotas.data.Store
+import mx.loperstack.tokkipnotas.data.Sync
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import kotlin.math.roundToInt
 import mx.loperstack.tokkipnotas.data.TEMPLATES
 import mx.loperstack.tokkipnotas.data.Template
 import mx.loperstack.tokkipnotas.data.between
@@ -263,6 +276,8 @@ fun SettingsScreen() {
             Switch(Prefs.sounds, { Prefs.set(sounds = it); if (it) Sounds.play("pop") }, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
         }
 
+        SyncSection()
+
         SectionLabel("TUS NOTAS")
         Panel(Modifier.fillMaxWidth(), padding = 16.dp) {
             Label("Todo vive en este teléfono. Guarda una copia donde quieras (Drive, tu PC…) y restáurala aquí o en otro teléfono.", Ink.Dim, 13.sp, FontWeight.Normal)
@@ -275,7 +290,7 @@ fun SettingsScreen() {
             Label("¿Tenías notas en el Cuaderno de Tokkip? En Tokkip → Ajustes → «Pasar a Tokkip Notas».", Ink.Dim2, 12.sp, FontWeight.Normal)
         }
         Spacer(Modifier.height(24.dp))
-        Label("Tokkip Notas ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""} · sin internet, sin cuentas.", Ink.Dim2, 12.sp, FontWeight.Normal)
+        Label("Tokkip Notas ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""} · sin cuentas; solo habla con tu propio servidor.", Ink.Dim2, 12.sp, FontWeight.Normal)
         Spacer(Modifier.height(60.dp))
     }
 
@@ -297,6 +312,120 @@ fun SettingsScreen() {
                 }) { Text("Reemplazar", color = Ink.Red) }
             },
         )
+    }
+}
+
+// ── Sincronizar ───────────────────────────────────────────────────────────────
+
+fun ago(t: Long, now: Long = System.currentTimeMillis()): String {
+    if (t == 0L) return "nunca"
+    val m = ((now - t) / 60_000.0).roundToInt()
+    return when {
+        m < 1 -> "hace un momento"
+        m < 60 -> "hace $m min"
+        m < 60 * 24 -> "hace ${(m / 60.0).roundToInt()} h"
+        m < 60 * 48 -> "ayer"
+        else -> "hace ${(m / 1440.0).roundToInt()} días"
+    }
+}
+
+@Composable
+private fun SyncSection() {
+    val s by Sync.status.collectAsState()
+    val scope = rememberCoroutineScope()
+    val now = rememberNow(30_000)
+    SectionLabel("SINCRONIZAR")
+    if (s.enabled) {
+        var leaving by remember { mutableStateOf(false) }
+        Panel(Modifier.fillMaxWidth(), padding = 16.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ShapeIcon(if (s.error != null) Icons.Rounded.CloudOff else Icons.Rounded.Cloud, shape = MShapes.Cookie9, size = 40.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when { s.error != null -> "No se pudo sincronizar"; s.running -> "Sincronizando…"; else -> "Tus notas viajan entre tus aparatos" },
+                        fontWeight = FontWeight.Bold, fontSize = 15.sp, color = if (s.error != null) Ink.Red else Ink.Text,
+                    )
+                    Label(
+                        s.error ?: ("Última vez ${ago(s.last, now)}" + if (s.pending > 0) " · ${s.pending} ${if (s.pending == 1) "cambio espera" else "cambios esperan"}" else ""),
+                        Ink.Dim2, 12.sp, FontWeight.Normal,
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Label(s.url, Ink.Dim2, 12.sp, FontWeight.Normal, maxLines = 1)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                ExpressiveButton(if (s.running) "Sincronizando…" else "Sincronizar ahora", icon = Icons.Rounded.Sync) { Sync.now() }
+                Text("Dejar", color = Ink.Red, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.clip(Squircle(12.dp)).clickable { leaving = true }.padding(12.dp))
+            }
+        }
+        if (leaving) AlertDialog(
+            onDismissRequest = { leaving = false }, containerColor = Ink.CardHigh,
+            title = { Text("¿Dejar de sincronizar aquí?") },
+            text = { Text("Tus notas se quedan en este aparato y en tu servidor; este aparato solo deja de mandar y recibir cambios, y olvida la clave y la frase.") },
+            confirmButton = { TextButton(onClick = { leaving = false; scope.launch { Sync.disconnect() } }) { Text("Dejar de sincronizar", color = Ink.Red) } },
+            dismissButton = { TextButton(onClick = { leaving = false }) { Text("Cancelar", color = Ink.Dim) } },
+        )
+        return
+    }
+    var url by remember { mutableStateOf(s.url) }
+    var key by remember { mutableStateOf("") }
+    var phrase by remember { mutableStateOf("") }
+    var show by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline,
+        focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet,
+    )
+    Panel(Modifier.fillMaxWidth(), padding = 16.dp) {
+        Label("Con tu propio servidor (sync.php en tu hosting), lo que escribes aquí aparece en tu PC y tu tablet, y al revés. Viaja cifrado con tu frase: tu hosting no puede leerlo.", Ink.Dim, 13.sp, FontWeight.Normal)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            url, { url = it.trim() }, label = { Text("Dirección de sync.php") }, placeholder = { Text("https://notas.tudominio.com/sync.php", color = Ink.Dim2) },
+            singleLine = true, shape = Squircle(16.dp), colors = colors, modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            key, { key = it.trim() }, label = { Text("Clave de sincronización") }, singleLine = true, shape = Squircle(16.dp), colors = colors,
+            modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            phrase, { phrase = it }, label = { Text("Frase secreta") }, singleLine = true, shape = Squircle(16.dp), colors = colors,
+            modifier = Modifier.fillMaxWidth(), visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            trailingIcon = { Icon(if (show) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, if (show) "Ocultar" else "Mostrar", tint = Ink.Dim, modifier = Modifier.clickable { show = !show }) },
+        )
+        Spacer(Modifier.height(6.dp))
+        Label("La misma frase en todos tus aparatos. Si es el primero, la que escribas será la frase: guárdala bien.", Ink.Dim2, 12.sp, FontWeight.Normal)
+        error?.let {
+            Spacer(Modifier.height(10.dp))
+            Label(it, Ink.Red, 13.sp, FontWeight.Bold)
+        }
+        Spacer(Modifier.height(12.dp))
+        ExpressiveButton(if (busy) "Conectando…" else "Conectar", icon = Icons.Rounded.Cloud) {
+            if (busy || url.isBlank() || key.isBlank() || phrase.length < 6) {
+                error = if (phrase.isNotEmpty() && phrase.length < 6) "La frase secreta necesita al menos 6 letras" else "Llena la dirección, la clave y la frase"
+                return@ExpressiveButton
+            }
+            busy = true; error = null
+            scope.launch {
+                try {
+                    val r = Sync.connect(url, key, phrase)
+                    key = ""; phrase = ""
+                    Sounds.play("level_up", 0.6f); Hop.now()
+                    android.widget.Toast.makeText(context, if (r.pulled > 0) "Conectado: llegaron ${r.pulled} páginas" else "Conectado. Tus notas ya viajan", android.widget.Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    error = e.message ?: "No se pudo conectar"
+                } finally {
+                    busy = false
+                }
+            }
+        }
     }
 }
 

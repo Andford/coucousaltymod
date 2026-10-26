@@ -2,9 +2,9 @@
 // Ajustes (Tokkip's look, theme, sounds and your copies).
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Download, FolderOpen, RotateCcw, Search, Trash2, Upload } from "lucide-preact";
+import { Cloud, CloudOff, Download, Eye, EyeOff, FolderOpen, RefreshCw, RotateCcw, Search, Trash2, Upload } from "lucide-preact";
 import { type Index, shownTitle } from "../data/model";
-import { type Hit, Store } from "../data/store";
+import { type Hit, type SyncView, Store } from "../data/store";
 import { TEMPLATES, build } from "../data/templates";
 import { Tokkip } from "../tokkip/Tokkip";
 import { DEFAULT_LOOK, SPECIES, loadLook, onLookChange, saveLook, type TokkipLook } from "../tokkip/art";
@@ -268,10 +268,12 @@ export function SettingsView() {
           </label>
         </div>
 
+        {Store.canSync && <SyncPanel />}
+
         <SectionLabel>Tus notas</SectionLabel>
         <div class="panel">
           <p class="dim">
-            Todo vive en esta PC, sin cuentas ni internet. Una copia es un archivo que guardas donde quieras (USB, Drive…) y abres aquí o en Tokkip Notas de tu teléfono o tablet: es el mismo formato.
+            Todo vive en esta PC (y en tu servidor, si sincronizas). Una copia es un archivo que guardas donde quieras (USB, Drive…) y abres aquí o en Tokkip Notas de tu teléfono o tablet: es el mismo formato.
           </p>
           <div class="btn-row">
             <button
@@ -293,7 +295,7 @@ export function SettingsView() {
             </p>
           )}
         </div>
-        <p class="dim2 small foot">Tokkip Notas para Windows {__APP_VERSION__} · sin internet, sin cuentas.</p>
+        <p class="dim2 small foot">Tokkip Notas para Windows {__APP_VERSION__} · sin cuentas; solo habla con tu propio servidor.</p>
       </div>
       {restoring && (
         <Modal
@@ -329,5 +331,132 @@ export function SettingsView() {
         </Modal>
       )}
     </div>
+  );
+}
+
+// ── Sincronizar ───────────────────────────────────────────────────────────────
+
+export function useSync(): SyncView {
+  const [s, setS] = useState<SyncView>(Store.syncView);
+  useEffect(() => {
+    setS(Store.syncView);
+    return Store.onSync(setS);
+  }, []);
+  return s;
+}
+
+export function ago(t: number, now = Date.now()): string {
+  if (!t) return "nunca";
+  const m = Math.round((now - t) / 60_000);
+  if (m < 1) return "hace un momento";
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "ayer" : `hace ${d} días`;
+}
+
+function SyncPanel() {
+  const s = useSync();
+  const [url, setUrl] = useState(s.url);
+  const [key, setKey] = useState("");
+  const [phrase, setPhrase] = useState("");
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const connect = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const r = await Store.connectSync(url.trim(), key.trim(), phrase);
+      setKey("");
+      setPhrase("");
+      play("level_up", 0.5);
+      Toast.show(r.pulled ? `Conectado: llegaron ${r.pulled} páginas` : "Conectado. Tus notas ya viajan");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (s.enabled) {
+    return (
+      <>
+        <SectionLabel>Sincronizar</SectionLabel>
+        <div class="panel sync-on">
+          <div class="sync-head">
+            <span class={`sync-dot ${s.error ? "bad" : "ok"}`}>{s.error ? <CloudOff size={18} /> : <Cloud size={18} />}</span>
+            <div class="grow">
+              <b>{s.error ? "No se pudo sincronizar" : s.running ? "Sincronizando…" : "Tus notas viajan entre tus aparatos"}</b>
+              <small class="dim2">
+                {s.error ?? `Última vez ${ago(s.last)}${s.pending ? ` · ${s.pending} ${s.pending === 1 ? "cambio espera" : "cambios esperan"}` : ""}`}
+              </small>
+            </div>
+            <button class="btn small" disabled={s.running} onClick={() => void Store.syncNow()}>
+              <RefreshCw size={14} class={s.running ? "spin" : ""} /> Ahora
+            </button>
+          </div>
+          <p class="dim2 small where">{s.url}</p>
+          <button class="link danger" onClick={() => setLeaving(true)}>
+            Dejar de sincronizar
+          </button>
+        </div>
+        {leaving && (
+          <Confirm
+            title="¿Dejar de sincronizar esta PC?"
+            text="Tus notas se quedan aquí y en tu servidor; esta PC solo deja de mandar y recibir cambios, y olvida la clave y la frase."
+            ok="Dejar de sincronizar"
+            danger
+            onClose={() => setLeaving(false)}
+            onOk={() => void Store.disconnectSync()}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SectionLabel>Sincronizar</SectionLabel>
+      <div class="panel sync-form">
+        <p class="dim">
+          Con tu propio servidor (el archivo <b>sync.php</b> en tu hosting), lo que escribes aquí aparece en tu teléfono y tu tablet, y al revés. Tus notas viajan cifradas con tu frase: tu hosting no puede leerlas.
+        </p>
+        <label>
+          Dirección de sync.php
+          <input class="field" placeholder="https://notas.tudominio.com/sync.php" value={url} onInput={(e) => setUrl(e.currentTarget.value)} />
+        </label>
+        <label>
+          Clave de sincronización
+          <input class="field" placeholder="La que te dio sync.php al instalarlo" value={key} onInput={(e) => setKey(e.currentTarget.value)} autoComplete="off" spellcheck={false} />
+        </label>
+        <label>
+          Frase secreta
+          <span class="field-row">
+            <input
+              class="field"
+              type={show ? "text" : "password"}
+              placeholder="La misma en todos tus aparatos"
+              value={phrase}
+              onInput={(e) => setPhrase(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && url && key && phrase && void connect()}
+            />
+            <button class="icon-btn" title={show ? "Ocultar" : "Mostrar"} onClick={() => setShow(!show)}>
+              {show ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </span>
+          <small class="dim2">Si es tu primer aparato, la que escribas será la frase. Guárdala bien: sin ella no se pueden abrir tus notas en un aparato nuevo.</small>
+        </label>
+        {error && <p class="error-box">{error}</p>}
+        <div class="btn-row">
+          <button class="btn primary" disabled={busy || !url.trim() || !key.trim() || phrase.length < 6} onClick={() => void connect()}>
+            <Cloud size={16} /> {busy ? "Conectando…" : "Conectar"}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

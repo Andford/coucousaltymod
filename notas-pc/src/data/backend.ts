@@ -3,7 +3,7 @@
 // table as Android. In the browser preview (npm run dev without Tauri): in
 // memory, saved to localStorage so a reload keeps your test pages.
 
-import { type CopyRow, type Page, page, propsJson, propsOf, schemaJson, schemaOf } from "./model";
+import { type CopyRow, type Page, kindOf, page, propsJson, propsOf, schemaJson, schemaOf } from "./model";
 
 /** A page as the database row has it: props and schema as JSON text. */
 export interface Row {
@@ -61,7 +61,7 @@ export function pageOfRow(r: Row): Page {
     icon: r.icon || "doc",
     color: r.color,
     shape: r.shape,
-    kind: r.kind === "COLLECTION" ? "COLLECTION" : "DOC",
+    kind: kindOf(r.kind),
     ord: r.ord,
     created: r.created,
     updated: r.updated,

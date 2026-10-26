@@ -112,7 +112,7 @@ object CalendarWrite {
         return out.sortedWith(compareByDescending<WritableCalendar> { it.google && it.primary }.thenByDescending { it.google }.thenBy { it.name })
     }
 
-    /** Adds an event with up to four reminders (minutes before); returns its id, or null if the calendar said no. */
+    /** Adds an event with up to five reminders (minutes before); returns its id, or null if the calendar said no. */
     fun insert(context: Context, calendarId: Long, title: String, begin: Long, end: Long, allDay: Boolean, reminders: List<Int>, color: EventColor? = null): Long? {
         val (start, finish) = if (allDay) allDayRange(begin) else begin to end
         val values = ContentValues().apply {
@@ -172,7 +172,7 @@ object CalendarWrite {
         runCatching {
             context.contentResolver.delete(CalendarContract.Reminders.CONTENT_URI, "${CalendarContract.Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()))
         }
-        for (m in minutes.distinct().take(4)) runCatching {
+        for (m in minutes.distinct().filter { it in 0..MAX_REMINDER }.take(MAX_REMINDERS)) runCatching {
             context.contentResolver.insert(
                 CalendarContract.Reminders.CONTENT_URI,
                 ContentValues().apply {
@@ -190,3 +190,7 @@ object CalendarWrite {
         }
     }
 }
+
+/** Google Calendar keeps up to five reminders per event, at most four weeks before. */
+const val MAX_REMINDERS = 5
+const val MAX_REMINDER = 4 * 7 * 1440

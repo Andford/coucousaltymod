@@ -64,7 +64,7 @@ fun travelJson(p: Page, body: String): JSONObject = JSONObject()
 fun travelOf(o: JSONObject): Pair<Page, String> = Page(
     id = o.optString("id"), parent = if (o.isNull("parent")) null else o.optString("parent"), title = o.optString("title"),
     icon = o.optString("icon").ifEmpty { "doc" }, color = o.optLong("color"), shape = o.optInt("shape"),
-    kind = if (o.optString("kind") == "COLLECTION") PageKind.COLLECTION else PageKind.DOC, ord = o.optDouble("ord", 0.0),
+    kind = runCatching { PageKind.valueOf(o.optString("kind")) }.getOrDefault(PageKind.DOC), ord = o.optDouble("ord", 0.0),
     created = o.optLong("created"), updated = o.optLong("updated"), favorite = o.optBoolean("favorite"), trashed = o.optLong("trashed"),
     props = propsOf(o.optString("props")), schema = schemaOf(o.optString("schema")),
 ) to o.optString("body")
@@ -123,10 +123,10 @@ fun settle(
         local == null && remote != null -> Settle.Take
         local != null && remote == null -> Settle.Keep(null, null, maxOf(state.ver, ver + 1), null, false)
         local != null && remote != null -> if (remoteNewer) {
-            if (local.first.kind == PageKind.DOC) copy(local.first, local.second)
+            if (local.first.kind != PageKind.COLLECTION) copy(local.first, local.second)
             Settle.Take
         } else {
-            if (remote.first.kind == PageKind.DOC) copy(remote.first, remote.second)
+            if (remote.first.kind != PageKind.COLLECTION) copy(remote.first, remote.second)
             Settle.Keep(null, null, state.ver, theirs, false)
         }
         else -> Settle.Skip

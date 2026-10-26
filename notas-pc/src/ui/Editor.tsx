@@ -9,6 +9,7 @@ import { Fragment } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   AlignLeft,
+  Brush,
   CheckSquare,
   ChevronRight,
   FileText,
@@ -19,6 +20,7 @@ import {
   List,
   ListOrdered,
   Minus,
+  PenLine,
   Plus,
   Quote,
   Sparkles,
@@ -29,6 +31,8 @@ import { type Index, type Page, type PageKind, css, fold, shownTitle } from "../
 import { Store } from "../data/store";
 import { play } from "../tokkip/sound";
 import { PageIcon, Popover, SectionLabel } from "./kit";
+import { DrawBlock } from "../ink/InkView";
+import { drawingJson, emptyDrawing } from "../ink/ink";
 import { Hop, Nav } from "./state";
 
 interface EBlock extends Block {
@@ -53,6 +57,8 @@ const SLASH: SlashItem[] = [
   { id: "page", label: "Subpágina", hint: "Una página dentro de esta", icon: FileText, kind: "PAGE", sub: "DOC", words: "subpagina pagina page" },
   { id: "board", label: "Tablero", hint: "Por hacer · Haciendo · Hecho", icon: Kanban, kind: "PAGE", sub: "COLLECTION", view: "board", words: "tablero kanban board tareas" },
   { id: "table", label: "Tabla", hint: "Filas con columnas", icon: Table2, kind: "PAGE", sub: "COLLECTION", view: "table", words: "tabla table base datos" },
+  { id: "ink", label: "Página a mano", hint: "Para escribir con la pluma", icon: PenLine, kind: "PAGE", sub: "INK", words: "mano pluma escribir lapiz ink" },
+  { id: "draw", label: "Dibujo", hint: "Un boceto o una firma aquí mismo", icon: Brush, kind: "DRAW", words: "dibujo boceto firma pluma draw sketch" },
   { id: "text", label: "Texto normal", hint: "", icon: AlignLeft, kind: "TEXT", words: "texto parrafo text" },
   { id: "h1", label: "Título grande", hint: "#", icon: Heading1, kind: "H1", words: "titulo encabezado heading h1" },
   { id: "h2", label: "Subtítulo", hint: "##", icon: Heading2, kind: "H2", words: "subtitulo heading h2" },
@@ -63,6 +69,8 @@ const SLASH: SlashItem[] = [
   { id: "callout", label: "Aviso con Tokkip", hint: "!", icon: Sparkles, kind: "CALLOUT", words: "aviso nota callout tokkip" },
   { id: "divider", label: "Separador", hint: "---", icon: Minus, kind: "DIVIDER", words: "separador linea divider" },
 ];
+
+const inside = (it: SlashItem) => !!it.sub || it.kind === "DRAW";
 
 function slashMatches(q: string): SlashItem[] {
   const f = fold(q.trim());
@@ -228,13 +236,21 @@ export function DocEditor({ p, ix }: { p: Page; ix: Index }) {
     if (i < 0) return;
     const b = blocks![i];
     if (item.sub) {
-      const child = Store.newPage(id, { kind: item.sub, view: item.view, title: item.sub === "COLLECTION" ? (item.view === "table" ? "Tabla" : "Tablero") : "" });
+      const child = Store.newPage(id, { kind: item.sub, view: item.view, title: item.sub === "COLLECTION" ? (item.view === "table" ? "Tabla" : "Tablero") : "", body: item.sub === "INK" ? drawingJson(emptyDrawing("lines")) : "" });
       const next = replace(i, { kind: "PAGE", text: child.id });
       if (i === next.length - 1) next.push(eb({ kind: "TEXT", text: "" }));
       commit(next);
       save();
       play("pop");
       Nav.page(child.id);
+      return;
+    }
+    if (item.kind === "DRAW") {
+      const n = eb({ kind: "TEXT", text: "" });
+      const next = replace(i, { kind: "DRAW", text: drawingJson(emptyDrawing("plain", 450)) });
+      if (i === next.length - 1 || next[i + 1].kind !== "TEXT") next.splice(i + 1, 0, n);
+      commit(next);
+      play("pop", 0.4);
       return;
     }
     if (item.kind === "DIVIDER") {
@@ -315,7 +331,7 @@ export function DocEditor({ p, ix }: { p: Page; ix: Index }) {
       if (prev.kind === "DIVIDER") {
         next.splice(i - 1, 1);
         commit(next, { key: b.key, pos: 0 });
-      } else if (prev.kind === "PAGE") {
+      } else if (prev.kind === "PAGE" || prev.kind === "DRAW") {
         if (!b.text) {
           next.splice(i, 1);
           const j = textTargets(i - 1, -1);
@@ -462,6 +478,7 @@ export function DocEditor({ p, ix }: { p: Page; ix: Index }) {
               const next = blocks.filter((x) => x.key !== b.key);
               commit(next.length ? next : [eb({ kind: "TEXT", text: "" })]);
             }}
+            onDraw={(json) => commit((list.current ?? blocks).map((x) => (x.key === b.key ? { ...x, text: json } : x)))}
             placeholder={i === 0 && blocks.length === 1 ? "Escribe, o «/» para escoger qué va aquí…" : undefined}
           />
         </div>
@@ -511,6 +528,7 @@ function BlockBody({
   onKeyDown,
   onToggle,
   onRemove,
+  onDraw,
   placeholder,
 }: {
   b: EBlock;
@@ -521,9 +539,11 @@ function BlockBody({
   onKeyDown: (e: KeyboardEvent) => void;
   onToggle: () => void;
   onRemove: () => void;
+  onDraw: (json: string) => void;
   placeholder?: string;
 }) {
   if (b.kind === "DIVIDER") return <hr class="divider" />;
+  if (b.kind === "DRAW") return <DrawBlock text={b.text} onChange={onDraw} onRemove={onRemove} />;
   if (b.kind === "PAGE") {
     const child = ix.page(b.text);
     if (!child || child.trashed) {
@@ -615,7 +635,7 @@ function SlashMenu({
         {!items.length && <div class="dim small pad">Nada con «{query}»</div>}
         {items.map((it, i) => (
           <Fragment key={it.id}>
-            {(i === 0 || !!items[i - 1].sub !== !!it.sub) && <div class="slash-head">{it.sub ? "Páginas dentro de esta" : "Esta línea es…"}</div>}
+            {(i === 0 || inside(items[i - 1]) !== inside(it)) && <div class="slash-head">{inside(it) ? "Dentro de esta página" : "Esta línea es…"}</div>}
             <button
               key={it.id}
               class={`slash-item ${i === index ? "on" : ""}`}

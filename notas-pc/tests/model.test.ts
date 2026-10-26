@@ -153,4 +153,15 @@ describe("templates", () => {
     expect(project[0].body).toContain(`@@${boardPage.id}`);
     expect(project[2].page.parent).toBe(boardPage.id);
   });
+
+  it("builds a second brain: PARA, linked from its first page", () => {
+    const all = flatten(build(TEMPLATES.find((t) => t.id === "brain")!, null, 1));
+    const titles = all.map((x) => x.page.title);
+    expect(titles.slice(0, 5)).toEqual(["Segundo cerebro", "Proyectos", "Mi primer proyecto", "Áreas", "Trabajo"]);
+    expect(titles).toContain("Recursos");
+    expect(titles).toContain("Archivo");
+    const top = all[0];
+    for (const kid of all.filter((x) => x.page.parent === top.page.id)) expect(top.body).toContain(`@@${kid.page.id}`);
+    expect(all.find((x) => x.page.title === "Proyectos")!.page.schema!.view).toBe("board");
+  });
 });

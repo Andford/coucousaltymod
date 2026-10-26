@@ -130,7 +130,7 @@ impl Plain {
             icon: if self.icon.is_empty() { "doc".into() } else { self.icon.clone() },
             color: self.color,
             shape: self.shape,
-            kind: if self.kind == "COLLECTION" { "COLLECTION".into() } else { "DOC".into() },
+            kind: if self.kind == "COLLECTION" || self.kind == "INK" { self.kind.clone() } else { "DOC".into() },
             ord: self.ord,
             created: self.created,
             updated: self.updated,
@@ -148,12 +148,13 @@ impl Plain {
 }
 
 /// The preview, steps and ticked steps of a body (Blocks.kt / blocks.ts factsOf).
+/// A handwritten page's body is a drawing: no words to show.
 pub fn facts(body: &str) -> (String, i64, i64) {
     let mut texts: Vec<String> = Vec::new();
     let (mut steps, mut done) = (0, 0);
-    if !body.is_empty() {
+    if !body.is_empty() && !body.starts_with("{\"v\":") {
         for l in body.split('\n') {
-            if l == "---" || l.starts_with("@@") {
+            if l == "---" || l.starts_with("@@") || l.starts_with("%%") {
                 continue;
             }
             let text = if l.starts_with("[x] ") || l.starts_with("[X] ") {
@@ -464,12 +465,12 @@ fn apply(db: &Db, key: &[u8; 32], r: &Value, report: &mut Report) -> Result<(), 
         (Some(_), None) => db.keep(None, id, st.ver.max(ver + 1), None, false).map_err(e), // ours beat their delete
         (Some(l), Some(p)) => {
             if remote_newer {
-                if l.kind == "DOC" {
+                if l.kind != "COLLECTION" {
                     keep_copy(db, l, report)?;
                 }
                 take(report)
             } else {
-                if p.kind == "DOC" {
+                if p.kind != "COLLECTION" {
                     keep_copy(db, &p.row(), report)?;
                 }
                 db.keep(None, id, st.ver, remote_fp.as_deref(), false).map_err(e)
@@ -587,7 +588,8 @@ mod tests {
         assert!(open(&other, &sealed).is_none());
         // NFC: the same phrase typed with a combining accent gives the same key.
         assert_eq!(derive("canción", "c2FsdHNhbHRzYWx0c2FsdA==").unwrap(), derive("cancio\u{301}n", "c2FsdHNhbHRzYWx0c2FsdA==").unwrap());
-        assert_eq!(facts("Hola\n[ ] uno\n[x] dos\n@@kid\n---\n12. tres"), ("Hola · uno · dos".to_string(), 2, 1));
+        assert_eq!(facts("Hola\n[ ] uno\n[x] dos\n@@kid\n---\n%%{\"v\":1}\n12. tres"), ("Hola · uno · dos".to_string(), 2, 1));
+        assert_eq!(facts("{\"v\":1,\"bg\":\"lines\",\"h\":1414,\"s\":[]}"), (String::new(), 0, 0));
         // The same vector as Android's SyncCoreTest: both sides derive the same key.
         let k = derive("canción secreta", "c2FsdHNhbHRzYWx0c2FsdA==").unwrap();
         assert_eq!(k.iter().map(|b| format!("{b:02x}")).collect::<String>(), "d06abd18ac1ee5945d614aacf04a8bff3adf1a4d4dbf7728caac48f3e69d36f8");

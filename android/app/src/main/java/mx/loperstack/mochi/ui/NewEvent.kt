@@ -1,6 +1,6 @@
 // "Nuevo evento" (and editing one): a title, a day and a time, how long, up
-// to four reminders, a colour and the
-// calendar — saved straight into your Google calendar on this phone.
+// to five reminders (from "al empezar" to four weeks before, any you like), a
+// colour and the calendar — saved straight into your Google calendar on this phone.
 
 package mx.loperstack.mochi.ui
 
@@ -45,6 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import mx.loperstack.mochi.data.CalendarWrite
+import mx.loperstack.mochi.data.MAX_REMINDER
+import mx.loperstack.mochi.data.MAX_REMINDERS
 import mx.loperstack.mochi.data.WritableCalendar
 import mx.loperstack.mochi.mochi.Sounds
 import java.text.SimpleDateFormat
@@ -73,8 +75,58 @@ private fun Pill(text: String, on: Boolean, onClick: () -> Unit) {
     )
 }
 
-/** The reminders you can pick (minutes before), up to four at once. */
-private val REMINDERS = listOf(0 to "Al empezar", 5 to "5 min", 10 to "10 min", 15 to "15 min", 30 to "30 min", 60 to "1 h", 120 to "2 h", 1440 to "1 día")
+/** The quick reminders (minutes before); any other with "Otro…". */
+private val REMINDERS = listOf(0, 10, 30, 60, 1440, 2 * 1440, 7 * 1440)
+
+/** "Al empezar", "10 min", "2 h", "1 día", "8 días", "1 semana"… */
+fun reminderLabel(m: Int): String = when {
+    m == 0 -> "Al empezar"
+    m % (7 * 1440) == 0 -> (m / (7 * 1440)).let { if (it == 1) "1 semana" else "$it semanas" }
+    m % 1440 == 0 -> (m / 1440).let { if (it == 1) "1 día" else "$it días" }
+    m % 60 == 0 -> "${m / 60} h"
+    m > 60 -> "${m / 60} h ${m % 60} min"
+    else -> "$m min"
+}
+
+/** "Otro aviso": a number and a unit, up to four weeks. */
+@Composable
+private fun CustomReminderDialog(onDone: (Int?) -> Unit) {
+    var amount by remember { mutableStateOf("8") }
+    var unit by remember { mutableIntStateOf(1440) }
+    val units = listOf(1 to "minutos", 60 to "horas", 1440 to "días", 7 * 1440 to "semanas")
+    val n = amount.toIntOrNull()
+    val total = n?.let { it * unit }
+    val ok = total != null && total in 1..MAX_REMINDER
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { onDone(null) }, containerColor = Ink.CardHigh,
+        title = { Text("Otro aviso") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(4) }, singleLine = true, shape = Squircle(16.dp),
+                    modifier = Modifier.fillMaxWidth(), suffix = { Text("antes", color = Ink.Dim) },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Ink.Violet, unfocusedBorderColor = Ink.Hairline, focusedTextColor = Ink.Text, unfocusedTextColor = Ink.Text, cursorColor = Ink.Violet),
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((u, label) in units) Pill(label, unit == u) { unit = u }
+                }
+                Spacer(Modifier.height(10.dp))
+                Label(
+                    when {
+                        total == null || total <= 0 -> "Escribe cuánto antes."
+                        total > MAX_REMINDER -> "Google Calendar avisa hasta 4 semanas antes."
+                        else -> "Te avisa ${reminderLabel(total)} antes."
+                    },
+                    if (ok) Ink.Dim else Ink.Red, 13.sp,
+                )
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { if (ok) onDone(total) }, enabled = ok) { Text("Agregar", color = if (ok) Ink.VioletSoft else Ink.Dim2) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { onDone(null) }) { Text("Cancelar", color = Ink.Dim) } },
+    )
+}
 
 /**
  * A new event, or `editing` one (its title, time, reminders and colour; a
@@ -93,6 +145,7 @@ fun NewEventSheet(actions: Actions, editing: mx.loperstack.mochi.data.CalEvent? 
     val repeats = remember(editing?.id) { editing?.let { CalendarWrite.repeats(context, it.id) } ?: false }
     var calIndex by remember { mutableIntStateOf(editing?.let { e -> calendars.indexOfFirst { it.id == e.calendarId }.coerceAtLeast(0) } ?: 0) }
     var error by remember { mutableStateOf("") }
+    var customReminder by remember { mutableStateOf(false) }
     val cal: WritableCalendar? = calendars.getOrNull(calIndex)
     // Its colour: the calendar's palette (Google's own names), or the calendar's colour.
     val palette = remember(cal?.id) { cal?.let { CalendarWrite.colors(context, it.id) } ?: emptyList() }
@@ -145,19 +198,26 @@ fun NewEventSheet(actions: Actions, editing: mx.loperstack.mochi.data.CalEvent? 
             }
         }
         Spacer(Modifier.height(14.dp))
-        Label("Avisos · hasta 4" + if (reminders.isEmpty()) " · sin aviso" else "", Ink.Dim2, 12.sp, FontWeight.Bold)
+        Label("Avisos · hasta $MAX_REMINDERS" + if (reminders.isEmpty()) " · sin aviso" else "", Ink.Dim2, 12.sp, FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((m, label) in REMINDERS) {
-                val on = m in reminders
-                Pill(label, on) {
-                    reminders = when {
-                        on -> reminders - m
-                        reminders.size >= 4 -> { error = "Hasta 4 avisos por evento."; reminders }
-                        else -> { error = ""; (reminders + m).sortedDescending() }
-                    }
-                }
+        val toggle = { m: Int ->
+            val on = m in reminders
+            reminders = when {
+                on -> reminders - m
+                reminders.size >= MAX_REMINDERS -> { error = "Hasta $MAX_REMINDERS avisos por evento."; reminders }
+                else -> { error = ""; (reminders + m).sortedDescending() }
             }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The ones you chose that aren't quick ones (8 días, 3 h…) come first, so you see them.
+            for (m in (reminders.filter { it !in REMINDERS } + REMINDERS).distinct()) Pill(reminderLabel(m), m in reminders) { toggle(m) }
+            Pill("+ Otro…", false) {
+                if (reminders.size >= MAX_REMINDERS) error = "Hasta $MAX_REMINDERS avisos por evento." else customReminder = true
+            }
+        }
+        if (customReminder) CustomReminderDialog { m ->
+            customReminder = false
+            if (m != null && m !in reminders) { error = ""; reminders = (reminders + m).sortedDescending() }
         }
         Spacer(Modifier.height(14.dp))
         Label("Color" + (color?.let { " · ${it.name}" } ?: " · el del calendario"), Ink.Dim2, 12.sp, FontWeight.Bold)

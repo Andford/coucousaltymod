@@ -2025,3 +2025,150 @@ tr:hover .title-cell .open {
     transition: none !important;
   }
 }
+
+/* ── Handwriting (ink/) ──────────────────────────────────────────────────── */
+
+:root {
+  --paper: #1a1b20;
+  --rule: rgba(196, 181, 253, 0.13);
+  --ink: #f5f6f8;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --paper: #fffdf8;
+    --rule: rgba(80, 90, 160, 0.16);
+    --ink: #1b1530;
+  }
+}
+:root[data-theme="light"] {
+  --paper: #fffdf8;
+  --rule: rgba(80, 90, 160, 0.16);
+  --ink: #1b1530;
+}
+.page-inner.ink {
+  max-width: 1100px;
+}
+.ink-page {
+  margin-top: 6px;
+}
+.ink-loading {
+  min-height: 400px;
+}
+.ink-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 6px 0 10px;
+  background: var(--ground);
+}
+.ink-paper {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.ink-surface {
+  position: relative;
+  width: 100%;
+}
+.ink-surface canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.ink-live {
+  touch-action: none;
+  cursor: crosshair;
+}
+.ink-live.tool-eraser {
+  cursor: cell;
+}
+.ink-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ink-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--card-high);
+  border: 1px solid var(--line);
+}
+.ink-group button {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ink-group button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.ink-group button.on {
+  background: var(--accent-deep);
+  color: var(--accent-soft);
+}
+.ink-group.bg button {
+  padding: 0 12px;
+}
+.ink-color span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+}
+.ink-color.on span {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--card-high), 0 0 0 4px var(--accent);
+}
+.ink-size span {
+  border-radius: 50%;
+  background: currentColor;
+}
+.ink-finger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--dim);
+  margin-left: 4px;
+}
+.ink-finger input {
+  accent-color: var(--accent);
+}
+.draw-block {
+  flex: 1;
+  margin: 8px 0;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  outline: none;
+}
+.draw-block .ink-bar {
+  padding: 6px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.draw-block:hover .ink-bar,
+.draw-block.active .ink-bar {
+  opacity: 1;
+}
+.draw-block .ink-group {
+  background: transparent;
+  border-color: transparent;
+}
+.draw-block .ink-group button {
+  min-width: 30px;
+  height: 30px;
+}

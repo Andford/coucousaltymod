@@ -12,6 +12,7 @@ import { SHAPE_NAMES, SHAPES, clipFor } from "../tokkip/shapes";
 import { play } from "../tokkip/sound";
 import { CollectionView, PropsPanel } from "./Collection";
 import { DocEditor, PageLink } from "./Editor";
+import { InkPage } from "../ink/InkView";
 import { CaptureCard } from "./Home";
 import { ICONS, Menu, Modal, PageIcon, SectionLabel, focusOnMount } from "./kit";
 import { Hop, Nav, Toast } from "./state";
@@ -23,10 +24,10 @@ export function PageView({ p, ix }: { p: Page; ix: Index }) {
     <div class="page-view">
       <PageTop p={p} ix={ix} />
       <div class="page-scroll">
-        <div class={`page-inner ${p.kind === "COLLECTION" ? "wide" : ""}`}>
+        <div class={`page-inner ${p.kind === "COLLECTION" ? "wide" : p.kind === "INK" ? "ink" : ""}`}>
           <PageHeader key={`h-${p.id}`} p={p} />
           {collection && <PropsPanel card={p} collection={collection} />}
-          {p.kind === "COLLECTION" ? <CollectionView c={p} ix={ix} /> : <DocEditor key={p.id} p={p} ix={ix} />}
+          {p.kind === "COLLECTION" ? <CollectionView c={p} ix={ix} /> : p.kind === "INK" ? <InkPage key={p.id} id={p.id} /> : <DocEditor key={p.id} p={p} ix={ix} />}
         </div>
       </div>
     </div>

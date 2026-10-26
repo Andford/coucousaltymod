@@ -5,9 +5,11 @@
 //   "[ ] " paso por hacer  "[x] " paso hecho
 //   "> "  cita             "! "  aviso (Tokkip te lo recuerda)
 //   "---" separador        "@@<id>" una subpágina
-// Anything else is a paragraph.
+//   "%%<json>" un dibujo hecho con la pluma (ink.ts)
+// Anything else is a paragraph. A page written by hand (kind INK) keeps its
+// whole drawing as its body instead (it starts with {"v":).
 
-export type BlockKind = "TEXT" | "H1" | "H2" | "BULLET" | "NUMBER" | "TODO" | "DONE" | "QUOTE" | "CALLOUT" | "DIVIDER" | "PAGE";
+export type BlockKind = "TEXT" | "H1" | "H2" | "BULLET" | "NUMBER" | "TODO" | "DONE" | "QUOTE" | "CALLOUT" | "DIVIDER" | "PAGE" | "DRAW";
 
 export const PREFIX: Record<BlockKind, string> = {
   TEXT: "",
@@ -21,6 +23,7 @@ export const PREFIX: Record<BlockKind, string> = {
   CALLOUT: "! ",
   DIVIDER: "---",
   PAGE: "@@",
+  DRAW: "%%",
 };
 
 export interface Block {
@@ -30,7 +33,10 @@ export interface Block {
 
 export const isStep = (k: BlockKind) => k === "TODO" || k === "DONE";
 /** Lines without a text field. */
-export const isFixed = (k: BlockKind) => k === "DIVIDER" || k === "PAGE";
+export const isFixed = (k: BlockKind) => k === "DIVIDER" || k === "PAGE" || k === "DRAW";
+
+/** A handwritten page's body (a drawing, not lines of text). */
+export const isInkBody = (body: string) => body.startsWith('{"v":');
 
 export function lineOf(b: Block): string {
   return b.kind === "DIVIDER" ? "---" : PREFIX[b.kind] + b.text;
@@ -41,6 +47,7 @@ const NUMBERED = /^\d{1,3}\. /;
 export function blockOf(l: string): Block {
   if (l === "---") return { kind: "DIVIDER", text: "" };
   if (l.startsWith("@@")) return { kind: "PAGE", text: l.slice(2).trim() };
+  if (l.startsWith("%%")) return { kind: "DRAW", text: l.slice(2) };
   if (l.startsWith("[x] ") || l.startsWith("[X] ")) return { kind: "DONE", text: l.slice(4) };
   if (l.startsWith("[ ] ")) return { kind: "TODO", text: l.slice(4) };
   if (l.startsWith("## ")) return { kind: "H2", text: l.slice(3) };
@@ -75,9 +82,10 @@ export interface Facts {
 }
 
 export function factsOf(body: string): Facts {
+  if (isInkBody(body)) return { preview: "", steps: 0, done: 0, links: [] };
   const blocks = blocksOf(body);
   const preview = blocks
-    .filter((b) => b.kind !== "PAGE" && b.kind !== "DIVIDER" && b.text.trim())
+    .filter((b) => !isFixed(b.kind) && b.text.trim())
     .slice(0, 3)
     .map((b) => b.text.trim())
     .join(" · ")
@@ -92,8 +100,9 @@ export function factsOf(body: string): Facts {
 
 /** The text without marks, for search. */
 export function plainOf(body: string): string {
+  if (isInkBody(body)) return "";
   return blocksOf(body)
-    .filter((b) => b.kind !== "PAGE")
+    .filter((b) => b.kind !== "PAGE" && b.kind !== "DRAW")
     .map((b) => b.text)
     .join("\n");
 }

@@ -22,7 +22,8 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class PageKind { DOC, COLLECTION }
+/** DOC: lines of text. COLLECTION: cards as a board or table. INK: a page written by hand (its body is a drawing, Ink.kt). */
+enum class PageKind { DOC, COLLECTION, INK }
 
 enum class PropType(val label: String) { TEXT("Texto"), NUMBER("Número"), SELECT("Estado"), MULTI("Etiquetas"), DATE("Fecha"), CHECK("Casilla") }
 

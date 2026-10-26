@@ -145,4 +145,13 @@ class ModelTest {
         assertEquals(INBOX_ID, pages[2].first.parent)
         assertTrue(pages[2].first.favorite)
     }
+
+    @Test
+    fun secondBrain() {
+        val all = build(TEMPLATES.first { it.id == "brain" }, null, 1).flatten()
+        assertEquals(listOf("Segundo cerebro", "Proyectos", "Mi primer proyecto", "Áreas", "Trabajo"), all.take(5).map { it.first.title })
+        val top = all.first()
+        for ((kid, _) in all.filter { it.first.parent == top.first.id }) assertTrue(top.second.contains("@@${kid.id}"))
+        assertEquals("board", all.first { it.first.title == "Proyectos" }.first.schema?.view)
+    }
 }

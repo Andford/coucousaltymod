@@ -140,9 +140,11 @@ object Store {
         val siblings = _index.value.children(parent)
         val ord = if (first) between(null, siblings.firstOrNull()?.ord) else between(lastOrd(parent), null)
         val color = if (kind == PageKind.COLLECTION) 0xFFFBBF24 else parentPage?.takeIf { it.id != INBOX_ID }?.color ?: 0xFFA78BFA
+        val icon = when (kind) { PageKind.COLLECTION -> "board"; PageKind.INK -> "art"; else -> "doc" }
+        val shape = when (kind) { PageKind.COLLECTION -> 3; PageKind.INK -> 4; else -> 0 }
         val p = Page(
-            newId(), parent, title, if (kind == PageKind.COLLECTION) "board" else "doc", color, if (kind == PageKind.COLLECTION) 3 else 0, kind, ord,
-            now, now, if (kind == PageKind.DOC && parentPage?.kind != PageKind.COLLECTION) now else 0, props = props,
+            newId(), parent, title, icon, color, shape, kind, ord,
+            now, now, if (kind != PageKind.COLLECTION && parentPage?.kind != PageKind.COLLECTION) now else 0, props = props,
             schema = if (kind == PageKind.COLLECTION) defaultSchema() else null,
         )
         put(p, body)

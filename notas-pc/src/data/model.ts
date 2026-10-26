@@ -11,7 +11,12 @@
 // Only the index (titles, columns, values, a preview) lives in memory; a
 // page's body is read from disk when you open it.
 
-export type PageKind = "DOC" | "COLLECTION";
+/** DOC: lines of text. COLLECTION: cards as a board or table. INK: a page written by hand. */
+export type PageKind = "DOC" | "COLLECTION" | "INK";
+
+export function kindOf(raw: unknown): PageKind {
+  return raw === "COLLECTION" || raw === "INK" ? raw : "DOC";
+}
 export type PropType = "TEXT" | "NUMBER" | "SELECT" | "MULTI" | "DATE" | "CHECK";
 
 export const PROP_LABEL: Record<PropType, string> = {
@@ -560,7 +565,7 @@ export function copyOf(text: string): CopyRow[] | null {
         icon: str(o.icon, "doc") || "doc",
         color: num(o.color, 0xffa78bfa),
         shape: Math.trunc(num(o.shape)),
-        kind: o.kind === "COLLECTION" ? "COLLECTION" : "DOC",
+        kind: kindOf(o.kind),
         ord: num(o.ord),
         created: num(o.created),
         updated: num(o.updated),

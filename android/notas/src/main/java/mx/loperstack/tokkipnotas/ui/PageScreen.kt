@@ -119,6 +119,11 @@ import mx.loperstack.tokkipnotas.data.Page
 import mx.loperstack.tokkipnotas.data.PageKind
 import mx.loperstack.tokkipnotas.data.Store
 import mx.loperstack.tokkipnotas.data.Sync
+import mx.loperstack.tokkipnotas.data.Drawing
+import mx.loperstack.tokkipnotas.data.INK_EMPTY
+import mx.loperstack.tokkipnotas.data.drawingJson
+import androidx.compose.material.icons.rounded.Draw
+import androidx.compose.material.icons.rounded.Gesture
 import mx.loperstack.tokkipnotas.data.blockOf
 import mx.loperstack.tokkipnotas.data.blocksOf
 import mx.loperstack.tokkipnotas.data.bodyOf
@@ -129,6 +134,7 @@ fun PageScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
     when {
         p.id == INBOX_ID -> InboxScreen(ix)
         p.kind == PageKind.COLLECTION -> CollectionScreen(p, ix)
+        p.kind == PageKind.INK -> InkScreen(p, ix)
         else -> DocScreen(p, ix, newPage)
     }
 }
@@ -339,7 +345,7 @@ private class EditBlock(kind: BlockKind, text: String) {
     fun set(text: String, cursor: Int = text.length) { value = TextFieldValue(ZW + text, TextRange(1 + cursor.coerceIn(0, text.length))) }
     val isStep get() = kind == BlockKind.TODO || kind == BlockKind.DONE
     /** Lines without a text field. */
-    val fixed get() = kind == BlockKind.DIVIDER || kind == BlockKind.PAGE
+    val fixed get() = kind == BlockKind.DIVIDER || kind == BlockKind.PAGE || kind == BlockKind.DRAW
 }
 
 private fun nextKind(k: BlockKind) = when (k) {
@@ -427,7 +433,7 @@ private fun DocScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
                     b.kind != BlockKind.TEXT -> b.kind = BlockKind.TEXT
                     prev == null -> {}
                     prev.kind == BlockKind.DIVIDER -> bs.removeAt(i - 1)
-                    prev.kind == BlockKind.PAGE -> if (t.isEmpty()) { bs.removeAt(i); focusTo = -1 }
+                    prev.kind == BlockKind.PAGE || prev.kind == BlockKind.DRAW -> if (t.isEmpty()) { bs.removeAt(i); focusTo = -1 }
                     else -> {
                         val join = prev.text.length
                         prev.set(prev.text + t, join)
@@ -505,9 +511,14 @@ private fun DocScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
         val i = bs.indexOfFirst { it.key == key }.takeIf { it >= 0 } ?: bs.lastIndex
         val b = bs.getOrNull(i) ?: return
         when {
+            kind == BlockKind.DRAW -> {
+                b.kind = BlockKind.DRAW; b.set(drawingJson(Drawing("plain", 450f)))
+                if (i == bs.lastIndex || bs[i + 1].kind != BlockKind.TEXT) { val n = EditBlock(BlockKind.TEXT, ""); bs.add(i + 1, n) }
+                changed()
+            }
             sub != null -> {
                 save()
-                val child = Store.newPage(id, sub)
+                val child = Store.newPage(id, sub, body = if (sub == PageKind.INK) INK_EMPTY else "")
                 if (sub == PageKind.COLLECTION) Store.update(child.copy(title = if (view == "table") "Tabla" else "Tablero", icon = if (view == "table") "table" else "board", schema = child.schema?.copy(view = view)), touch = false)
                 b.kind = BlockKind.PAGE; b.set(child.id)
                 if (i == bs.lastIndex) bs.add(EditBlock(BlockKind.TEXT, ""))
@@ -538,7 +549,7 @@ private fun DocScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
     val share = {
         val c = current()
         if (c != null) {
-            val text = listOf(c.first, c.second.lines().filter { !it.startsWith("@@") }.joinToString("\n").replace("[ ] ", "☐ ").replace("[x] ", "☑ "))
+            val text = listOf(c.first, c.second.lines().filter { !it.startsWith("@@") && !it.startsWith("%%") }.joinToString("\n").replace("[ ] ", "☐ ").replace("[x] ", "☑ "))
                 .filter { it.isNotBlank() }.joinToString("\n\n")
             runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Compartir página")) }
         }
@@ -566,6 +577,7 @@ private fun DocScreen(p: Page, ix: Index, newPage: (String?) -> Unit) {
                                 },
                                 onFocus = { focused = b.key },
                                 onRemove = { bs.remove(b); changed() },
+                                onDrawn = { changed() },
                             ) { onChange(i, it) }
                         }
                     }
@@ -642,11 +654,15 @@ fun StepDot(done: Boolean, accent: Color, size: Int = 24, onClick: () -> Unit) {
 
 @Composable
 private fun BlockRow(
-    b: EditBlock, accent: Color, number: Int, ix: Index, onToggle: () -> Unit, onFocus: () -> Unit, onRemove: () -> Unit, onChange: (TextFieldValue) -> Unit,
+    b: EditBlock, accent: Color, number: Int, ix: Index, onToggle: () -> Unit, onFocus: () -> Unit, onRemove: () -> Unit, onDrawn: () -> Unit, onChange: (TextFieldValue) -> Unit,
 ) {
     when (b.kind) {
         BlockKind.DIVIDER -> {
             Box(Modifier.fillMaxWidth().padding(vertical = 14.dp).height(2.dp).clip(CircleShape).background(Ink.Hairline))
+            return
+        }
+        BlockKind.DRAW -> {
+            DrawBlockView(b.text, onChange = { b.set(it); onDrawn() }, onRemove = onRemove)
             return
         }
         BlockKind.PAGE -> {
@@ -724,6 +740,12 @@ private fun SlashSheet(onClose: () -> Unit, pick: (BlockKind, PageKind?, String)
                 SlashTile(Icons.Rounded.Description, "Subpágina", Modifier.weight(1f)) { pick(BlockKind.PAGE, PageKind.DOC, "") }
                 SlashTile(Icons.Rounded.ViewKanban, "Tablero", Modifier.weight(1f)) { pick(BlockKind.PAGE, PageKind.COLLECTION, "board") }
                 SlashTile(Icons.Rounded.TableChart, "Tabla", Modifier.weight(1f)) { pick(BlockKind.PAGE, PageKind.COLLECTION, "table") }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SlashTile(Icons.Rounded.Draw, "Página a mano", Modifier.weight(1f)) { pick(BlockKind.PAGE, PageKind.INK, "") }
+                SlashTile(Icons.Rounded.Gesture, "Dibujo aquí", Modifier.weight(1f)) { pick(BlockKind.DRAW, null, "") }
+                Spacer(Modifier.weight(1f))
             }
             SectionLabel("ESTA LÍNEA ES…")
             for ((icon, kind, label) in items) {

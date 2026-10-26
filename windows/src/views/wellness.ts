@@ -296,7 +296,26 @@ export function buildWellnessCard(): WellnessHost {
   // ── Root ──
   const panes: Record<WellnessTab, HTMLElement> = { tasks: tasksPane, focus: focusPane, breathe: breathePane, agenda: agendaPane };
   const head = h("div", { class: "wl-head" }, tabRow);
-  const el = h("div", { class: "wl-card" }, head, tasksPane, focusPane, breathePane, agendaPane);
+  // Tokkip Healthy PC's line: how the PC feels (when that app is installed).
+  const pcScore = h("b", { class: "wl-pc-score" });
+  const pcText = h("span", { class: "wl-pc-text" });
+  const pcLine = h("div", { class: "wl-pc" }, pcScore, pcText);
+  pcLine.style.display = "none";
+  let pcKey = "";
+  function syncPc() {
+    const note = Wellness.pc;
+    const show = !!note && Date.now() - note.at < 3 * 86_400_000;
+    pcLine.style.display = show ? "" : "none";
+    if (!show || !note) return;
+    const key = `${note.seq}`;
+    if (key === pcKey) return;
+    pcKey = key;
+    pcScore.textContent = String(note.score);
+    pcScore.dataset.level = note.score >= 80 ? "good" : note.score >= 60 ? "ok" : note.score >= 40 ? "meh" : "bad";
+    pcText.textContent = note.message;
+    pcLine.title = note.message;
+  }
+  const el = h("div", { class: "wl-card" }, head, pcLine, tasksPane, focusPane, breathePane, agendaPane);
   let shownTab: WellnessTab | null = null;
 
   function sync() {
@@ -309,6 +328,7 @@ export function buildWellnessCard(): WellnessHost {
       for (const [k, b] of Object.entries(tabs)) b.classList.toggle("on", k === tab);
     }
     syncBadge();
+    syncPc();
     if (tab === "tasks") syncTasks();
     else if (tab === "focus") syncFocus(now);
     else if (tab === "agenda") syncAgenda(now);

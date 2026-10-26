@@ -21,6 +21,7 @@ mod portal;
 mod secrets;
 mod settings;
 mod shortcuts;
+mod healthy_pc;
 mod sounds;
 mod spotify;
 mod tray;
@@ -450,6 +451,7 @@ pub fn run() {
             sounds::custom_sound,
             sounds::reveal_sounds_folder,
             sounds::reload_sounds,
+            healthy_pc::healthy_pc_note,
             spotify::spotify_refresh,
             spotify::spotify_control,
             spotify::spotify_open,

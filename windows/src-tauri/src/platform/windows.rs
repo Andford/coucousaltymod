@@ -47,20 +47,31 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // ── Files ─────────────────────────────────────────────────────────────────────
 
-/// %APPDATA%\Coucou — preferences.
+/// %APPDATA%\Tokkip — preferences.
 pub fn config_dir() -> PathBuf {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Coucou")
+    base.join("Tokkip")
 }
 
-/// %LOCALAPPDATA%\Coucou — where coucou-hook.exe, the inbox and the log live.
+/// The folders older versions used (see `move_old_dirs`).
+pub(super) fn old_dirs() -> Vec<(PathBuf, PathBuf)> {
+    let mut out = Vec::new();
+    for (var, new) in [("APPDATA", config_dir()), ("LOCALAPPDATA", local_dir())] {
+        if let Some(base) = std::env::var_os(var).map(PathBuf::from) {
+            out.push((base.join("Coucou"), new));
+        }
+    }
+    out
+}
+
+/// %LOCALAPPDATA%\Tokkip — where the inbox and the log live.
 pub fn local_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Coucou")
+    base.join("Tokkip")
 }
 
 /// Where a saved image goes, best first: Pictures (also where OneDrive moves
@@ -160,8 +171,8 @@ pub fn codex_candidates() -> Vec<PathBuf> {
 // ── Who we are ────────────────────────────────────────────────────────────────
 //
 // Named pipes share one machine-wide namespace, so the SID in the name is what
-// keeps two accounts on the same machine from ever meeting on `coucou-*`.
-// coucou-hook computes the same string (hook/src/win.rs) and additionally checks
+// keeps two accounts on the same machine from ever meeting on `tokkip-*`.
+// tokkip-hook computes the same string (hook/src/win.rs) and additionally checks
 // that the process serving the pipe really is us.
 
 /// The SID of the account this process runs as, as `S-1-5-21-…`.
@@ -200,7 +211,7 @@ pub fn current_user_sid() -> Option<String> {
     }
 }
 
-// The display name only feeds Mochi's greeting (identity.rs). The calls are
+// The display name only feeds Tokkip's greeting (identity.rs). The calls are
 // declared here by hand, with their documented C signatures, so they need no
 // extra `windows` crate features.
 #[link(name = "secur32")]
@@ -477,7 +488,7 @@ pub fn ctrl_alt_types(vk: u16, shift: bool) -> Option<String> {
     None
 }
 
-// ── Desktop Mochi window ──────────────────────────────────────────────────────
+// ── Desktop Tokkip window ──────────────────────────────────────────────────────
 
 /// Windows places a window wherever it is asked, and the cursor poll is there.
 pub fn desktop_mode() -> super::DesktopMode {
@@ -501,6 +512,6 @@ pub fn set_layer_margins(_win: &WebviewWindow, _x: f64, _y: f64) {}
 pub fn set_layer_overlay(_win: &WebviewWindow, _on: bool) {}
 
 /// Layer-shell only (Linux): the logical size of the display the island is on.
-pub fn layer_display(_island: &WebviewWindow, _mochi: &WebviewWindow) -> Option<(f64, f64)> {
+pub fn layer_display(_island: &WebviewWindow, _tokkip: &WebviewWindow) -> Option<(f64, f64)> {
     None
 }

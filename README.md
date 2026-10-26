@@ -280,7 +280,6 @@ cd notas-pc && npm install && npm run tauri dev
 | `windows/` | La isla para Windows (Tauri 2: Rust y TypeScript) |
 | `notas-pc/` | Tokkip Notas para Windows (Tauri 2: Rust, Preact y TypeScript) |
 | `notas-sync/` | `sync.php`, el servidor de sincronización de Tokkip Notas para tu hosting |
-| `NotchBuddy/`, `linux/`, `relay/` | El Coucou original para Mac, iPhone y Linux; se conserva como referencia |
 
 ## Privacidad
 
@@ -293,19 +292,16 @@ cd notas-pc && npm install && npm run tauri dev
 
 ## Créditos y licencia
 
-Tokkip nació como un fork de **[Coucou](https://github.com/Louis-CFM/coucou)** de
-Louis Raillé, una app de código abierto con licencia MIT ([LICENSE](LICENSE)). El
-código sigue bajo esa misma licencia.
+Tokkip parte del código abierto de [Coucou](https://github.com/Louis-CFM/coucou),
+de Louis Raillé, con licencia MIT: su aviso está en [LICENSE](LICENSE) y el
+código sigue bajo esa misma licencia. Tokkip tiene su propio nombre, personaje,
+sonidos y música, generados en código.
 
-El nombre Coucou, su personaje Mochi y sus sonidos son de Louis Raillé
-([LICENSE-ASSETS.md](LICENSE-ASSETS.md)) y no se usan en Tokkip: Tokkip es un
-personaje propio, con sus propios sonidos y música, generados en código.
-Las letras del kit para journaling y de la carátula son
+Las letras del kit para journaling, de la carátula y de las apps de PC son
 [Caveat](https://github.com/googlefonts/caveat),
 [Fredoka](https://github.com/hafontia-zz/Fredoka),
 [DM Serif Display](https://github.com/googlefonts/dm-fonts) y
 [Space Mono](https://github.com/googlefonts/spacemono), todas con licencia SIL
-Open Font License ([android/licenses/](android/licenses/)). El README
-original de Coucou está en [README-coucou.md](README-coucou.md).
+Open Font License ([android/licenses/](android/licenses/)).
 
 Tokkip es un proyecto personal de Andy ([LoperStack](https://loperstack.com)).

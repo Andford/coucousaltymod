@@ -16,31 +16,31 @@ android {
         applicationId = "mx.loperstack.tokkipnotas"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     // The same stable key as Tokkip (.github/workflows/android.yml).
     signingConfigs {
         create("stable") {
-            val path = System.getenv("MOCHI_KEYSTORE")
+            val path = System.getenv("TOKKIP_KEYSTORE")
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
-                storePassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MOCHI_KEY_ALIAS") ?: "mochi"
-                keyPassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
+                storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }
     }
 
     buildTypes {
         debug {
-            if (System.getenv("MOCHI_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
+            if (System.getenv("TOKKIP_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
         }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (System.getenv("MOCHI_KEYSTORE") != null) signingConfigs.getByName("stable")
+            signingConfig = if (System.getenv("TOKKIP_KEYSTORE") != null) signingConfigs.getByName("stable")
             else signingConfigs.getByName("debug")
         }
     }

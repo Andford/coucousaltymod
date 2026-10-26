@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "mx.loperstack.mochi.wear"
+    namespace = "mx.loperstack.tokkip.wear"
     compileSdk = 35
 
     defaultConfig {
@@ -13,30 +13,30 @@ android {
         applicationId = "mx.loperstack.mochi"
         minSdk = 33
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.13.0"
+        versionCode = 29
+        versionName = "1.14.0"
     }
 
     signingConfigs {
         create("stable") {
-            val path = System.getenv("MOCHI_KEYSTORE")
+            val path = System.getenv("TOKKIP_KEYSTORE")
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
-                storePassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MOCHI_KEY_ALIAS") ?: "mochi"
-                keyPassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
+                storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }
     }
     buildTypes {
         debug {
-            if (System.getenv("MOCHI_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
+            if (System.getenv("TOKKIP_KEYSTORE") != null) signingConfig = signingConfigs.getByName("stable")
         }
         // The build you install: R8-optimised, so Compose runs smooth on the watch.
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (System.getenv("MOCHI_KEYSTORE") != null) signingConfigs.getByName("stable")
+            signingConfig = if (System.getenv("TOKKIP_KEYSTORE") != null) signingConfigs.getByName("stable")
             else signingConfigs.getByName("debug")
         }
     }

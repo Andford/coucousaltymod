@@ -2,7 +2,7 @@
 <resources>
     <string name="watch_face_name">Tokkip</string>
     <string name="theme_label">Color</string>
-    <string name="mochi_label">Tokkip</string>
+    <string name="tokkip_label">Tokkip</string>
     <string name="lavanda">Lavanda</string>
     <string name="rosa">Rosa</string>
     <string name="menta">Menta</string>

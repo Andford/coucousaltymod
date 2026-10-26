@@ -14,7 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mx.loperstack.mochi.mochi.Sounds
+import mx.loperstack.tokkip.character.Sounds
 import mx.loperstack.tokkipnotas.data.INBOX_ID
 import mx.loperstack.tokkipnotas.data.Store
 import mx.loperstack.tokkipnotas.data.Sync

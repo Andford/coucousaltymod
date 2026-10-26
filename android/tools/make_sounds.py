@@ -164,3 +164,14 @@ save("level_up", at([(i * 0.1, musicbox(f, 1.1)) for i, f in enumerate([1046.5, 
                     + [(0.42, square(E7 / 2, 0.06, 0.25, d=0.04) * 0.5), (0.48, square(G7 / 2, 0.06, 0.25, d=0.04) * 0.5), (0.54, square(C7, 0.3, 0.25, d=0.12) * 0.5),
                        (0.4, noise(0.12, d=0.04) * 0.5), (0.44, kalimba(E7, 1.0) * 0.6)], 1.7), 0.6)
 print("ok+++")
+
+# ── For Tokkip PC: the island's little taps (attach a file, hover, send, think…)
+# and the greeting when it opens. Tokkip's own, like the rest.
+save("attach", seq(tone(1200, 1500, 0.05, "tri", d=0.02), tone(1500, 1900, 0.07, "tri", d=0.03), gap=0.01), 0.4)
+save("hover", tone(1800, 1900, 0.025, "sine", d=0.008), 0.18)
+save("send", tone(600, 1800, 0.14, "sine", d=0.05), 0.42)
+save("search", seq(tone(1300, 1300, 0.05, "soft", d=0.03), tone(1700, 1700, 0.08, "soft", d=0.04), gap=0.02), 0.35)
+save("rate", seq(tone(E5, E5, 0.06, "soft"), tone(A5, A5, 0.06, "soft"), tone(E6, E6, 0.16, "sine", d=0.07), gap=0.0), 0.45)
+save("think", seq(tone(880, 940, 0.09, "sine", d=0.05, vib=0.01), tone(990, 1050, 0.09, "sine", d=0.05, vib=0.01), tone(1100, 1180, 0.12, "sine", d=0.06, vib=0.01), gap=0.05), 0.35)
+save("greeting", at([(0, kalimba(784.0)), (0.12, kalimba(1046.5)), (0.24, kalimba(1318.5)), (0.36, tone(1500, 2400, 0.12, "tri", d=0.05) * 0.5)], 1.0), 0.5)
+print("ok pc")

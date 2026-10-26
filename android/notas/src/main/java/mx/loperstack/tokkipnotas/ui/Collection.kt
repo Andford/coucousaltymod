@@ -92,13 +92,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import mx.loperstack.mochi.mochi.Haptics
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.Mochi
-import mx.loperstack.mochi.mochi.MochiEngine
-import mx.loperstack.mochi.mochi.PolygonShape
-import mx.loperstack.mochi.mochi.Sounds
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Haptics
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.Tokkip
+import mx.loperstack.tokkip.character.TokkipEngine
+import mx.loperstack.tokkip.character.PolygonShape
+import mx.loperstack.tokkip.character.Sounds
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.Index
 import mx.loperstack.tokkipnotas.data.Lane
 import mx.loperstack.tokkipnotas.data.Opt
@@ -151,7 +151,7 @@ fun CollectionScreen(c: Page, ix: Index) {
         Row(verticalAlignment = Alignment.Bottom) {
             Box(Modifier.weight(1f)) { PageHeader(c, title, onTitle = { title = it }) }
             Box(Modifier.padding(end = 18.dp)) {
-                Mochi(Modifier.size(56.dp, 48.dp), color = Color(Prefs.color), jump = Hop.count, face = if (cheer != 0L) MochiEngine.Eye.STAR else null, dancing = cheer != 0L)
+                Tokkip(Modifier.size(56.dp, 48.dp), color = Color(Prefs.color), jump = Hop.count, face = if (cheer != 0L) TokkipEngine.Eye.STAR else null, dancing = cheer != 0L)
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {

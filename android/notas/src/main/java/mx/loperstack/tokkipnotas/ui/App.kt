@@ -78,12 +78,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
 import kotlinx.coroutines.delay
-import mx.loperstack.mochi.mochi.Haptics
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.Mochi
-import mx.loperstack.mochi.mochi.MochiEngine
-import mx.loperstack.mochi.mochi.Sounds
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Haptics
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.Tokkip
+import mx.loperstack.tokkip.character.TokkipEngine
+import mx.loperstack.tokkip.character.Sounds
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.INBOX_ID
 import mx.loperstack.tokkipnotas.data.Index
 import mx.loperstack.tokkipnotas.data.Page
@@ -118,7 +118,7 @@ fun NotasApp() {
         if (gone.isNotEmpty()) Nav.forget(gone)
     }
 
-    MochiTheme(Prefs.theme) {
+    TokkipTheme(Prefs.theme) {
         Box(Modifier.fillMaxSize().background(Ink.Ground)) {
             if (wide) {
                 Row(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -163,7 +163,7 @@ private fun HomeScreen(ix: Index, wide: Boolean, newPage: (String?) -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Mochi(Modifier.size(62.dp, 54.dp), color = Color(Prefs.color), jump = Hop.count, greet = true)
+                    Tokkip(Modifier.size(62.dp, 54.dp), color = Color(Prefs.color), jump = Hop.count, greet = true)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         ScreenTitle(greeting(now), size = 28.sp)
@@ -343,7 +343,7 @@ fun Tree(ix: Index, parent: String?, depth: Int, compact: Boolean = false) {
 private fun Sidebar(ix: Index, newPage: (String?) -> Unit, modifier: Modifier) {
     Column(modifier.padding(10.dp).clip(Squircle(28.dp)).background(Ink.Card).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
-            Mochi(Modifier.size(44.dp, 38.dp), color = Color(Prefs.color), jump = Hop.count)
+            Tokkip(Modifier.size(44.dp, 38.dp), color = Color(Prefs.color), jump = Hop.count)
             Spacer(Modifier.width(8.dp))
             Text("Tokkip Notas", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         }

@@ -2,6 +2,8 @@
 // Stage 2 covers the Claude Code hooks and the general preferences; API keys and
 // integrations land here too in a later stage.
 
+// First: older storage keys move to Tokkip's before anything reads them.
+import "../core/legacy";
 import "./settings.css";
 import { Bridge, onEvent, type ShortcutsReport } from "../core/bridge";
 import { CUSTOM_SERVER_KEY, providerDef, urlExposure } from "../core/providers";
@@ -16,8 +18,8 @@ import {
   sanitizeDeclared, toggleDeclared, type PillDefinition,
 } from "../core/pills";
 import { h, clear } from "../views/dom";
-import { BotEngine } from "../mochi/engine";
-import { DEFAULT_LOOK, SPECIES, loadLook, saveLook, type Skin, type TokkipLook } from "../mochi/tokkip";
+import { BotEngine } from "../tokkip/engine";
+import { DEFAULT_LOOK, SPECIES, loadLook, saveLook, type Skin, type TokkipLook } from "../tokkip/tokkip";
 import { colorDot } from "./colors";
 import { statusDot } from "./parts";
 import {
@@ -38,7 +40,7 @@ async function save() {
   await Bridge.saveSettings(settings);
 }
 
-/** A colour was picked for a pill's Mochi (see ./colors.ts): the island follows. */
+/** A colour was picked for a pill's Tokkip (see ./colors.ts): the island follows. */
 function pickColor(next: Record<string, string>) {
   settings.pillColors = next;
   void save();
@@ -214,7 +216,7 @@ function activePillsSection(connected: Record<string, boolean>): HTMLElement {
     "section",
     {},
     h("h2", {}, h("span", { text: t("Active pills") })),
-    h("div", { class: "hint", text: t("Choose the tools you use. Coucou only shows what you declare here.") }),
+    h("div", { class: "hint", text: t("Choose the tools you use. Tokkip only shows what you declare here.") }),
     slots,
     h("div", { class: "row" }, h("label", { text: t("Main tool") }), main),
     groups,
@@ -509,7 +511,7 @@ const INTEGRATIONS: IntegrationDef[] = [
       { key: "google-oauth-client-id", label: N_("Google client ID"), placeholder: "….apps.googleusercontent.com", secret: false },
       { key: "google-oauth-client-secret", label: N_("Client secret"), placeholder: "GOCSPX-…", secret: true },
     ],
-    hint: N_("Tasks, a Pomodoro timer and guided breathing with Mochi. Optional: a Desktop OAuth client from your Google Cloud project (Calendar and Tasks APIs on) syncs Google Calendar and Google Tasks.") },
+    hint: N_("Tasks, a Pomodoro timer and guided breathing with Tokkip. Optional: a Desktop OAuth client from your Google Cloud project (Calendar and Tasks APIs on) syncs Google Calendar and Google Tasks.") },
 ];
 
 const MAX_ACTIVE = MAX_DECLARED;
@@ -528,7 +530,7 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
 
   function updateNote() {
     const used = settings.activeIntegrations.length;
-    note.textContent = t("Pick up to {max} pills to show next to Mochi — {used}/{max} in use. Keys are stored in the {store}, never on disk.", { max: MAX_ACTIVE, used, store: KEY_STORE });
+    note.textContent = t("Pick up to {max} pills to show next to Tokkip — {used}/{max} in use. Keys are stored in the {store}, never on disk.", { max: MAX_ACTIVE, used, store: KEY_STORE });
   }
   declaredViews.push(updateNote);
 
@@ -713,7 +715,7 @@ function generalSection(): HTMLElement {
       volume,
     ),
     h("div", { class: "row" }, soundsFolder, reloadSounds, customCount),
-    h("div", { class: "hint", text: t("Drop a file named like one of Mochi's sounds (finish.wav, approval.mp3, greet.m4a…) in the sounds folder to replace it, then Reload.") }),
+    h("div", { class: "hint", text: t("Drop a file named like one of Tokkip's sounds (finish.wav, approval.mp3, greet.m4a…) in the sounds folder to replace it, then Reload.") }),
     h("div", { class: "row" },
       h("label", { text: t("Open on hover") }),
       toggle(settings.openOnHover, (v) => { settings.openOnHover = v; void save(); }),
@@ -738,7 +740,7 @@ function generalSection(): HTMLElement {
 
 /**
  * Settings → General → Language, as on the Mac: "System" follows the
- * system's language when Coucou has it (else English), or one of the ten.
+ * system's language when Tokkip has it (else English), or one of the ten.
  * Both windows and the tray switch in place, without a restart.
  */
 function languageRow(): HTMLElement {
@@ -1093,7 +1095,7 @@ function applyLanguage() {
 
 function applyDirection() {
   document.documentElement.dir = isRtl() ? "rtl" : "ltr";
-  document.title = t("Settings — Coucou");
+  document.title = t("Settings — Tokkip");
 }
 
 let rendering: Promise<void> | null = null;

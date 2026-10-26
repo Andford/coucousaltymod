@@ -26,7 +26,7 @@ THEMES = [("lavanda", "#C4B5FD", "#2A2440"), ("rosa", "#F9A8D4", "#3A1F2E"), ("m
           ("cielo", "#93C5FD", "#172A40"), ("durazno", "#FDBA74", "#3A2615"), ("limon", "#D9F99D", "#23300F"),
           ("coral", "#FCA5A5", "#3A1818")]
 # Tokkip: body colour and its ear/eye accent.
-MOCHIS = [("crema", "#F7EAD3", "#3F9E9A"), ("blanco", "#F5F6F8", "#3F72C2"), ("lila", "#E4DAFB", "#8A6CD1"),
+TOKKIPS = [("crema", "#F7EAD3", "#3F9E9A"), ("blanco", "#F5F6F8", "#3F72C2"), ("lila", "#E4DAFB", "#8A6CD1"),
           ("menta", "#CDEFD9", "#4C9A5F"), ("cielo", "#CFE3F8", "#3F72C2"), ("durazno", "#FBD9BF", "#E46F5C")]
 
 # ── Fonts: (option id, string, WFF family, time size, date size, weight) ─────
@@ -74,7 +74,7 @@ TK_PIVOT_Y = (MY + MH / 2) / 450.0           # scale around his middle
 TK_SHIFT = CY + 12 - (MY + MH / 2)           # his middle a little below the ring's centre
 
 C = lambda k, i: f"[CONFIGURATION.{k}.{i}]"
-INK = "[CONFIGURATION.mochi.1]"
+INK = "[CONFIGURATION.tokkip.1]"
 BOB = f"{TK_SHIFT} + 4 * sin(6.28318 * ((([SECOND] % 4) * 1000 + [MILLISECOND]) / 4000.0))"
 SPIN = "(((([MINUTE] % 2) * 60 + [SECOND]) * 1000 + [MILLISECOND]) / 120000.0) * 360"
 
@@ -177,7 +177,7 @@ def date_scene():
 
 def tokkip_scene():
     body = (f'<PartDraw x="0" y="0" width="450" height="450">'
-            f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="38" cornerRadiusY="38"><Fill color="{C("mochi", 0)}"/></RoundRectangle>'
+            f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="38" cornerRadiusY="38"><Fill color="{C("tokkip", 0)}"/></RoundRectangle>'
             f'<Ellipse x="{EYE_L - 22}" y="{EYE_Y + 26}" width="26" height="13"><Fill color="#66F07A8C"/></Ellipse>'
             f'<Ellipse x="{EYE_R + 16}" y="{EYE_Y + 26}" width="26" height="13"><Fill color="#66F07A8C"/></Ellipse>'
             f'<Arc centerX="{MX + MW / 2}" centerY="{EYE_Y + 22}" width="28" height="28" startAngle="125" endAngle="235"><Stroke color="{INK}" thickness="5" cap="ROUND"/></Arc>'
@@ -186,7 +186,7 @@ def tokkip_scene():
     for sd in (-1, 1):
         ex = MX + MW / 2 + sd * 34 - 16
         ears += (f'<PartDraw x="{int(ex)}" y="{MY - 84}" width="32" height="104" angle="{sd * 10}" pivotX="0.5" pivotY="1">'
-                 f'<Ellipse x="0" y="0" width="32" height="104"><Fill color="{C("mochi", 0)}"/></Ellipse>'
+                 f'<Ellipse x="0" y="0" width="32" height="104"><Fill color="{C("tokkip", 0)}"/></Ellipse>'
                  f'<Ellipse x="9" y="12" width="14" height="74"><Fill color="{INK}"/></Ellipse></PartDraw>')
     ambient_body = (f'<PartDraw x="0" y="0" width="450" height="450">'
                     f'<RoundRectangle x="{MX}" y="{MY}" width="{MW}" height="{MH}" cornerRadiusX="38" cornerRadiusY="38"><Stroke color="#9A9AA6" thickness="5"/></RoundRectangle>'
@@ -202,19 +202,19 @@ def tokkip_scene():
           <Compare expression="blink">{eyes("closed")}</Compare>
           <Default>{eyes("open")}</Default>
         </Condition>'''
-    return f'''<Group name="mochi" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="{TK_PIVOT_Y:.4f}" scaleX="{TK_SCALE}" scaleY="{TK_SCALE}">
-      <Launch target="mx.loperstack.mochi/mx.loperstack.mochi.wear.WearActivity"/>
+    return f'''<Group name="tokkip" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="{TK_PIVOT_Y:.4f}" scaleX="{TK_SCALE}" scaleY="{TK_SCALE}">
+      <Launch target="mx.loperstack.tokkip/mx.loperstack.tokkip.wear.WearActivity"/>
       <Transform target="y" value="{BOB}"/>
-      <Group name="mochi_color" x="0" y="0" width="450" height="450">
+      <Group name="tokkip_color" x="0" y="0" width="450" height="450">
         <Variant mode="AMBIENT" target="alpha" value="0"/>
         {ears}
         {body}
       </Group>
-      <Group name="mochi_ambient" x="0" y="0" width="450" height="450" alpha="0">
+      <Group name="tokkip_ambient" x="0" y="0" width="450" height="450" alpha="0">
         <Variant mode="AMBIENT" target="alpha" value="255"/>
         {ambient_body}
       </Group>
-      <Group name="mochi_face" x="0" y="0" width="450" height="450">
+      <Group name="tokkip_face" x="0" y="0" width="450" height="450">
         {face}
       </Group>
     </Group>'''
@@ -248,7 +248,7 @@ def watchface():
   <Metadata key="PREVIEW_TIME" value="10:08:32"/>
   <UserConfigurations>
     <ColorConfiguration id="theme" displayName="theme_label" defaultValue="0">{color_opts(THEMES)}</ColorConfiguration>
-    <ColorConfiguration id="mochi" displayName="mochi_label" defaultValue="0">{color_opts(MOCHIS)}</ColorConfiguration>
+    <ColorConfiguration id="tokkip" displayName="tokkip_label" defaultValue="0">{color_opts(TOKKIPS)}</ColorConfiguration>
     <ListConfiguration id="timefont" displayName="timefont_label" defaultValue="redonda">{font_opts}</ListConfiguration>
     <ListConfiguration id="datefont" displayName="datefont_label" defaultValue="redonda">{font_opts}</ListConfiguration>
     <ListConfiguration id="shape" displayName="shape_label" defaultValue="mezcla">{shape_opts}</ListConfiguration>
@@ -351,7 +351,7 @@ def preview(path, shapes, font="redonda", shape_set="mezcla", out_size=450):
     img = Image.new("RGBA", (s, s), "#000000")
     d = ImageDraw.Draw(img)
     acc, cont = THEMES[0][1], THEMES[0][2]
-    body, line = MOCHIS[0][1], MOCHIS[0][2]
+    body, line = TOKKIPS[0][1], TOKKIPS[0][2]
     fid, _, family, size, dsize, _ = next(f for f in FONTS if f[0] == font)
     big = ImageFont.truetype(PIL_FONTS[family], int(size * k * 0.92))
     small = ImageFont.truetype(PIL_FONTS[family], int(dsize * k * 0.95))

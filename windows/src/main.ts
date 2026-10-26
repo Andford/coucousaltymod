@@ -1,5 +1,7 @@
 // Entry point: boot the bridge, wire the island, start the greeting.
 
+// First: older storage keys move to Tokkip's before anything reads them.
+import "./core/legacy";
 import "./style.css";
 import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
 import { Sound } from "./core/sound";
@@ -12,7 +14,7 @@ import { SPOTIFY_ID } from "./core/spotify";
 import { registerWellness } from "./island/wellness";
 import { onLanguageChange, resolveLanguage, setLanguage, systemLanguages } from "./i18n/i18n";
 
-/** Shows the language Settings asks for ("" = the system's, when Coucou has it). */
+/** Shows the language Settings asks for ("" = the system's, when Tokkip has it). */
 function applyLanguage() {
   setLanguage(resolveLanguage(State.settings.language, systemLanguages()));
 }

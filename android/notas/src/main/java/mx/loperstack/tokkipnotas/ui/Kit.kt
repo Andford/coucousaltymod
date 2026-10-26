@@ -34,12 +34,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.MochiStyle
-import mx.loperstack.mochi.mochi.PolygonShape
-import mx.loperstack.mochi.mochi.Sounds
-import mx.loperstack.mochi.mochi.Species
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.TokkipStyle
+import mx.loperstack.tokkip.character.PolygonShape
+import mx.loperstack.tokkip.character.Sounds
+import mx.loperstack.tokkip.character.Species
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.Page
 import mx.loperstack.tokkipnotas.data.Store
 
@@ -137,21 +137,21 @@ object Prefs {
     fun init(context: Context) {
         ctx = context.applicationContext
         val p = context.getSharedPreferences("notas", Context.MODE_PRIVATE)
-        theme = p.getString("theme", "pixel") ?: "pixel"
+        theme = mx.loperstack.tokkip.wellness.Legacy.theme(p.getString("theme", "pixel")) ?: "pixel"
         color = p.getLong("color", 0xFFF5F6F8)
         sounds = p.getBoolean("sounds", true)
-        MochiStyle.species = Species.of(p.getString("species", null))
+        TokkipStyle.species = Species.of(p.getString("species", null))
         Sounds.enabled = sounds
     }
 
     private fun save() {
         ctx?.getSharedPreferences("notas", Context.MODE_PRIVATE)?.edit()
-            ?.putString("theme", theme)?.putLong("color", color)?.putBoolean("sounds", sounds)?.putString("species", MochiStyle.species.name)?.apply()
+            ?.putString("theme", theme)?.putLong("color", color)?.putBoolean("sounds", sounds)?.putString("species", TokkipStyle.species.name)?.apply()
         Sounds.enabled = sounds
     }
 
-    fun set(theme: String = this.theme, color: Long = this.color, sounds: Boolean = this.sounds, species: Species = MochiStyle.species) {
-        this.theme = theme; this.color = color; this.sounds = sounds; MochiStyle.species = species
+    fun set(theme: String = this.theme, color: Long = this.color, sounds: Boolean = this.sounds, species: Species = TokkipStyle.species) {
+        this.theme = theme; this.color = color; this.sounds = sounds; TokkipStyle.species = species
         save()
     }
 }

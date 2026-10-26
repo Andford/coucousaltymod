@@ -41,9 +41,9 @@ la rama `android` y lo deja como artefacto unos días.
 
 ## Créditos
 
-Tokkip parte del código abierto (MIT) de [Coucou](https://github.com/Louis-CFM/coucou)
-de Louis Raillé. El nombre Coucou, Mochi y sus sonidos son de Louis; Tokkip es
-un personaje propio. Las notas de la versión original están en `README-coucou.md`.
+Tokkip parte del código abierto (MIT) de [Coucou](https://github.com/Louis-CFM/coucou),
+de Louis Raillé; su aviso de licencia está en `LICENSE`. Tokkip tiene su propio
+nombre, personaje y sonidos.
 
 Todo se queda en tu PC: sin telemetría, y solo se conecta a los servicios que tú
 configures.

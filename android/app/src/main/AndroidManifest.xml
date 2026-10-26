@@ -7,11 +7,11 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Mochi's notifications are planned again after a restart. -->
+    <!-- Tokkip's notifications are planned again after a restart. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Today's agenda from the calendars synced on this device (Google Calendar included). -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
-    <!-- Events made in Mochi go into your Google calendar on this phone. -->
+    <!-- Events made in Tokkip go into your Google calendar on this phone. -->
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Google Tasks. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -44,7 +44,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Mochi">
+        android:theme="@style/Theme.Tokkip">
 
         <activity
             android:name=".MainActivity"
@@ -152,21 +152,21 @@
             android:name=".wellness.PomodoroReceiver"
             android:exported="false" />
 
-        <!-- "Ya pagué" on a payment's notification (wellness/MochiNotifier.kt). -->
+        <!-- "Ya pagué" on a payment's notification (wellness/TokkipNotifier.kt). -->
         <receiver
             android:name=".wellness.DebtPaidReceiver"
             android:exported="false" />
 
-        <!-- Buenos días, eventos, tareas, buenas noches, rachas y pagos (wellness/MochiNotifier.kt). -->
+        <!-- Buenos días, eventos, tareas, buenas noches, rachas y pagos (wellness/TokkipNotifier.kt). -->
         <receiver
-            android:name=".wellness.MochiAlarmReceiver"
+            android:name=".wellness.TokkipAlarmReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
-        <!-- Only so Mochi can show what's playing while you focus (data/NowPlaying.kt). -->
+        <!-- Only so Tokkip can show what's playing while you focus (data/NowPlaying.kt). -->
         <service
             android:name=".data.MediaListener"
             android:label="@string/app_name"
@@ -188,13 +188,13 @@
 
         <!-- Home screen widgets (widget/Widgets.kt). -->
         <receiver
-            android:name=".widget.MochiWidgetReceiver"
-            android:label="@string/widget_mochi"
+            android:name=".widget.TokkipWidgetReceiver"
+            android:label="@string/widget_tokkip"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_mochi" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tokkip" />
         </receiver>
 
         <receiver
@@ -277,13 +277,13 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_money" />
         </receiver>
 
-        <!-- Messages from the Mochi app on the watch (shared/…/Sync.kt). -->
+        <!-- Messages from the Tokkip app on the watch (shared/…/Sync.kt). -->
         <service
             android:name=".data.PhoneListenerService"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*" android:pathPrefix="/mochi" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/tokkip" />
             </intent-filter>
         </service>
         <!-- Tokkip in the car (Android Auto): a point-of-interest app with the

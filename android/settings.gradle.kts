@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Mochi"
+rootProject.name = "Tokkip"
 include(":app", ":shared", ":wear", ":watchface", ":notas")

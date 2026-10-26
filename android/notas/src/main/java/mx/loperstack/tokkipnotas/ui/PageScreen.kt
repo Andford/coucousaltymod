@@ -104,12 +104,12 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import mx.loperstack.mochi.mochi.Haptics
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.Mochi
-import mx.loperstack.mochi.mochi.PolygonShape
-import mx.loperstack.mochi.mochi.Sounds
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Haptics
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.Tokkip
+import mx.loperstack.tokkip.character.PolygonShape
+import mx.loperstack.tokkip.character.Sounds
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.Block
 import mx.loperstack.tokkipnotas.data.BlockKind
 import mx.loperstack.tokkipnotas.data.INBOX_ID
@@ -706,7 +706,7 @@ private fun BlockRow(
             BlockKind.BULLET -> Box(Modifier.padding(top = 9.dp, start = 6.dp, end = 12.dp).size(8.dp).clip(PolygonShape(MShapes.Clover4)).background(accent))
             BlockKind.NUMBER -> Text("$number.", color = accent, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.padding(start = 2.dp, end = 10.dp).width(24.dp))
             BlockKind.QUOTE -> Box(Modifier.padding(end = 12.dp).width(4.dp).height(25.dp).clip(CircleShape).background(accent))
-            BlockKind.CALLOUT -> Box(Modifier.padding(end = 10.dp)) { Mochi(Modifier.size(30.dp, 26.dp), color = Color(Prefs.color)) }
+            BlockKind.CALLOUT -> Box(Modifier.padding(end = 10.dp)) { Tokkip(Modifier.size(30.dp, 26.dp), color = Color(Prefs.color)) }
             else -> {}
         }
         BasicTextField(

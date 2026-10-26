@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tokkip</string>
-    <string name="widget_mochi_desc">Tokkip, tu siguiente evento y tus pendientes</string>
+    <string name="widget_tokkip_desc">Tokkip, tu siguiente evento y tus pendientes</string>
     <string name="widget_breathe_desc">Respira 1, 5 o 10 min (con tu reloj, mide el pulso)</string>
     <string name="widget_pomodoro_desc">El Pomodoro con su cuenta regresiva</string>
     <string name="widget_tasks_desc">Tus pendientes: márcalos desde la pantalla de inicio</string>
-    <string name="widget_mochi">Tokkip</string>
+    <string name="widget_tokkip">Tokkip</string>
     <string name="widget_breathe">Respirar</string>
     <string name="widget_pomodoro">Pomodoro</string>
     <string name="widget_tasks">Pendientes</string>

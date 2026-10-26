@@ -60,14 +60,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mx.loperstack.mochi.mochi.Haptics
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.Mochi
-import mx.loperstack.mochi.mochi.MochiStyle
-import mx.loperstack.mochi.mochi.PolygonShape
-import mx.loperstack.mochi.mochi.Sounds
-import mx.loperstack.mochi.mochi.Species
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Haptics
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.Tokkip
+import mx.loperstack.tokkip.character.TokkipStyle
+import mx.loperstack.tokkip.character.PolygonShape
+import mx.loperstack.tokkip.character.Sounds
+import mx.loperstack.tokkip.character.Species
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.Index
 import mx.loperstack.tokkipnotas.data.PALETTE
 import mx.loperstack.tokkipnotas.data.Page
@@ -248,13 +248,13 @@ fun SettingsScreen() {
         SectionLabel("TOKKIP")
         Panel(Modifier.fillMaxWidth(), padding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Mochi(Modifier.size(84.dp, 72.dp), color = Color(Prefs.color), jump = Hop.count)
+                Tokkip(Modifier.size(84.dp, 72.dp), color = Color(Prefs.color), jump = Hop.count)
                 Spacer(Modifier.width(12.dp))
                 Label("Te acompaña mientras escribes. El mismo de Tokkip, a tu gusto.", Ink.Dim, 13.sp, FontWeight.Normal)
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (sp in Species.entries) Pill(sp.label, MochiStyle.species == sp) { Prefs.set(species = sp); Hop.now() }
+                for (sp in Species.entries) Pill(sp.label, TokkipStyle.species == sp) { Prefs.set(species = sp); Hop.now() }
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -268,7 +268,7 @@ fun SettingsScreen() {
         PillRow {
             Pill("Tu Pixel", Prefs.theme == "pixel") { Prefs.set(theme = "pixel") }
             Pill("Pixel oscuro", Prefs.theme == "pixelDark") { Prefs.set(theme = "pixelDark") }
-            Pill("Tokkip", Prefs.theme == "mochi") { Prefs.set(theme = "mochi") }
+            Pill("Tokkip", Prefs.theme == "tokkip") { Prefs.set(theme = "tokkip") }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth().clip(Squircle(18.dp)).background(Ink.Card).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

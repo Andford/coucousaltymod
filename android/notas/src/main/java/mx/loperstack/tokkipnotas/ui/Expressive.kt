@@ -2,7 +2,7 @@
 // PixelPlayer look): big wide display titles, rounded Material Symbols set
 // inside cookie/clover/sun shapes instead of emoji, pill chips, tonal circle
 // buttons, a floating pill navigation bar, buttons that squish when pressed,
-// a slowly morphing shape behind Mochi, and wavy progress lines.
+// a slowly morphing shape behind Tokkip, and wavy progress lines.
 
 package mx.loperstack.tokkipnotas.ui
 
@@ -72,11 +72,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
-import mx.loperstack.mochi.mochi.Haptics
-import mx.loperstack.mochi.mochi.MShapes
-import mx.loperstack.mochi.mochi.MorphShape
-import mx.loperstack.mochi.mochi.PolygonShape
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Haptics
+import mx.loperstack.tokkip.character.MShapes
+import mx.loperstack.tokkip.character.MorphShape
+import mx.loperstack.tokkip.character.PolygonShape
+import mx.loperstack.tokkip.character.Squircle
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.sin
@@ -303,7 +303,7 @@ fun FloatingNavBar(items: List<NavItem>, selected: Int, onSelect: (Int) -> Unit)
 
 /**
  * A big shape that slowly turns and morphs from one form to the next (cookie →
- * clover → sun…), as a backdrop for Mochi.
+ * clover → sun…), as a backdrop for Tokkip.
  */
 @Composable
 fun MorphingBlob(color: Color, modifier: Modifier = Modifier, shapes: List<RoundedPolygon> = listOf(MShapes.Cookie9, MShapes.Clover4, MShapes.Sunny, MShapes.Flower, MShapes.Cookie6)) {
@@ -353,7 +353,7 @@ fun WavyProgress(progress: Float, modifier: Modifier = Modifier, color: Color = 
 @Composable
 fun GroupedList(modifier: Modifier = Modifier, gap: Dp = 3.dp, rows: List<@Composable (Shape) -> Unit>) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
-        rows.forEachIndexed { i, row -> row(mx.loperstack.mochi.mochi.groupShape(i, rows.size)) }
+        rows.forEachIndexed { i, row -> row(mx.loperstack.tokkip.character.groupShape(i, rows.size)) }
     }
 }
 

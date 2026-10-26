@@ -41,7 +41,7 @@ test("the day is the main pill, and the only one that can be", () => {
   assert.deepEqual(mainPillChoices("windows").map((p) => p.id), [DAY]);
 });
 
-test("an old Coucou settings file gets the day as its main pill and keeps what still exists", () => {
+test("an old Tokkip settings file gets the day as its main pill and keeps what still exists", () => {
   const old = { mainPill: "integration_claude", activeIntegrations: ["integration_github", "integration_vercel", "agent_codex"] };
   assert.deepEqual(sanitizeDeclared(old, "windows"), { mainPill: DAY, activeIntegrations: ["integration_github"] });
 });

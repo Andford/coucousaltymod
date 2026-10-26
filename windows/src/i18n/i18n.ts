@@ -4,7 +4,7 @@
 // `t("Allow")`, `t("Uploading {name}", { name })`. Two tables, both keyed by
 // the English text:
 // - strings.json, generated from the Mac's Localizable.xcstrings by
-//   scripts/gen-strings.mjs (never edited by hand);
+//   edited by hand, like extra.json;
 // - extra.json, the strings only Windows and Linux have, written by hand.
 // A string missing from both, or from one language, shows in English.
 //
@@ -112,7 +112,7 @@ export function onLanguageChange(listener: (lang: Language) => void): () => void
 /**
  * <html lang> follows the language, so the webview picks fitting fonts, and
  * <html data-dir> says which way it reads: the island's CSS turns its text
- * containers right to left with it, leaving Mochi, the pills and the header
+ * containers right to left with it, leaving Tokkip, the pills and the header
  * where they are. (The settings window sets `dir` on the whole page.)
  */
 export function applyDocumentLanguage() {
@@ -122,9 +122,9 @@ export function applyDocumentLanguage() {
   if (root.dataset) root.dataset.dir = isRtl() ? "rtl" : "ltr";
 }
 
-/** Tokkip: the texts inherited from Coucou say Mochi and Coucou; he is Tokkip. */
+/** Tokkip: the texts inherited from Tokkip say Tokkip and Tokkip; he is Tokkip. */
 export function brand(text: string): string {
-  return text.replace(/Mochi|Coucou/g, "Tokkip");
+  return text.replace(/Tokkip|Tokkip/g, "Tokkip");
 }
 
 function interpolate(text: string, vars?: Vars): string {

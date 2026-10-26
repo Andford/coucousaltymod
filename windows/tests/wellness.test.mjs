@@ -1,5 +1,5 @@
-// The Wellness pill (coucousaltymod): tasks, the Pomodoro and guided breathing
-// in src/core/wellness.ts, Mochi's breath in src/mochi/engine.ts, and the card
+// The Wellness pill: tasks, the Pomodoro and guided breathing
+// in src/core/wellness.ts, Tokkip's breath in src/tokkip/engine.ts, and the card
 // in src/views/wellness.ts.
 
 import { beforeEach, test } from "node:test";
@@ -12,7 +12,7 @@ import {
   toggleTask, agendaWindow, dueReminders, eventDay, eventMs, fromGoogle, localIso, nextEvent, reminderKey,
   upcomingEvents,
 } from "../src/core/wellness.ts";
-import { BotEngine, breathTransform } from "../src/mochi/engine.ts";
+import { BotEngine, breathTransform } from "../src/tokkip/engine.ts";
 import { buildWellnessCard, wellnessPillLabel } from "../src/views/wellness.ts";
 import { setLanguage } from "../src/i18n/i18n.ts";
 
@@ -134,7 +134,7 @@ test("a stored Pomodoro is read back safely", () => {
 
 // ── Breathing ─────────────────────────────────────────────────────────────────
 
-test("a breath is 4 s in and 6 s out, Mochi fills and empties with it", () => {
+test("a breath is 4 s in and 6 s out, Tokkip fills and empties with it", () => {
   const b = startBreathing(1, T0);
   const at = (s) => breathFrame(b, T0 + s * 1000);
   assert.equal(at(0).phase, "in");
@@ -151,7 +151,7 @@ test("a breath is 4 s in and 6 s out, Mochi fills and empties with it", () => {
   assert.ok(!breathFrame(IDLE_BREATHING, T0).active);
 });
 
-test("Mochi grows from its base with the breath, and only during a session", () => {
+test("Tokkip grows from its base with the breath, and only during a session", () => {
   assert.deepEqual(breathTransform(0, 1), { sx: 1, sy: 1 });
   assert.deepEqual(breathTransform(1, 1), { sx: 1.16, sy: 1.2 });
   assert.deepEqual(breathTransform(1, 0), { sx: 1, sy: 1 });

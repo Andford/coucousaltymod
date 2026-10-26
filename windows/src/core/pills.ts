@@ -71,7 +71,7 @@ const ACCENT = {
 export const PILL_CATALOG: readonly PillDefinition[] = [
   // ── Tokkip ─────────────────────────────────────────────────────────────────
   // Tokkip: your day (reminders, Google Tasks and Calendar, Pomodoro and
-  // breathing — core/wellness.ts) is the main pill. The ID is Coucou's
+  // breathing — core/wellness.ts) is the main pill. The ID is Tokkip's
   // Bienestar pill's, kept so stored settings and tasks carry over.
   { id: "integration_wellness", name: "Hoy", color: "#A78BFA", category: "workspace",
     subtitle: N_("Wellness"), source: "n8n", support: "yes", connect: none },

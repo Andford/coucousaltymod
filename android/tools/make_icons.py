@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tokkip's launcher icons, one per species (adaptive: background, foreground,
-monochrome for themed icons). Same geometry as shared/…/mochi/Tokkip.kt.
+monochrome for themed icons). Same geometry as shared/…/tokkip/Tokkip.kt.
 Run from android/:  python3 tools/make_icons.py"""
 import math, os
 OUT = os.path.join(os.path.dirname(__file__), '..', 'app', 'src', 'main', 'res')

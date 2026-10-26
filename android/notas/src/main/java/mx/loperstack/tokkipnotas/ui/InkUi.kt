@@ -77,7 +77,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Squircle
 import mx.loperstack.tokkipnotas.data.Drawing
 import mx.loperstack.tokkipnotas.data.HL_COLORS
 import mx.loperstack.tokkipnotas.data.HL_SIZE

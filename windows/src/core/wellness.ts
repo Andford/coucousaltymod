@@ -1,7 +1,7 @@
-// The Wellness pill (coucousaltymod): a task list, a Pomodoro timer and guided
+// The Wellness pill: a task list, a Pomodoro timer and guided
 // breathing, all local. This file is the pure part — state, rules, storage —
 // so it can be tested without a page. The card is views/wellness.ts, the
-// clock and the alerts island/wellness.ts, Mochi's breathing mochi/engine.ts.
+// clock and the alerts island/wellness.ts, Tokkip's breathing tokkip/engine.ts.
 //
 // Everything lives in this window's localStorage (as the plan usage does):
 // nothing leaves the PC, and a missing or broken store just starts empty.
@@ -250,7 +250,7 @@ export interface BreathFrame {
   phase: "in" | "out";
   /** 0…1 through the current inhale or exhale. */
   phaseProgress: number;
-  /** How full Mochi is: 0 empty … 1 full, eased. */
+  /** How full Tokkip is: 0 empty … 1 full, eased. */
   fill: number;
   /** Seconds left in the session. */
   left: number;
@@ -316,7 +316,7 @@ export interface GTask {
   updated: string;
 }
 
-/** Minutes before an event Mochi comes to say so. */
+/** Minutes before an event Tokkip comes to say so. */
 export const REMINDER_LEAD_MIN = 10;
 
 /** "2026-10-13" as local midnight; anything else as an instant. */
@@ -366,7 +366,7 @@ export function nextEvent(events: readonly CalEvent[], nowMs: number): CalEvent 
   return upcomingEvents(events, nowMs).find((e) => !e.allDay && eventMs(e.start) > nowMs) ?? null;
 }
 
-/** Timed events starting within the lead time that Mochi has not announced yet. */
+/** Timed events starting within the lead time that Tokkip has not announced yet. */
 export function dueReminders(
   events: readonly CalEvent[], nowMs: number, announced: ReadonlySet<string>, leadMin = REMINDER_LEAD_MIN,
 ): CalEvent[] {
@@ -443,7 +443,7 @@ export function pcNoteIsNews(note: PcNote, lastSeq: number, nowMs: number): bool
   return note.seq > lastSeq && note.kind !== "status" && nowMs - note.at < 10 * 60_000;
 }
 
-const STORE = { tasks: "coucou.wellness.tasks", pomodoro: "coucou.wellness.pomodoro", tab: "coucou.wellness.tab", pcSeq: "tokkip.healthyPc.seq" };
+const STORE = { tasks: "tokkip.wellness.tasks", pomodoro: "tokkip.wellness.pomodoro", tab: "tokkip.wellness.tab", pcSeq: "tokkip.healthyPc.seq" };
 
 function read(key: string): unknown {
   try {

@@ -134,9 +134,9 @@ thread_local! {
 }
 
 fn interpolate(text: &str, vars: &[(&str, &str)]) -> String {
-    // Tokkip: the texts inherited from Coucou say Mochi and Coucou. The
+    // Tokkip: the texts inherited from Tokkip say Tokkip and Tokkip. The
     // template is renamed, never what is filled into it.
-    let mut out = text.replace("Mochi", "Tokkip").replace("Coucou", "Tokkip");
+    let mut out = text.replace("Tokkip", "Tokkip").replace("Tokkip", "Tokkip");
     for (name, value) in vars {
         out = out.replace(&format!("{{{name}}}"), value);
     }
@@ -257,13 +257,13 @@ mod tests {
         assert_eq!(t("Allow"), "Autoriser");
         // From extra.json.
         // Tokkip: the inherited name is renamed, in every language.
-        assert_eq!(t("Open Coucou"), "Ouvrir Tokkip");
+        assert_eq!(t("Open Tokkip"), "Ouvrir Tokkip");
         assert_eq!(t("A string nobody translated"), "A string nobody translated");
         assert_eq!(tf("Open {name}", &[("name", "Vercel")]), "Ouvrir Vercel");
         set_for_test("en");
         assert_eq!(t("Allow"), "Allow");
-        assert_eq!(t("Open Coucou"), "Open Tokkip");
-        assert_eq!(tf("Open {name}", &[("name", "Mochi")]), "Open Mochi", "only the template is renamed");
+        assert_eq!(t("Open Tokkip"), "Open Tokkip");
+        assert_eq!(tf("Open {name}", &[("name", "Tokkip")]), "Open Tokkip", "only the template is renamed");
     }
 
     #[test]

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "mx.loperstack.mochi.shared"
+    namespace = "mx.loperstack.tokkip.shared"
     compileSdk = 35
     defaultConfig {
         minSdk = 30

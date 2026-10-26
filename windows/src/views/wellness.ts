@@ -1,5 +1,5 @@
-// The Wellness pill and card (coucousaltymod): three tabs in the overview's
-// left card — Tasks, Focus (Pomodoro) and Breathe — next to Mochi, who does
+// The Wellness pill and card: three tabs in the overview's
+// left card — Tasks, Focus (Pomodoro) and Breathe — next to Tokkip, who does
 // the breathing. The card is built once and updated in place: a text field or
 // a button must never be rebuilt under the pointer.
 
@@ -12,7 +12,7 @@ import {
 } from "../core/wellness";
 import { WellnessControl, refreshGoogle } from "../island/wellness";
 import { Bridge } from "../core/bridge";
-import { createMiniBot } from "../mochi/minibots";
+import { createMiniBot } from "../tokkip/minibots";
 import { language, t, tl } from "../i18n/i18n";
 
 /** calendar, on the 24×24 grid of views/icons.ts. */
@@ -197,8 +197,8 @@ export function buildWellnessCard(): WellnessHost {
       h("span", { text: t("{minutes} min", { minutes: m }) })));
   }
   const breatheIdle = h("div", { class: "wl-breathe-idle" },
-    h("div", { class: "wl-title", text: tl("Breathe with Mochi"), title: tl("Inhale as Mochi grows, exhale as it shrinks.") }),
-    h("div", { class: "wl-sub", text: tl("Inhale as Mochi grows, exhale as it shrinks.") }),
+    h("div", { class: "wl-title", text: tl("Breathe with Tokkip"), title: tl("Inhale as Tokkip grows, exhale as it shrinks.") }),
+    h("div", { class: "wl-sub", text: tl("Inhale as Tokkip grows, exhale as it shrinks.") }),
     pick,
   );
   const orb = h("div", { class: "wl-orb" });
@@ -245,7 +245,7 @@ export function buildWellnessCard(): WellnessHost {
       agendaMsg.append(
         h("div", { class: "wl-title", text: tl("Your Google Calendar here") }),
         h("div", { class: "wl-sub", text: g?.configured
-          ? tl("Sign in once; Mochi reminds you 10 minutes before each event.")
+          ? tl("Sign in once; Tokkip reminds you 10 minutes before each event.")
           : tl("Set up the Google connection in Settings → Integrations.") }),
         g?.configured
           ? h("button", { class: "btn primary wl-main", onclick: () => connectGoogle() }, h("span", { text: tl("Connect Google") }))

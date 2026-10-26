@@ -1,11 +1,15 @@
 name: Android
 
-# Builds Mochi for Android (android/) and uploads the APK.
+# Builds Tokkip for Android (android/: the phone, the watch, the watch face and
+# Tokkip Notas) and uploads the APKs.
 # Run it by hand (Actions → Android → Run workflow) or push to android/.
 #
-# Signing: add the repo secrets MOCHI_KEYSTORE_B64 (the keystore, base64) and
-# MOCHI_KEYSTORE_PASSWORD so every build has the same signature and installs
-# over the last one. Without them a throwaway key is used (uninstall first).
+# Signing: the repo secrets TOKKIP_KEYSTORE_B64 (the keystore, base64) and
+# TOKKIP_KEYSTORE_PASSWORD, so every build has the same signature and installs
+# over the last one. Until they exist, the secrets with the keystore's first
+# names are used (GitHub can't rename a secret: create the new ones with the
+# same values and delete the old ones whenever you like). Without either, a
+# throwaway key is used (uninstall first).
 
 on:
   workflow_dispatch:
@@ -21,7 +25,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      MOCHI_KEYSTORE_PASSWORD: ${{ secrets.MOCHI_KEYSTORE_PASSWORD }}
+      TOKKIP_KEYSTORE_PASSWORD: ${{ secrets.TOKKIP_KEYSTORE_PASSWORD || secrets.MOCHI_KEYSTORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,14 +42,14 @@ jobs:
 
       - name: Signing key
         env:
-          KEY_B64: ${{ secrets.MOCHI_KEYSTORE_B64 }}
+          KEY_B64: ${{ secrets.TOKKIP_KEYSTORE_B64 || secrets.MOCHI_KEYSTORE_B64 }}
         run: |
-          if [ -n "$KEY_B64" ] && [ -n "$MOCHI_KEYSTORE_PASSWORD" ]; then
-            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/mochi.jks"
-            echo "MOCHI_KEYSTORE=$RUNNER_TEMP/mochi.jks" >> "$GITHUB_ENV"
+          if [ -n "$KEY_B64" ] && [ -n "$TOKKIP_KEYSTORE_PASSWORD" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/tokkip.jks"
+            echo "TOKKIP_KEYSTORE=$RUNNER_TEMP/tokkip.jks" >> "$GITHUB_ENV"
             echo "Signing with the stable key."
           else
-            echo "::warning::No MOCHI_KEYSTORE_B64 / MOCHI_KEYSTORE_PASSWORD secrets: this APK uses a throwaway key and will not install over a previous one."
+            echo "::warning::No TOKKIP_KEYSTORE_B64 / TOKKIP_KEYSTORE_PASSWORD secrets: this APK uses a throwaway key and will not install over a previous one."
           fi
 
       # Failures also show as annotations (compile errors and failed tests).
@@ -72,21 +76,21 @@ jobs:
       - name: Name the APKs
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk "out/Mochi-${GITHUB_SHA::7}.apk"
-          cp android/wear/build/outputs/apk/release/wear-release.apk "out/Mochi-Watch-${GITHUB_SHA::7}.apk"
-          cp android/watchface/build/outputs/apk/release/watchface-release.apk "out/Mochi-Caratula-${GITHUB_SHA::7}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "out/Tokkip-${GITHUB_SHA::7}.apk"
+          cp android/wear/build/outputs/apk/release/wear-release.apk "out/Tokkip-Reloj-${GITHUB_SHA::7}.apk"
+          cp android/watchface/build/outputs/apk/release/watchface-release.apk "out/Tokkip-Caratula-${GITHUB_SHA::7}.apk"
           cp android/notas/build/outputs/apk/release/notas-release.apk "out/TokkipNotas-${GITHUB_SHA::7}.apk"
 
       # The SHA-1 Google Cloud's Android OAuth client needs (Google Tasks), as an annotation.
       - name: Signing fingerprint
         run: |
           signer=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
-          apk=$(ls out/Mochi-*.apk | grep -v Watch | grep -v Caratula | head -1)
+          apk=$(ls out/Tokkip-*.apk | grep -v Reloj | grep -v Caratula | head -1)
           sha=$("$signer" verify --print-certs "$apk" 2>&1 | grep -m1 'SHA-1 digest' | awk '{print $NF}' | sed 's/../&:/g;s/:$//' | tr a-f A-F)
-          echo "::notice::Paquete mx.loperstack.mochi · SHA-1 $sha"
+          echo "::notice::SHA-1 de la firma de Tokkip: $sha"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Mochi-Android
+          name: Tokkip-Android
           path: out/*.apk
           retention-days: 7

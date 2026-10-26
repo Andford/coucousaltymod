@@ -75,9 +75,9 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         let screen_changed = current.screen != settings.screen;
         let autostart_changed = current.autostart != settings.autostart;
         let shortcuts_changed = current.shortcuts != settings.shortcuts;
-        // Where Mochi sits on the desktop is desktop.rs's to say, not a webview's.
+        // Where Tokkip sits on the desktop is desktop.rs's to say, not a webview's.
         let mut settings = settings.clone();
-        settings.desktop_mochi = current.desktop_mochi.clone();
+        settings.desktop_tokkip = current.desktop_tokkip.clone();
         *current = settings;
         (screen_changed, autostart_changed, shortcuts_changed)
     };
@@ -89,7 +89,7 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         let manager = app.autolaunch();
         let result = if settings.autostart { manager.enable() } else { manager.disable() };
         if let Err(err) = result {
-            eprintln!("[coucou] autostart: {err}");
+            eprintln!("[tokkip] autostart: {err}");
         }
     }
     if screen_changed {
@@ -122,7 +122,7 @@ fn set_system_languages(app: AppHandle, languages: Vec<String>) {
 fn language_changed(app: &AppHandle) {
     tray::retitle(app);
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.set_title(&i18n::t("Settings — Coucou"));
+        let _ = window.set_title(&i18n::t("Settings — Tokkip"));
     }
 }
 
@@ -343,7 +343,7 @@ fn create_settings_window(app: &AppHandle) {
     let url = settings_page_url(app);
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
-        .title(i18n::t("Settings — Coucou"))
+        .title(i18n::t("Settings — Tokkip"))
         .inner_size(560.0, 680.0)
         .min_inner_size(460.0, 480.0)
         .resizable(true)
@@ -381,6 +381,7 @@ fn open_settings_window(app: AppHandle) {
 }
 
 pub fn run() {
+    platform::move_old_dirs();
     platform::prepare_environment();
     let loaded = settings::load();
     i18n::set_picked(&loaded.language);
@@ -388,7 +389,7 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // `coucou --shortcut <action>`: what a desktop's own keyboard
+            // `tokkip --shortcut <action>`: what a desktop's own keyboard
             // settings run where we can't listen for keys ourselves (Wayland).
             match shortcuts::from_args(&argv) {
                 Some(action) => shortcuts::dispatch(app, action),
@@ -437,16 +438,16 @@ pub fn run() {
             set_paused,
             shortcuts_status,
             shortcuts_suspend,
-            desktop::desktop_mochi_info,
-            desktop::desktop_mochi_pick_up,
-            desktop::desktop_mochi_carry,
-            desktop::desktop_mochi_carry_end,
-            desktop::desktop_mochi_drag_begin,
-            desktop::desktop_mochi_drag_move,
-            desktop::desktop_mochi_drag_end,
-            desktop::desktop_mochi_fly_out,
-            desktop::desktop_mochi_fly_home,
-            desktop::desktop_mochi_set_asleep,
+            desktop::desktop_tokkip_info,
+            desktop::desktop_tokkip_pick_up,
+            desktop::desktop_tokkip_carry,
+            desktop::desktop_tokkip_carry_end,
+            desktop::desktop_tokkip_drag_begin,
+            desktop::desktop_tokkip_drag_move,
+            desktop::desktop_tokkip_drag_end,
+            desktop::desktop_tokkip_fly_out,
+            desktop::desktop_tokkip_fly_home,
+            desktop::desktop_tokkip_set_asleep,
             sounds::custom_sounds,
             sounds::custom_sound,
             sounds::reveal_sounds_folder,
@@ -483,7 +484,7 @@ pub fn run() {
             tray::build(&handle)?;
             // Before the island: see create_settings_window.
             create_settings_window(&handle);
-            // Same rule for Mochi's desktop window.
+            // Same rule for Tokkip's desktop window.
             desktop::setup(&handle);
 
             if let Some(win) = island::window(&handle) {

@@ -307,7 +307,7 @@ beforeEach(() => {
   State.stateOverride = null;
   State.chatHistory = [];
   State.settings = { ...DEFAULT_SETTINGS };
-  State.mochiOnDesktop = false;
+  State.tokkipOnDesktop = false;
   State.cardSelection = null;
   State.cardItemCount = 0;
   desktopSupported = true;
@@ -394,7 +394,7 @@ test("next and previous pill wrap around and open the overview", () => {
   assert.deepEqual(did, ["resume", "alert:overview", "resume", "alert:overview"]);
 });
 
-test("mute flips the sound, saves it, and Mochi reacts", () => {
+test("mute flips the sound, saves it, and Tokkip reacts", () => {
   runGlobalShortcut(host, "muteToggle", resume);
   assert.equal(State.settings.soundEnabled, false);
   assert.equal(sent("save_settings").at(-1).settings.soundEnabled, false);
@@ -403,18 +403,18 @@ test("mute flips the sound, saves it, and Mochi reacts", () => {
   assert.deepEqual(did, ["emote:annoyed", "emote:happy"]);
 });
 
-test("the desktop shortcut sends Mochi out, lifting Pause, and brings him home", () => {
+test("the desktop shortcut sends Tokkip out, lifting Pause, and brings him home", () => {
   runGlobalShortcut(host, "desktopToggle", resume);
   assert.deepEqual(did, ["resume", "desktop"]);
   // Out there already: home, and Pause stays as it is.
   did = [];
-  State.mochiOnDesktop = true;
+  State.tokkipOnDesktop = true;
   runGlobalShortcut(host, "desktopToggle", resume);
   assert.deepEqual(did, ["desktop"]);
   assert.deepEqual(calls, []);
 });
 
-test("where Mochi can't leave the island (GNOME on Wayland), he says so", () => {
+test("where Tokkip can't leave the island (GNOME on Wayland), he says so", () => {
   desktopSupported = false;
   runGlobalShortcut(host, "desktopToggle", resume);
   assert.deepEqual(did, ["emote:annoyed"]);
@@ -424,7 +424,7 @@ test("the desktop shortcut arrives like the others, and runs from the command li
   emit("shortcut", "desktopToggle");
   assert.deepEqual(did, ["resume", "desktop"]);
   const rust = readFileSync(new URL("../src-tauri/src/shortcuts.rs", import.meta.url), "utf8");
-  assert.match(rust, /from_args\(&args\(&\["coucou", "--shortcut", "desktopToggle"\]\)\), Some\("desktopToggle"\)/);
+  assert.match(rust, /from_args\(&args\(&\["tokkip", "--shortcut", "desktopToggle"\]\)\), Some\("desktopToggle"\)/);
 });
 
 test("actions that aren't the island's do nothing here", () => {

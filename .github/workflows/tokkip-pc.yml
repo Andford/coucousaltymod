@@ -9,6 +9,7 @@ on:
     branches: [android]
     paths:
       - 'windows/**'
+      - 'android/shared/src/main/res/raw/**'
       - '.github/workflows/tokkip-pc.yml'
   workflow_dispatch:
 
@@ -55,7 +56,7 @@ jobs:
         run: npm test
 
       - name: Rust tests
-        run: cargo test -p coucou --locked
+        run: cargo test -p tokkip --locked
 
       - name: Build and pack the installer
         id: pack
@@ -64,7 +65,7 @@ jobs:
           npm run pack
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
-          Copy-Item target/release/coucou.exe release/Tokkip.exe
+          Copy-Item target/release/tokkip.exe release/Tokkip.exe
           Get-ChildItem release | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4

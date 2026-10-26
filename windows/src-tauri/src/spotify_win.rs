@@ -6,7 +6,7 @@
 // next, previous, seek, shuffle and repeat from there. So does any other
 // player (a browser tab with YouTube Music, Apple Music, VLC…): Spotify's
 // session is followed when there is one, else the one Windows calls current,
-// so Mochi dances to whatever is playing.
+// so Tokkip dances to whatever is playing.
 //
 // Nothing runs on a timer. One thread owns every WinRT object (in the MTA)
 // and sleeps on a channel; the sessions' own events (media properties,
@@ -70,7 +70,7 @@ pub fn sync(app: &AppHandle, on: bool) {
         }
         let (tx, rx) = mpsc::channel();
         let (app2, tx2) = (app.clone(), tx.clone());
-        let spawned = std::thread::Builder::new().name("coucou-spotify".into()).spawn(move || run(app2, tx2, rx));
+        let spawned = std::thread::Builder::new().name("tokkip-spotify".into()).spawn(move || run(app2, tx2, rx));
         match spawned {
             Ok(_) => *slot = Some(tx),
             Err(err) => crate::log::line(format!("spotify: no listener thread: {err}")),

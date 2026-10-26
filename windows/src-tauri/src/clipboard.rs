@@ -1,7 +1,7 @@
 // Tokkip's smart clipboard: what you copy (text, images, files) and what you
 // drop on the island, kept on a shelf you can drag things back out of.
 //
-// Everything stays on this PC, in %LOCALAPPDATA%\Coucou\clipboard: an index
+// Everything stays on this PC, in %LOCALAPPDATA%\Tokkip\clipboard: an index
 // (index.json) and the images as PNG. Nothing reaches the network.
 //
 // What password managers mark as private (ExcludeClipboardContentFromMonitor-

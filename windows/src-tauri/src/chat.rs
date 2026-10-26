@@ -130,7 +130,7 @@ fn system_prompt_for(first_name: Option<&str>, web_search: bool) -> String {
     };
     format!(
         "{opening} {abilities} \
-Your name is Tokkip — never call yourself Mochi or Coucou. Be warm and a little playful, like a friendly pet, without overdoing it. \
+Your name is Tokkip — never call yourself Tokkip or Tokkip. Be warm and a little playful, like a friendly pet, without overdoing it. \
 Respond in the user's language. Be thorough and complete — use as much detail as the task requires. \
 Use light Markdown when it helps: short paragraphs, bullet lists, **bold**, `inline code` and fenced code blocks. Avoid tables and big headings: the chat window is small."
     )
@@ -173,7 +173,7 @@ pub fn model_for(settings: &Settings, provider: &str) -> String {
         .unwrap_or_default()
 }
 
-/// A file rides along only if it is one of Coucou's own copies of a dropped
+/// A file rides along only if it is one of Tokkip's own copies of a dropped
 /// file (files.rs puts them in the inbox). The page names the path, so without
 /// this any file the user can read could be sent to a chat provider.
 fn checked_context(context: ChatContext) -> Result<ChatContext, String> {
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn only_files_in_the_inbox_ride_along() {
-        let base = std::env::temp_dir().join(format!("coucou-chat-ctx-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("tokkip-chat-ctx-{}", std::process::id()));
         let inbox = base.join("inbox");
         std::fs::create_dir_all(inbox.join("sub")).unwrap();
         std::fs::write(inbox.join("a.txt"), b"a").unwrap();

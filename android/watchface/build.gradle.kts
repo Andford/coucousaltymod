@@ -1,4 +1,4 @@
-// Mochi's watch face, in the Watch Face Format (resource-only: no code, so it
+// Tokkip's watch face, in the Watch Face Format (resource-only: no code, so it
 // draws with almost no battery). The XML and images come from
 // tools/make_watchface.py.
 plugins {
@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "mx.loperstack.mochi.watchface"
+    namespace = "mx.loperstack.tokkip.watchface"
     compileSdk = 35
 
     defaultConfig {
@@ -14,18 +14,18 @@ android {
         // Watch Face Format 2: Wear OS 5 and up (the Pixel Watch 4 runs Wear OS 6).
         minSdk = 34
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
     }
 
     signingConfigs {
         create("stable") {
-            val path = System.getenv("MOCHI_KEYSTORE")
+            val path = System.getenv("TOKKIP_KEYSTORE")
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
-                storePassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MOCHI_KEY_ALIAS") ?: "mochi"
-                keyPassword = System.getenv("MOCHI_KEYSTORE_PASSWORD")
+                storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }
     }
@@ -33,7 +33,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = if (System.getenv("MOCHI_KEYSTORE") != null) signingConfigs.getByName("stable")
+            signingConfig = if (System.getenv("TOKKIP_KEYSTORE") != null) signingConfigs.getByName("stable")
             else signingConfigs.getByName("debug")
         }
     }

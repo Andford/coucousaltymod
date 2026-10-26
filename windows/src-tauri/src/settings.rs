@@ -32,7 +32,7 @@ pub struct Settings {
     /// Show the Claude plan pill (5 h and weekly limits) in the island's header.
     /// Off until the user turns it on, so the header stays as it shipped.
     pub show_plan_in_notch: bool,
-    /// Coucou's status line relay is the one in Claude Code's settings.json.
+    /// Tokkip's status line relay is the one in Claude Code's settings.json.
     /// Like `hooks_installed`, the real state wins at launch over what was stored.
     pub plan_relay_installed: bool,
     /// Show the Codex plan pill (5 h / weekly limits from `codex app-server`).
@@ -53,27 +53,30 @@ pub struct Settings {
     /// Global shortcuts the user changed, by action id; the others keep their
     /// default (see shortcuts.rs).
     pub shortcuts: crate::shortcuts::Bindings,
-    /// Mochi's outfit, picked in the wardrobe: "auto" (dresses for the
+    /// Tokkip's outfit, picked in the wardrobe: "auto" (dresses for the
     /// season), "none" or an outfit id — the Mac's raw values. The island reads
     /// anything it doesn't know as "auto", so the value is stored as it comes.
-    pub mochi_outfit: String,
-    /// A colour of the user's own for a pill's Mochi, by pill ID ("#RRGGBB"),
+    // (An older settings file calls it by the app's first name.)
+    #[serde(alias = "mochiOutfit")]
+    pub tokkip_outfit: String,
+    /// A colour of the user's own for a pill's Tokkip, by pill ID ("#RRGGBB"),
     /// picked in Settings → Active pills. Empty means the catalog's colours.
-    /// Kept as it comes, like `mochi_outfit`: src/core/pill-colors.ts reads
+    /// Kept as it comes, like `tokkip_outfit`: src/core/pill-colors.ts reads
     /// whatever is not a colour as "no choice".
     pub pill_colors: BTreeMap<String, String>,
     /// Interface language: "" follows the system, else one of i18n::LANGUAGES
-    /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `mochi_outfit`: a
+    /// ("fr", "pt-BR", "zh-Hans"…). Kept as it comes, like `tokkip_outfit`: a
     /// code this build doesn't know reads as "".
     pub language: String,
-    /// Mochi on the desktop: whether he lives there, and his spot. Owned by
+    /// Tokkip on the desktop: whether he lives there, and his spot. Owned by
     /// the Rust side (desktop.rs) — what a webview sends back is ignored.
-    pub desktop_mochi: DesktopMochiPref,
+    #[serde(alias = "desktopMochi")]
+    pub desktop_tokkip: DesktopTokkipPref,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-pub struct DesktopMochiPref {
+pub struct DesktopTokkipPref {
     /// He was on the desktop when the app quit: he flies back out at launch.
     pub on_desktop: bool,
     /// Top-left corner of his window where the user last left him.
@@ -118,10 +121,10 @@ impl Default for Settings {
             lmstudio_url: String::new(),
             custom_url: String::new(),
             shortcuts: Default::default(),
-            mochi_outfit: "auto".into(),
+            tokkip_outfit: "auto".into(),
             pill_colors: BTreeMap::new(),
             language: String::new(),
-            desktop_mochi: DesktopMochiPref::default(),
+            desktop_tokkip: DesktopTokkipPref::default(),
         }
     }
 }
@@ -155,7 +158,7 @@ fn not_loaded() -> MutexGuard<'static, Vec<PathBuf>> {
     NOT_LOADED.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// One line in coucou.log. Tests must never write to the real one.
+/// One line in tokkip.log. Tests must never write to the real one.
 fn note(message: String) {
     #[cfg(not(test))]
     crate::log::line(message);
@@ -200,7 +203,7 @@ fn salvage(fields: Map<String, Value>) -> Settings {
 
 /// The log line for a field `salvage` had to drop. The name comes straight from
 /// the file, so it is written escaped: a line break in it must not be able to
-/// start what looks like another line of coucou.log.
+/// start what looks like another line of tokkip.log.
 fn unusable_field(key: &str) -> String {
     format!("settings.json: {key:?} is not usable — its default is used instead")
 }
@@ -353,7 +356,7 @@ fn save_to(path: &Path, settings: &Settings) -> std::io::Result<()> {
 
     // Write beside the target and rename over it: a crash, a full disk or a
     // power cut leaves the previous settings.json intact rather than half a file.
-    let temp = path.with_extension(format!("json.coucou-{}", std::process::id()));
+    let temp = path.with_extension(format!("json.tokkip-{}", std::process::id()));
     let written = std::fs::File::create(&temp)
         .and_then(|mut file| write_whole(&mut file, &json))
         .and_then(|()| std::fs::rename(&temp, path));
@@ -391,10 +394,10 @@ mod tests {
   "lmstudioUrl": "http://127.0.0.1:1234",
   "customUrl": "https://llm.example.com",
   "shortcuts": { "openChat": { "keys": "Ctrl+Shift+K", "enabled": false } },
-  "mochiOutfit": "witchHat",
+  "tokkipOutfit": "witchHat",
   "pillColors": { "integration_claude": "#2DD4BF" },
   "language": "pt-BR",
-  "desktopMochi": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
+  "desktopTokkip": { "onDesktop": true, "spot": { "x": 1500.5, "y": -300.0, "space": "screen" } }
 }"##;
 
     fn custom() -> Value {
@@ -423,7 +426,7 @@ mod tests {
     /// A fresh directory of our own, and the settings.json it will hold.
     fn scratch(name: &str) -> (PathBuf, PathBuf) {
         let dir = std::env::temp_dir()
-            .join(format!("coucou-settings-{name}-{}", std::process::id()));
+            .join(format!("tokkip-settings-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("settings.json");
@@ -485,42 +488,42 @@ mod tests {
     }
 
     #[test]
-    fn a_file_from_before_the_wardrobe_dresses_mochi_for_the_seasons() {
-        let loaded = parse(&custom_with("mochiOutfit", None)).unwrap();
-        assert_eq!(loaded.mochi_outfit, "auto");
+    fn a_file_from_before_the_wardrobe_dresses_tokkip_for_the_seasons() {
+        let loaded = parse(&custom_with("tokkipOutfit", None)).unwrap();
+        assert_eq!(loaded.tokkip_outfit, "auto");
         assert_eq!(loaded.model, "some-model");
         assert!(!loaded.sound_enabled);
     }
 
     #[test]
-    fn a_file_from_before_the_desktop_mochi_keeps_him_in_the_island() {
-        let loaded = parse(&custom_with("desktopMochi", None)).unwrap();
-        assert_eq!(loaded.desktop_mochi, DesktopMochiPref::default());
-        assert!(!loaded.desktop_mochi.on_desktop);
-        assert_eq!(loaded.mochi_outfit, "witchHat");
+    fn a_file_from_before_the_desktop_tokkip_keeps_him_in_the_island() {
+        let loaded = parse(&custom_with("desktopTokkip", None)).unwrap();
+        assert_eq!(loaded.desktop_tokkip, DesktopTokkipPref::default());
+        assert!(!loaded.desktop_tokkip.on_desktop);
+        assert_eq!(loaded.tokkip_outfit, "witchHat");
     }
 
     #[test]
     fn a_half_written_desktop_spot_costs_only_the_spot() {
         let loaded = parse(&custom_with(
-            "desktopMochi",
+            "desktopTokkip",
             Some(json!({ "onDesktop": true, "spot": { "x": "left" } })),
         ))
         .unwrap();
         // The whole field falls back, and nothing else does.
-        assert_eq!(loaded.desktop_mochi, DesktopMochiPref::default());
+        assert_eq!(loaded.desktop_tokkip, DesktopTokkipPref::default());
         assert_eq!(loaded.model, "some-model");
 
-        let loaded = parse(&custom_with("desktopMochi", Some(json!({ "onDesktop": true })))).unwrap();
-        assert!(loaded.desktop_mochi.on_desktop);
-        assert_eq!(loaded.desktop_mochi.spot, None);
+        let loaded = parse(&custom_with("desktopTokkip", Some(json!({ "onDesktop": true })))).unwrap();
+        assert!(loaded.desktop_tokkip.on_desktop);
+        assert_eq!(loaded.desktop_tokkip.spot, None);
     }
 
     #[test]
     fn a_file_from_before_the_colours_paints_every_pill_as_the_catalog_says() {
         let loaded = parse(&custom_with("pillColors", None)).unwrap();
         assert!(loaded.pill_colors.is_empty());
-        assert_eq!(loaded.mochi_outfit, "witchHat");
+        assert_eq!(loaded.tokkip_outfit, "witchHat");
     }
 
     #[test]
@@ -538,8 +541,8 @@ mod tests {
     fn an_outfit_this_build_does_not_know_is_kept_as_written() {
         // A newer build may add outfits: the island shows "auto" for it, but
         // the choice must survive a save made by this one.
-        let loaded = parse(&custom_with("mochiOutfit", Some(json!("topHat")))).unwrap();
-        assert_eq!(loaded.mochi_outfit, "topHat");
+        let loaded = parse(&custom_with("tokkipOutfit", Some(json!("topHat")))).unwrap();
+        assert_eq!(loaded.tokkip_outfit, "topHat");
         // The language too: "" (follow the system) when absent, as it comes otherwise.
         assert_eq!(parse(&custom_with("language", None)).unwrap().language, "");
         assert_eq!(parse(&custom_with("language", Some(json!("xx")))).unwrap().language, "xx");
@@ -794,10 +797,10 @@ mod tests {
                 "lmstudioUrl",
                 "customUrl",
                 "shortcuts",
-                "mochiOutfit",
+                "tokkipOutfit",
                 "pillColors",
                 "language",
-                "desktopMochi",
+                "desktopTokkip",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -827,7 +830,7 @@ mod tests {
         // directory squatting on that name, the write cannot even start.
         let (dir, file) = scratch("blocked");
         std::fs::write(&file, CUSTOM).unwrap();
-        let temp = dir.join(format!("settings.json.coucou-{}", std::process::id()));
+        let temp = dir.join(format!("settings.json.tokkip-{}", std::process::id()));
         std::fs::create_dir(&temp).unwrap();
 
         assert!(save_to(&file, &Settings::default()).is_err());

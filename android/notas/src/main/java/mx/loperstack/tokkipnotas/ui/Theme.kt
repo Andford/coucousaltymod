@@ -1,6 +1,6 @@
 package mx.loperstack.tokkipnotas.ui
 
-import mx.loperstack.mochi.mochi.Squircle
+import mx.loperstack.tokkip.character.Squircle
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -107,7 +107,7 @@ private fun pixelFont(weight: Int): android.graphics.Typeface {
 private val PixelSans = androidx.compose.ui.text.font.FontFamily(pixelFont(400))
 
 /** A touch heavier than Material's defaults: body text Medium, titles Bold. */
-private val MochiType = androidx.compose.material3.Typography().let { t ->
+private val TokkipType = androidx.compose.material3.Typography().let { t ->
     fun androidx.compose.ui.text.TextStyle.p(w: Int) = copy(fontFamily = PixelSans, fontWeight = androidx.compose.ui.text.font.FontWeight(w))
     t.copy(
         displayLarge = t.displayLarge.p(700), displayMedium = t.displayMedium.p(700), displaySmall = t.displaySmall.p(700),
@@ -119,7 +119,7 @@ private val MochiType = androidx.compose.material3.Typography().let { t ->
 }
 
 /** Material 3 Expressive: generous, friendly corners. */
-private val MochiShapes = androidx.compose.material3.Shapes(
+private val TokkipShapes = androidx.compose.material3.Shapes(
     extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
     small = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
     medium = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
@@ -129,21 +129,21 @@ private val MochiShapes = androidx.compose.material3.Shapes(
 
 /**
  * @param theme "pixel" (wallpaper colours, follows the phone's light/dark),
- *   "pixelDark" (wallpaper colours, always dark) or "mochi" (the island's).
+ *   "pixelDark" (wallpaper colours, always dark) or "tokkip" (the island's).
  */
 @Composable
-fun MochiTheme(theme: String = "pixel", content: @Composable () -> Unit) {
+fun TokkipTheme(theme: String = "pixel", content: @Composable () -> Unit) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
     val dark = theme != "pixel" || systemDark
     val scheme = remember(theme, dark, context.resources.configuration) {
         when {
-            theme == "mochi" -> ClassicScheme
+            theme == "tokkip" -> ClassicScheme
             dark -> dynamicDarkColorScheme(context)
             else -> dynamicLightColorScheme(context)
         }
     }
-    if (theme == "mochi") Ink.classic() else Ink.from(scheme, dark)
+    if (theme == "tokkip") Ink.classic() else Ink.from(scheme, dark)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -153,7 +153,7 @@ fun MochiTheme(theme: String = "pixel", content: @Composable () -> Unit) {
             bars.isAppearanceLightNavigationBars = !dark
         }
     }
-    MaterialTheme(colorScheme = scheme, typography = MochiType, shapes = MochiShapes, content = content)
+    MaterialTheme(colorScheme = scheme, typography = TokkipType, shapes = TokkipShapes, content = content)
 }
 
 /** Stroke icons from the mockup, on a 24×24 grid. */

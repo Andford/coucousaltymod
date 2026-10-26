@@ -1,4 +1,4 @@
-// The Wellness pill's clock and its moments (coucousaltymod): what happens when
+// The Wellness pill's clock and its moments: what happens when
 // a Pomodoro block or a breathing session ends, and every action the card
 // offers. The rules are in core/wellness.ts, the card in views/wellness.ts.
 //
@@ -37,7 +37,7 @@ export function registerWellness(h: WellnessHost) {
   setInterval(() => void readPcNote(), 15_000);
   void readPcNote();
   void refreshGoogle(true);
-  // A Pomodoro that ran while Coucou was closed: catch up, quietly.
+  // A Pomodoro that ran while Tokkip was closed: catch up, quietly.
   const now = Date.now();
   if (isRunning(Wellness.pomodoro) && (Wellness.pomodoro.endsAt ?? 0) <= now) {
     Wellness.pomodoro = resetPomodoro(Wellness.pomodoro);
@@ -69,7 +69,7 @@ function tick() {
   if (State.mode === "expanded" || event) State.notify();
 }
 
-/** A phase ended on its own: Mochi says so, and the island opens on the card. */
+/** A phase ended on its own: Tokkip says so, and the island opens on the card. */
 function announce(event: PomodoroEvent) {
   if (!event) return;
   Sound.play(event === "focusDone" ? "finish" : "greet");
@@ -295,7 +295,7 @@ export const WellnessControl = {
     Wellness.saveTasks();
     if (was.remote) remote(() => Bridge.googleTaskSetDone(id, !was.done));
     if (!was.done) {
-      // Done: Mochi's little jump.
+      // Done: Tokkip's little jump.
       Sound.play("approve");
       host?.emote("happy");
     } else {

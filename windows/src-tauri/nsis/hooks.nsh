@@ -1,8 +1,7 @@
-; Uninstall hooks for the NSIS installer (Tokkip keeps Coucou's folders, so an update keeps your settings).
+; Uninstall hooks for the NSIS installer.
 ;
-; The app stages coucou-hook.exe into %LOCALAPPDATA%\Coucou\bin at launch, so the
-; installer never recorded it and the default uninstaller leaves it behind. The
-; inbox and the log live in the same place and are ours too.
+; The app keeps its inbox and log in %LOCALAPPDATA%\Tokkip; the installer never
+; recorded them, so the default uninstaller would leave them behind.
 ;
 ; Claude Code's own settings.json is deliberately NOT touched here: it belongs to
 ; the user, it may contain hooks from other tools, and rewriting somebody's
@@ -11,7 +10,7 @@
 ; printing anything, so a leftover entry costs nothing beyond a dead path.
 
 !macro NSIS_HOOK_PREUNINSTALL
-  RMDir /r "$LOCALAPPDATA\Coucou\bin"
-  RMDir /r "$LOCALAPPDATA\Coucou\inbox"
-  Delete "$LOCALAPPDATA\Coucou\coucou.log"
+  RMDir /r "$LOCALAPPDATA\Tokkip\bin"
+  RMDir /r "$LOCALAPPDATA\Tokkip\inbox"
+  Delete "$LOCALAPPDATA\Tokkip\tokkip.log"
 !macroend

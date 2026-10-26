@@ -1,4 +1,4 @@
-// Google Calendar and Google Tasks for the Bienestar pill (coucousaltymod).
+// Google Calendar and Google Tasks for the Bienestar pill.
 //
 // Signing in is Google's flow for installed apps: the browser opens Google's
 // consent page, which sends the code back to a one-shot listener on
@@ -8,7 +8,7 @@
 // in the page. Access tokens are kept in memory only.
 //
 // Scopes: Calendar read-only, Tasks read/write, and the account's email to
-// show who is signed in. Nothing reaches the network while Coucou is paused.
+// show who is signed in. Nothing reaches the network while Tokkip is paused.
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -121,7 +121,7 @@ pub fn parse_redirect(request: &str) -> Option<(Option<String>, Option<String>, 
 
 fn page(title: &str, body: &str) -> String {
     let html = format!(
-        "<!doctype html><meta charset=utf-8><title>Coucou</title>\
+        "<!doctype html><meta charset=utf-8><title>Tokkip</title>\
          <body style=\"font-family:system-ui,sans-serif;background:#0b0c0e;color:#f5f6f8;display:grid;place-items:center;height:100vh;margin:0\">\
          <div style=\"text-align:center\"><div style=\"font-size:42px\">🫧</div><h2>{title}</h2><p style=\"color:#8e939c\">{body}</p></div>"
     );
@@ -172,9 +172,9 @@ pub async fn google_connect() -> Result<GoogleStatus, String> {
             }
             let ok = error.is_none() && got_state.as_deref() == Some(state.as_str());
             let reply = if ok {
-                page(&crate::i18n::t("Connected to Google"), &crate::i18n::t("You can close this tab and go back to Mochi."))
+                page(&crate::i18n::t("Connected to Google"), &crate::i18n::t("You can close this tab and go back to Tokkip."))
             } else {
-                page(&crate::i18n::t("Google sign-in was cancelled"), &crate::i18n::t("You can close this tab and try again from Coucou."))
+                page(&crate::i18n::t("Google sign-in was cancelled"), &crate::i18n::t("You can close this tab and try again from Tokkip."))
             };
             let _ = stream.write_all(reply.as_bytes()).await;
             let _ = stream.shutdown().await;

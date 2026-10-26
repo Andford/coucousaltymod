@@ -144,8 +144,18 @@ una página, y las páginas viven dentro de otras.
 - En tablet acostada (Legion Tab), el árbol de páginas queda a un lado.
 - Lo que compartas desde otra app (un texto, un link) llega a la Bandeja.
 - Todo local, en una base de datos del teléfono con solo los títulos en
-  memoria. Copia en un archivo para guardarla donde quieras. La pluma y la
-  versión de Windows vienen después.
+  memoria. Copia en un archivo para guardarla donde quieras. La pluma viene
+  después.
+
+### Tokkip Notas para Windows
+
+La misma app en la PC ([`notas-pc/`](notas-pc/README.md)): el árbol de tus
+páginas a la izquierda (arrastra para meter una página en otra), el menú «/»
+que filtra mientras escribes, tableros con arrastrar y soltar, tablas que se
+editan en la celda, las ocho plantillas, búsqueda con `Ctrl+K`, tema claro u
+oscuro y los sonidos de Tokkip. Todo se queda en la PC, con una copia
+automática al día; las copias de Ajustes son el mismo archivo que en Android,
+así que las notas pasan del teléfono a la PC y de vuelta.
 
 ### En tu reloj (Wear OS)
 
@@ -213,6 +223,7 @@ Por ahora Tokkip se instala desde GitHub Actions (no está en ninguna tienda).
 |---|---|---|
 | Teléfono y reloj | Pestaña **Actions** → workflow **Android** → la última ejecución | APK del teléfono, del reloj, de la carátula y de Tokkip Notas |
 | Windows | Pestaña **Actions** → workflow **Tokkip PC** → la última ejecución | `Tokkip-Windows-setup` (instalador) o `Tokkip-Windows-portable` |
+| Tokkip Notas en Windows | Pestaña **Actions** → workflow **Tokkip Notas PC** → la última ejecución | `TokkipNotas-Windows-setup` (instalador) o `TokkipNotas-Windows-portable` |
 
 - **Android**: instala el APK. Cada compilación usa la misma firma, así que se
   actualiza encima sin perder tus datos.
@@ -244,6 +255,9 @@ gradle -p android assembleRelease
 # Windows
 cd windows && npm install && npm run tauri dev   # para probar
 cd windows && npm run pack                       # instalador en windows/release/
+
+# Tokkip Notas para Windows
+cd notas-pc && npm install && npm run tauri dev
 ```
 
 ## El repositorio
@@ -256,6 +270,7 @@ cd windows && npm run pack                       # instalador en windows/release
 | `android/watchface` | La carátula (Watch Face Format, sin código) |
 | `android/tools` | Generadores de íconos, sonidos y música |
 | `windows/` | La isla para Windows (Tauri 2: Rust y TypeScript) |
+| `notas-pc/` | Tokkip Notas para Windows (Tauri 2: Rust, Preact y TypeScript) |
 | `NotchBuddy/`, `linux/`, `relay/` | El Coucou original para Mac, iPhone y Linux; se conserva como referencia |
 
 ## Privacidad

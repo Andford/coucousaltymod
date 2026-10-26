@@ -397,7 +397,53 @@ export function clock(seconds: number): string {
 
 // ── The page's copy, and its storage ─────────────────────────────────────────
 
-const STORE = { tasks: "coucou.wellness.tasks", pomodoro: "coucou.wellness.pomodoro", tab: "coucou.wellness.tab" };
+// ── Tokkip Healthy PC ─────────────────────────────────────────────────────────
+
+/** The note Tokkip Healthy PC leaves about this PC (src-tauri/src/healthy_pc.rs). */
+export interface PcNote {
+  /** Grows with every new note: what tells news from an old one. */
+  seq: number;
+  /** Unix ms. */
+  at: number;
+  kind: "clean" | "care" | "status";
+  /** 0…100. */
+  score: number;
+  mood: string;
+  /** What Tokkip says, already in the user's language. */
+  message: string;
+  /** Bytes freed, for a clean-up. */
+  bytes?: number;
+}
+
+/** The note's text made safe, or null when it isn't one. */
+export function parsePcNote(raw: string | null | undefined): PcNote | null {
+  if (!raw) return null;
+  let o: Record<string, unknown>;
+  try {
+    o = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!o || typeof o !== "object" || o.app !== "tokkip-healthy-pc") return null;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
+  const seq = num(o.seq), at = num(o.at), score = num(o.score);
+  if (!(seq >= 0) || !(at > 0) || !(score >= 0 && score <= 100)) return null;
+  if (o.kind !== "clean" && o.kind !== "care" && o.kind !== "status") return null;
+  if (typeof o.message !== "string" || typeof o.mood !== "string") return null;
+  const bytes = num(o.bytes);
+  return {
+    seq, at, kind: o.kind, score: Math.round(score), mood: o.mood.slice(0, 16),
+    message: o.message.replace(/\s+/g, " ").trim().slice(0, 200),
+    ...(bytes >= 0 ? { bytes } : {}),
+  };
+}
+
+/** Whether a note is news worth saying out loud: newer than the last one heard, and recent. */
+export function pcNoteIsNews(note: PcNote, lastSeq: number, nowMs: number): boolean {
+  return note.seq > lastSeq && note.kind !== "status" && nowMs - note.at < 10 * 60_000;
+}
+
+const STORE = { tasks: "coucou.wellness.tasks", pomodoro: "coucou.wellness.pomodoro", tab: "coucou.wellness.tab", pcSeq: "tokkip.healthyPc.seq" };
 
 function read(key: string): unknown {
   try {
@@ -432,6 +478,10 @@ export const Wellness = {
   pomodoro: parsePomodoro(read(STORE.pomodoro)),
   breathing: { ...IDLE_BREATHING } as Breathing,
   tab: parseTab(read(STORE.tab)),
+  /** Tokkip Healthy PC's latest note (null: not installed, or nothing yet). */
+  pc: null as PcNote | null,
+  /** The last note already said out loud. */
+  pcSeq: typeof read(STORE.pcSeq) === "number" ? (read(STORE.pcSeq) as number) : -1,
 
   saveTasks() {
     write(STORE.tasks, this.tasks);
@@ -441,6 +491,9 @@ export const Wellness = {
   },
   saveTab() {
     write(STORE.tab, this.tab);
+  },
+  savePcSeq() {
+    write(STORE.pcSeq, this.pcSeq);
   },
 };
 

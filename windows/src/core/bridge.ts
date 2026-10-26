@@ -67,6 +67,9 @@ export const Bridge = {
   /** Tells the island to read the sounds folder again ("sounds-changed"). */
   reloadSounds: () => call<void>("reload_sounds"),
 
+  /** Tokkip Healthy PC's note about this PC (its raw text), if it left one. */
+  healthyPcNote: () => call<string | null>("healthy_pc_note"),
+
   quit: () => call<void>("quit_app"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),

@@ -196,6 +196,10 @@ Una isla arriba de tu pantalla que se asoma cuando la necesitas.
 
 - **Música** (Spotify y lo que suene en Windows) y **GitHub**.
 - **Tokkip en el escritorio**: arrástralo fuera de la isla y se queda paseando.
+- **Tu PC sana**: si tienes [Tokkip Healthy PC](https://github.com/Andford/tokkiphealthypc)
+  (el limpiador y optimizador con Tokkip, su propia app), la tarjeta de tu día
+  muestra cómo se siente tu PC, y la isla te avisa cuando liberaste espacio o
+  cuando tu PC necesita un respiro.
 - Atajos: `Ctrl+Alt+N` abre o cierra la isla, `Ctrl+Alt+Espacio` abre el chat,
   `Ctrl+Alt+V` el portapapeles, `Ctrl+Alt+D` manda a Tokkip al escritorio.
 

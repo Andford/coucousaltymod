@@ -9,7 +9,7 @@
 import {
   Wellness, WELLNESS_ID, addTask, agendaWindow, breathFrame, clearDone, dueReminders, finishPhase, fromGoogle,
   isPaused, isRunning, newTaskId, pause, reminderKey, removeTask, resetPomodoro, resume, startBreathing, startFocus,
-  tickPomodoro, toggleTask, wellnessBusy, type PomodoroEvent, type WellnessTab,
+  tickPomodoro, toggleTask, wellnessBusy, type PomodoroEvent, type WellnessTab, parsePcNote, pcNoteIsNews,
 } from "../core/wellness";
 import { State } from "../core/state";
 import { Sound } from "../core/sound";
@@ -33,6 +33,9 @@ export function registerWellness(h: WellnessHost) {
   host = h;
   // Google and the reminders: once a minute, and only the minute's work.
   setInterval(minute, 60_000);
+  // Tokkip Healthy PC's note: a tiny file, read every 15 s.
+  setInterval(() => void readPcNote(), 15_000);
+  void readPcNote();
   void refreshGoogle(true);
   // A Pomodoro that ran while Coucou was closed: catch up, quietly.
   const now = Date.now();
@@ -93,6 +96,34 @@ function finishBreathing(completed: boolean) {
   }
   syncClock();
   State.notify();
+}
+
+// ── Tokkip Healthy PC ─────────────────────────────────────────────────────────
+
+/**
+ * Reads the note Tokkip Healthy PC leaves. A new clean-up or a "needs a
+ * breather" is said once: a sound, Tokkip's face and the card opening with
+ * the line on top. A plain status only updates the line.
+ */
+async function readPcNote() {
+  const note = parsePcNote(await Bridge.healthyPcNote());
+  if (!note) return;
+  const changed = Wellness.pc?.seq !== note.seq;
+  Wellness.pc = note;
+  // The first note we ever see is old news: just remember it.
+  if (Wellness.pcSeq < 0) {
+    Wellness.pcSeq = note.seq;
+    Wellness.savePcSeq();
+  } else if (pcNoteIsNews(note, Wellness.pcSeq, Date.now())) {
+    Wellness.pcSeq = note.seq;
+    Wellness.savePcSeq();
+    if (!State.paused) {
+      Sound.play(note.kind === "clean" ? "finish" : "question");
+      host?.emote(note.kind === "clean" ? "proud" : "yawn");
+      showCard(Wellness.tab);
+    }
+  }
+  if (changed) State.notify();
 }
 
 // ── Google Calendar & Tasks ───────────────────────────────────────────────────

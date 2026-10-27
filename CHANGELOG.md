@@ -1,8 +1,9 @@
 # Cambios
 
-## Octubre 2026 — Tokkip Notas 0.3.1
+## Octubre 2026 — Tokkip Notas 0.3.2 (Android) · 0.3.1 (Windows)
 
-- **Arreglado en Android**: la pluma y el dedo ya dibujan; antes la hoja se deslizaba. El dedo dibuja hasta que usas la pluma; desde ahí desplaza, salvo que actives «Dibujar con el dedo».
+- **Arreglado en Android**: la pluma y el dedo ya dibujan; antes la hoja se deslizaba.
+- **«Con el dedo» manda siempre**: encendido, el dedo dibuja; apagado, desplaza la hoja (así la palma no raya). Antes dependía también de si ya habías usado la pluma.
 
 ## Octubre 2026 — Tokkip 1.14 · Tokkip Notas 0.3 · Tokkip PC 1.1
 

@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -197,6 +198,10 @@ fun InkSurface(drawing: Drawing, onChange: (Drawing) -> Unit, modifier: Modifier
         var scrolling by remember { mutableStateOf(false) }
         val latest = remember { mutableStateOf(drawing) }
         latest.value = drawing
+        // Without this the page around (a verticalScroll) sees the move first,
+        // takes it as a scroll and cancels the stroke: the sheet slid instead of
+        // drawing. Asked on every stroke's first touch; Compose lets go on lift.
+        val keep = remember { RequestDisallowInterceptTouchEvent() }
 
         Box(Modifier.fillMaxWidth().height(heightDp)) {
             // The paper and every finished stroke, kept in their own layer.
@@ -205,8 +210,10 @@ fun InkSurface(drawing: Drawing, onChange: (Drawing) -> Unit, modifier: Modifier
                 for (s in drawing.strokes) stroke(s, scale, colors.ink)
             }
             Canvas(
-                Modifier.fillMaxSize().pointerInteropFilter { e ->
-                    handle(e, scale, latest, onChange, grow, { current = it }, { current }, live, pending, { erasing = it }, { erasing }, { scrolling = it }, { scrolling })
+                Modifier.fillMaxSize().pointerInteropFilter(keep) { e ->
+                    val drawing = handle(e, scale, latest, onChange, grow, { current = it }, { current }, live, pending, { erasing = it }, { erasing }, { scrolling = it }, { scrolling })
+                    if (drawing && e.actionMasked == MotionEvent.ACTION_DOWN) keep(true)
+                    drawing
                 },
             ) {
                 current?.let { stroke(it, scale, colors.ink) }
@@ -215,6 +222,9 @@ fun InkSurface(drawing: Drawing, onChange: (Drawing) -> Unit, modifier: Modifier
         }
     }
 }
+
+/** Fingers draw until a pen shows up; after that they scroll, unless the switch says otherwise. */
+internal fun fingerScrolls(penSeen: Boolean = InkTools.penSeen, finger: Boolean = InkTools.finger) = penSeen && !finger
 
 private fun handle(
     e: MotionEvent,
@@ -236,8 +246,9 @@ private fun handle(
     when (e.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
             if (stylus) InkTools.penSeen = true
-            // A finger (or a palm) scrolls the page instead, once a pen is around.
-            if (tool == MotionEvent.TOOL_TYPE_FINGER && (InkTools.penSeen || !InkTools.finger)) { setScrolling(true); return false }
+            // A finger (or a palm) scrolls the page instead once a pen is around,
+            // unless "Dibujar con el dedo" is on.
+            if (!stylus && fingerScrolls()) { setScrolling(true); return false }
             setScrolling(false)
             val eraser = InkTools.tool == Tool.ERASER || tool == MotionEvent.TOOL_TYPE_ERASER ||
                 (stylus && (e.buttonState and (MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_SECONDARY)) != 0)

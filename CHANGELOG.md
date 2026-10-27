@@ -1,5 +1,9 @@
 # Cambios
 
+## Octubre 2026 — Tokkip Notas 0.3.1
+
+- **Arreglado en Android**: la pluma y el dedo ya dibujan; antes la hoja se deslizaba. El dedo dibuja hasta que usas la pluma; desde ahí desplaza, salvo que actives «Dibujar con el dedo».
+
 ## Octubre 2026 — Tokkip 1.14 · Tokkip Notas 0.3 · Tokkip PC 1.1
 
 - **Todo se llama Tokkip**: las descargas (`Tokkip-…apk`, `Tokkip-Android`), el código, las carpetas y los textos. Se quitaron el código y los archivos del proyecto original para Mac, iPhone y Linux. Tus datos se pasan solos a los nombres nuevos la primera vez que abres cada app.

@@ -4,8 +4,8 @@
 // a drawing inside a page of text.
 //
 // The pen's pressure sets the width; its eraser end or side button erases.
-// Once a pen has touched the surface, fingers scroll instead of drawing
-// (palm rejection), unless you turn "Dibujar con el dedo" on.
+// Fingers scroll the page (so the palm never draws) unless "Con el dedo" is
+// on; then they draw too.
 
 import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -80,7 +80,6 @@ let fingerDraws = (() => {
     return false;
   }
 })();
-let penSeen = false;
 
 function paperColors() {
   const cs = getComputedStyle(document.documentElement);
@@ -196,8 +195,7 @@ export function InkSurface({
 
     const down = (e: PointerEvent) => {
       if (pointer !== -1) return;
-      if (e.pointerType === "pen") penSeen = true;
-      if (e.pointerType === "touch" && (penSeen || !fingerDraws)) {
+      if (e.pointerType === "touch" && !fingerDraws) {
         // A finger (or a palm) scrolls the page instead.
         scrollY = e.clientY;
         pointer = e.pointerId;
@@ -386,7 +384,6 @@ export function InkToolbar({
             onChange={(e) => {
               fingerDraws = e.currentTarget.checked;
               setFinger(fingerDraws);
-              if (fingerDraws) penSeen = false;
               try {
                 localStorage.setItem(FINGER_KEY, fingerDraws ? "1" : "0");
               } catch {

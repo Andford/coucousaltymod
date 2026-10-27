@@ -2,7 +2,7 @@
 name = "tokkip-notas"
 description = "Tokkip Notas para Windows: tus páginas, tableros y tablas, con el diseño de Tokkip"
 authors = ["Andy (LoperStack)"]
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 license = "MIT"
 

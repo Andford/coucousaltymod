@@ -4,8 +4,8 @@
 // drawing inside a page of text — the same as Windows (notas-pc/src/ink).
 //
 // The pen's pressure sets the width; its eraser end or its side button
-// erases. Once a pen has touched the screen, fingers scroll instead of
-// drawing (palm rejection), unless "Dibujar con el dedo" is on.
+// erases. Fingers scroll the page (so the palm never draws) unless
+// "Con el dedo" is on; then they draw too.
 
 package mx.loperstack.tokkipnotas.ui
 
@@ -104,8 +104,6 @@ object InkTools {
     var hl by mutableStateOf(HL_COLORS[0])
     var size by mutableStateOf(PEN_SIZES[1])
     var finger by mutableStateOf(false)
-    /** A pen touched the screen: from now on fingers scroll. */
-    var penSeen = false
     private var loaded = false
 
     fun load(context: Context) {
@@ -223,8 +221,8 @@ fun InkSurface(drawing: Drawing, onChange: (Drawing) -> Unit, modifier: Modifier
     }
 }
 
-/** Fingers draw until a pen shows up; after that they scroll, unless the switch says otherwise. */
-internal fun fingerScrolls(penSeen: Boolean = InkTools.penSeen, finger: Boolean = InkTools.finger) = penSeen && !finger
+/** The switch alone decides: fingers draw with "Con el dedo" on, and scroll with it off. */
+internal fun fingerScrolls(finger: Boolean = InkTools.finger) = !finger
 
 private fun handle(
     e: MotionEvent,
@@ -245,9 +243,7 @@ private fun handle(
     val stylus = tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER
     when (e.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
-            if (stylus) InkTools.penSeen = true
-            // A finger (or a palm) scrolls the page instead once a pen is around,
-            // unless "Dibujar con el dedo" is on.
+            // A finger (or a palm) scrolls the page instead, unless "Con el dedo" is on.
             if (!stylus && fingerScrolls()) { setScrolling(true); return false }
             setScrolling(false)
             val eraser = InkTools.tool == Tool.ERASER || tool == MotionEvent.TOOL_TYPE_ERASER ||
@@ -391,7 +387,7 @@ fun InkToolbar(
         if (!compact) Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Con el dedo", fontSize = 13.sp, color = Ink.Dim)
             Spacer(Modifier.width(6.dp))
-            Switch(InkTools.finger, { v -> set { InkTools.finger = v; if (v) InkTools.penSeen = false } }, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
+            Switch(InkTools.finger, { v -> set { InkTools.finger = v } }, colors = SwitchDefaults.colors(checkedTrackColor = Ink.Violet))
         }
     }
 }

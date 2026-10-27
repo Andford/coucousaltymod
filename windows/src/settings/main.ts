@@ -18,7 +18,7 @@ import {
   sanitizeDeclared, toggleDeclared, type PillDefinition,
 } from "../core/pills";
 import { h, clear } from "../views/dom";
-import { BotEngine } from "../tokkip/engine";
+import { TokkipMotion } from "../tokkip/motion";
 import { DEFAULT_LOOK, SPECIES, loadLook, saveLook, type Skin, type TokkipLook } from "../tokkip/tokkip";
 import { colorDot } from "./colors";
 import { statusDot } from "./parts";
@@ -998,7 +998,7 @@ const BODIES = ["#F7EAD3", "#FFFFFF", "#F6D7DF", "#DCEFE8", "#E3DCF5", "#C9D3DE"
 
 function tokkipSection(): HTMLElement {
   let look = loadLook();
-  const engine = new BotEngine();
+  const engine = new TokkipMotion();
   engine.look = look;
   const canvas = h("canvas", { class: "tk-preview", title: t(LOOK_TEXT.hint) }) as HTMLCanvasElement;
   const SIZE = 150;

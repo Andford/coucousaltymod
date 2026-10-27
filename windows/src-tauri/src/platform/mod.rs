@@ -25,10 +25,16 @@ pub struct LocalTime {
     pub second: u32,
 }
 
+/// Tokkip PC's app identifier: its webview's storage and the installer go by it.
+pub const IDENTIFIER: &str = "mx.loperstack.tokkippc";
+/// The identifier versions before 1.2 had. Their webview storage moves once.
+pub const OLD_IDENTIFIER: &str = "fr.louisraille.coucou";
+
 /// Older versions kept their settings, inbox and log in folders under the
-/// app's first name; they move once into Tokkip's own (merging, if Tokkip's
-/// already has something, without overwriting it). Nothing is written under
-/// the old names again.
+/// app's first name, and their webview's storage under the old identifier;
+/// they move once into Tokkip's own (merging, if Tokkip's already has
+/// something, without overwriting it), before any window opens. Nothing is
+/// written under the old names again.
 pub fn move_old_dirs() {
     for (old, new) in old_dirs() {
         merge_move(&old, &new);

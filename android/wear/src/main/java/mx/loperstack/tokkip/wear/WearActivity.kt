@@ -906,7 +906,7 @@ fun NightSummary(e: mx.loperstack.tokkip.wellness.NightLite, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Tokkip(
             Modifier.width(86.dp).height(70.dp), color = color,
-            face = when { e.quality in 1..2 -> mx.loperstack.tokkip.character.TokkipEngine.Eye.TIRED; e.quality >= 4 -> mx.loperstack.tokkip.character.TokkipEngine.Eye.HAPPY; else -> null },
+            face = when { e.quality in 1..2 -> mx.loperstack.tokkip.character.TokkipEngine.Eye.SLEEPY; e.quality >= 4 -> mx.loperstack.tokkip.character.TokkipEngine.Eye.HAPPY; else -> null },
             mood = if (e.quality in 1..2) Mood.SLEEPY else Mood.IDLE,
         )
         Text("${e.minutes / 60} h ${"%02d".format(e.minutes % 60)}", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)

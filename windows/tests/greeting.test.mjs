@@ -1,6 +1,6 @@
 // The launch greeting (src/tokkip/greeting.ts): Tokkip must never be cut off by
-// the island while it grows, while he bounces and waves, or while it shrinks
-// back to the compact island.
+// the island while it grows, while he lands, hops and waves, or while it
+// shrinks back to the compact island.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -54,19 +54,20 @@ test("Tokkip stays inside the island when the greeting is cut short", () => {
   for (let tc = 0.3; tc < GREETING_END + 0.4; tc += 0.1) run(tc);
 });
 
-test("he slides to the side to wave, then comes back to the middle", () => {
-  const atWave = greetingPose(2.0);
-  assert.ok(atWave.x < 290, `waving at x=${atWave.x}`);
-  assert.ok(atWave.handL > 0.9 && atWave.handR > 0.9, "both hands out");
-  assert.ok(atWave.wave >= 0, "waving");
-  const back = greetingPose(3.6);
-  assert.equal(back.x, 320);
-  assert.equal(back.handL, 0);
+test("he waves with a ¡Hola! bubble in the middle of the island, then lowers his paw", () => {
+  const waving = greetingPose(2.3);
+  assert.equal(waving.x, 320);
+  assert.ok(waving.wave > 0.9, `wave ${waving.wave}`);
+  assert.ok(waving.bubble > 0.9, `bubble ${waving.bubble}`);
+  const after = greetingPose(3.6);
+  assert.equal(after.wave, 0);
+  assert.equal(after.bubble, 0);
 });
 
-test("he lands where the compact island's Tokkip sits", () => {
+test("he lands where the compact island's Tokkip sits, and the minis pop up", () => {
   const end = greetingPose(10, 5);
   assert.equal(end.y, NOTCH_H / 2);
   assert.equal(end.x, GREETING_W / 2 - COMPACT_W / 2 + 40);
+  assert.equal(end.size, 20);
   assert.equal(end.minis, 1);
 });

@@ -354,18 +354,25 @@ fun OutfitChips(current: String) {
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Pill("Temporada", current == "auto", Icons.Rounded.CalendarMonth) { Store.setOutfit("auto") }
-        for (o in mx.loperstack.tokkip.character.Outfit.entries.filter { it != mx.loperstack.tokkip.character.Outfit.BUNNY }) {
+        for (o in mx.loperstack.tokkip.character.Outfit.entries) {
             val icon = when (o) {
                 mx.loperstack.tokkip.character.Outfit.NONE -> Icons.Rounded.Block
-                mx.loperstack.tokkip.character.Outfit.WITCH -> Icons.Rounded.AutoFixHigh
-                mx.loperstack.tokkip.character.Outfit.FLOWERS -> Icons.Rounded.LocalFlorist
-                mx.loperstack.tokkip.character.Outfit.SANTA -> Icons.Rounded.AcUnit
                 mx.loperstack.tokkip.character.Outfit.PARTY -> Icons.Rounded.Celebration
-                mx.loperstack.tokkip.character.Outfit.BUNNY -> Icons.Rounded.CrueltyFree
-                mx.loperstack.tokkip.character.Outfit.SUNGLASSES -> Icons.Rounded.WbSunny
-                mx.loperstack.tokkip.character.Outfit.BEANIE -> Icons.Rounded.Checkroom
                 mx.loperstack.tokkip.character.Outfit.CROWN -> Icons.Rounded.EmojiEvents
+                mx.loperstack.tokkip.character.Outfit.BEANIE -> Icons.Rounded.Checkroom
+                mx.loperstack.tokkip.character.Outfit.HEARTS -> Icons.Rounded.Favorite
+                mx.loperstack.tokkip.character.Outfit.SPRING -> Icons.Rounded.LocalFlorist
+                mx.loperstack.tokkip.character.Outfit.SUNGLASSES -> Icons.Rounded.WbSunny
+                mx.loperstack.tokkip.character.Outfit.STRAW -> Icons.Rounded.BeachAccess
+                mx.loperstack.tokkip.character.Outfit.TRICOLOR -> Icons.Rounded.Flag
+                mx.loperstack.tokkip.character.Outfit.WITCH -> Icons.Rounded.AutoFixHigh
+                mx.loperstack.tokkip.character.Outfit.FLOWERS -> Icons.Rounded.Spa
+                mx.loperstack.tokkip.character.Outfit.SCARF -> Icons.Rounded.Air
+                mx.loperstack.tokkip.character.Outfit.ANTLERS -> Icons.Rounded.Forest
+                mx.loperstack.tokkip.character.Outfit.SANTA -> Icons.Rounded.AcUnit
+                mx.loperstack.tokkip.character.Outfit.GLASSES -> Icons.Rounded.Visibility
                 mx.loperstack.tokkip.character.Outfit.BOW -> Icons.Rounded.CardGiftcard
+                mx.loperstack.tokkip.character.Outfit.HEADPHONES -> Icons.Rounded.Headphones
             }
             Pill(o.label, current == o.name, icon) { Store.setOutfit(o.name) }
         }

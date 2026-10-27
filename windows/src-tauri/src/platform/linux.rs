@@ -48,6 +48,10 @@ pub(super) fn old_dirs() -> Vec<(PathBuf, PathBuf)> {
         (xdg("XDG_CONFIG_HOME", ".config").join("coucou"), config_dir()),
         (xdg("XDG_DATA_HOME", ".local/share").join("coucou"), local_dir()),
         (xdg("XDG_CACHE_HOME", ".cache").join("coucou"), xdg("XDG_CACHE_HOME", ".cache").join("tokkip")),
+        // The webview's own folders go by the identifier.
+        (xdg("XDG_DATA_HOME", ".local/share").join(super::OLD_IDENTIFIER), xdg("XDG_DATA_HOME", ".local/share").join(super::IDENTIFIER)),
+        (xdg("XDG_CONFIG_HOME", ".config").join(super::OLD_IDENTIFIER), xdg("XDG_CONFIG_HOME", ".config").join(super::IDENTIFIER)),
+        (xdg("XDG_CACHE_HOME", ".cache").join(super::OLD_IDENTIFIER), xdg("XDG_CACHE_HOME", ".cache").join(super::IDENTIFIER)),
     ]
 }
 

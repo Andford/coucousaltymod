@@ -9,11 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "mx.loperstack.mochi"
+        applicationId = "mx.loperstack.tokkip"
         minSdk = 31
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.14.0"
+        versionCode = 30
+        versionName = "2.0.0"
     }
 
     // One stable key for every CI build, so a new APK installs over the old one
@@ -25,7 +25,7 @@ android {
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
                 storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "tokkip"
                 keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }

@@ -100,8 +100,8 @@ export const VIEW_LAYOUTS: Record<IslandViewName, ViewLayout> = {
 };
 
 // The upload views above are only the fallback geometry. Once a file is actually
-// dropped the whole sequence — Tokkip included — is drawn by src/upload, which
-// owns its own constants (USC) straight from UploadSequenceEngine.swift.
+// dragged in, the whole scene — Tokkip included — is drawn by src/upload, which
+// has its own layout (SCENE in upload/sequence.ts).
 
 /** The question view with options to pick from: room for two rows of them. */
 export const QUESTION_PICKER_H = 200;

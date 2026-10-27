@@ -10,12 +10,12 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "mx.loperstack.mochi.watchface"
+        applicationId = "mx.loperstack.tokkip.watchface"
         // Watch Face Format 2: Wear OS 5 and up (the Pixel Watch 4 runs Wear OS 6).
         minSdk = 34
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "2.0.0"
     }
 
     signingConfigs {
@@ -24,7 +24,7 @@ android {
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
                 storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "tokkip"
                 keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }

@@ -3,7 +3,9 @@
 
 use keyring::Entry;
 
-const SERVICE: &str = "fr.louisraille.coucou";
+const SERVICE: &str = crate::platform::IDENTIFIER;
+/// Where versions before 1.2 kept them: read once, moved, then forgotten.
+const OLD_SERVICE: &str = crate::platform::OLD_IDENTIFIER;
 
 /// Every key Tokkip may store. Anything outside this list is refused.
 pub const KNOWN_KEYS: &[&str] = &[
@@ -35,7 +37,17 @@ fn entry(key: &str) -> Option<Entry> {
 }
 
 pub fn get(key: &str) -> Option<String> {
-    entry(key)?.get_password().ok().filter(|v| !v.is_empty())
+    let now = entry(key)?.get_password().ok().filter(|v| !v.is_empty());
+    if now.is_some() {
+        return now;
+    }
+    // Saved by an older version under the old identifier: move it over.
+    let old = Entry::new(OLD_SERVICE, key).ok()?;
+    let value = old.get_password().ok().filter(|v| !v.is_empty())?;
+    if entry(key)?.set_password(&value).is_ok() {
+        let _ = old.delete_credential();
+    }
+    Some(value)
 }
 
 pub fn set(key: &str, value: &str) -> Result<(), String> {
@@ -49,6 +61,9 @@ pub fn set(key: &str, value: &str) -> Result<(), String> {
 
 pub fn clear(key: &str) -> Result<(), String> {
     let entry = entry(key).ok_or_else(|| format!("unknown key {key}"))?;
+    if let Ok(old) = Entry::new(OLD_SERVICE, key) {
+        let _ = old.delete_credential();
+    }
     match entry.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),

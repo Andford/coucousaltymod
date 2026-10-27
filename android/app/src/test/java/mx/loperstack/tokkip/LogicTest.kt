@@ -265,12 +265,20 @@ class LogicTest {
 
     @Test fun seasonalHats() {
         fun on(m: Int, d: Int) = Outfit.seasonal(java.util.Calendar.getInstance().apply { clear(); set(2026, m - 1, d) })
-        assertEquals(Outfit.WITCH, on(10, 19))
+        assertEquals(Outfit.WITCH, on(10, 27))
         assertEquals(Outfit.FLOWERS, on(11, 2))
+        assertEquals(Outfit.SCARF, on(11, 3))
+        assertEquals(Outfit.ANTLERS, on(12, 1))
         assertEquals(Outfit.SANTA, on(12, 20))
         assertEquals(Outfit.PARTY, on(1, 1))
-        assertEquals(Outfit.BOW, on(4, 5)) // Easter 2026: a bow (Tokkip has his own ears)
-        assertEquals(Outfit.NONE, on(3, 10))
+        assertEquals(Outfit.CROWN, on(1, 6))
+        assertEquals(Outfit.HEARTS, on(2, 14))
+        assertEquals(Outfit.SPRING, on(4, 5))
+        assertEquals(Outfit.SUNGLASSES, on(7, 4))
+        assertEquals(Outfit.TRICOLOR, on(9, 16))
+        assertEquals(Outfit.NONE, on(5, 10))
+        // The first versions' bunny ears are gone: a stored "BUNNY" means nothing on.
+        assertEquals(Outfit.NONE, Outfit.resolve("BUNNY"))
         assertEquals(Outfit.CROWN, Outfit.resolve("CROWN"))
     }
 }

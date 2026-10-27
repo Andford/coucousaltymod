@@ -5,11 +5,9 @@ name: Android
 # Run it by hand (Actions → Android → Run workflow) or push to android/.
 #
 # Signing: the repo secrets TOKKIP_KEYSTORE_B64 (the keystore, base64) and
-# TOKKIP_KEYSTORE_PASSWORD, so every build has the same signature and installs
-# over the last one. Until they exist, the secrets with the keystore's first
-# names are used (GitHub can't rename a secret: create the new ones with the
-# same values and delete the old ones whenever you like). Without either, a
-# throwaway key is used (uninstall first).
+# TOKKIP_KEYSTORE_PASSWORD (and TOKKIP_KEY_ALIAS when the key's alias is not
+# "tokkip"), so every build has the same signature and installs over the last
+# one. Without them a throwaway key is used (uninstall first).
 
 on:
   workflow_dispatch:
@@ -25,7 +23,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      TOKKIP_KEYSTORE_PASSWORD: ${{ secrets.TOKKIP_KEYSTORE_PASSWORD || secrets.MOCHI_KEYSTORE_PASSWORD }}
+      TOKKIP_KEYSTORE_PASSWORD: ${{ secrets.TOKKIP_KEYSTORE_PASSWORD }}
+      TOKKIP_KEY_ALIAS: ${{ secrets.TOKKIP_KEY_ALIAS || 'tokkip' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,7 +41,7 @@ jobs:
 
       - name: Signing key
         env:
-          KEY_B64: ${{ secrets.TOKKIP_KEYSTORE_B64 || secrets.MOCHI_KEYSTORE_B64 }}
+          KEY_B64: ${{ secrets.TOKKIP_KEYSTORE_B64 }}
         run: |
           if [ -n "$KEY_B64" ] && [ -n "$TOKKIP_KEYSTORE_PASSWORD" ]; then
             echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/tokkip.jks"

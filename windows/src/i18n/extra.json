@@ -199,17 +199,6 @@
    "ru": "Бантик",
    "id": "Pita"
   },
-  "Bunny ears": {
-   "zh-Hans": "兔耳朵",
-   "hi": "खरगोश के कान",
-   "es": "Orejas de conejo",
-   "ar": "أذنا أرنب",
-   "fr": "Oreilles de lapin",
-   "bn": "খরগোশের কান",
-   "pt-BR": "Orelhas de coelho",
-   "ru": "Заячьи ушки",
-   "id": "Telinga kelinci"
-  },
   "Canceled": {
    "zh-Hans": "已取消",
    "hi": "रद्द",
@@ -1166,17 +1155,6 @@
    "pt-BR": "Aba anterior",
    "ru": "Предыдущая вкладка",
    "id": "Tab sebelumnya"
-  },
-  "Pumpkin": {
-   "zh-Hans": "南瓜",
-   "hi": "कद्दू",
-   "es": "Calabaza",
-   "ar": "يقطينة",
-   "fr": "Citrouille",
-   "bn": "কুমড়া",
-   "pt-BR": "Abóbora",
-   "ru": "Тыква",
-   "id": "Labu"
   },
   "Ready": {
    "zh-Hans": "就绪",
@@ -3096,6 +3074,94 @@
    "pt-BR": "Guaxinim",
    "ru": "Енот",
    "id": "Rakun"
+  },
+  "Hearts headband": {
+   "zh-Hans": "爱心发箍",
+   "hi": "दिल वाला हेडबैंड",
+   "es": "Diadema de corazones",
+   "ar": "طوق القلوب",
+   "fr": "Serre-tête cœurs",
+   "bn": "হার্ট হেডব্যান্ড",
+   "pt-BR": "Tiara de corações",
+   "ru": "Ободок с сердечками",
+   "id": "Bando hati"
+  },
+  "Flower crown": {
+   "zh-Hans": "花环",
+   "hi": "फूलों का मुकुट",
+   "es": "Corona de flores",
+   "ar": "تاج الزهور",
+   "fr": "Couronne de fleurs",
+   "bn": "ফুলের মুকুট",
+   "pt-BR": "Coroa de flores",
+   "ru": "Венок из цветов",
+   "id": "Mahkota bunga"
+  },
+  "Straw hat": {
+   "zh-Hans": "草帽",
+   "hi": "पुआल की टोपी",
+   "es": "Sombrero de paja",
+   "ar": "قبعة من القش",
+   "fr": "Chapeau de paille",
+   "bn": "খড়ের টুপি",
+   "pt-BR": "Chapéu de palha",
+   "ru": "Соломенная шляпа",
+   "id": "Topi jerami"
+  },
+  "Tricolour rosette": {
+   "zh-Hans": "三色徽章",
+   "hi": "तिरंगा रोज़ेट",
+   "es": "Moño tricolor",
+   "ar": "شارة ثلاثية الألوان",
+   "fr": "Cocarde tricolore",
+   "bn": "তিনরঙা রোজেট",
+   "pt-BR": "Laço tricolor",
+   "ru": "Трёхцветная розетка",
+   "id": "Pita tiga warna"
+  },
+  "Marigold crown": {
+   "zh-Hans": "万寿菊花冠",
+   "hi": "गेंदे का मुकुट",
+   "es": "Corona de cempasúchil",
+   "ar": "تاج القطيفة",
+   "fr": "Couronne de soucis",
+   "bn": "গাঁদা ফুলের মুকুট",
+   "pt-BR": "Coroa de cravos-de-defunto",
+   "ru": "Венок из бархатцев",
+   "id": "Mahkota marigold"
+  },
+  "Antlers": {
+   "zh-Hans": "鹿角",
+   "hi": "बारहसिंगे के सींग",
+   "es": "Astas de reno",
+   "ar": "قرون الرنة",
+   "fr": "Bois de renne",
+   "bn": "হরিণের শিং",
+   "pt-BR": "Chifres de rena",
+   "ru": "Оленьи рога",
+   "id": "Tanduk rusa"
+  },
+  "Headphones": {
+   "zh-Hans": "耳机",
+   "hi": "हेडफ़ोन",
+   "es": "Audífonos",
+   "ar": "سماعات الرأس",
+   "fr": "Casque audio",
+   "bn": "হেডফোন",
+   "pt-BR": "Fones de ouvido",
+   "ru": "Наушники",
+   "id": "Headphone"
+  },
+  "Hello!": {
+   "zh-Hans": "你好！",
+   "hi": "नमस्ते!",
+   "es": "¡Hola!",
+   "ar": "مرحبًا!",
+   "fr": "Bonjour !",
+   "bn": "হ্যালো!",
+   "pt-BR": "Olá!",
+   "ru": "Привет!",
+   "id": "Halo!"
   }
  }
 }

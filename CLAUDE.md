@@ -19,7 +19,8 @@ car and the PC, plus Tokkip Notas, a Notion-style notebook. Spanish first.
 - Tokkip Notas PC: `cd notas-pc && npm install && npm run tauri dev` (CI: `tokkip-notas-pc.yml`).
 
 ## Rules
-- Keep the app identifiers: `mx.loperstack.mochi` (phone and watch), `mx.loperstack.mochi.watchface`, `mx.loperstack.tokkipnotas`, and Tokkip PC's `fr.louisraille.coucou`. Changing one makes a new app and loses the user's data. They are the only places the app's first names remain, with the keystore's alias and the GitHub secrets it falls back to; `wellness/Legacy.kt`, `windows/src/core/legacy.ts` and `platform::move_old_dirs` move older saved data once.
+- Keep the app identifiers: `mx.loperstack.tokkip` (phone and watch: they must match), `mx.loperstack.tokkip.watchface`, `mx.loperstack.tokkipnotas` and Tokkip PC's `mx.loperstack.tokkippc`. Changing one makes a new app and loses the user's data. Older names only survive where old data is read once: `wellness/Legacy.kt` (old backups), `windows/src/core/legacy.ts`, `platform::move_old_dirs` and `secrets.rs` (`OLD_IDENTIFIER`).
+- Tokkip's motion and clothes are his own: `windows/src/tokkip/` (motion.ts, figure.ts, ropa.ts, wardrobe.ts, greeting.ts), `windows/src/upload/` and, on Android, `character/TokkipEngine.kt` and `Ropa.kt`. Both platforms share the same moods, acts, dance and calendar: change them together.
 - The code started from Coucou (MIT, Louis Raillé): keep its notice in `LICENSE`. Tokkip uses its own name, character, sounds and art — never Coucou's or Mochi's.
 - Secrets in the Keystore / Credential Manager, never on disk or in git. The signing keystore is private and never committed.
 - No telemetry. Network calls only to services the user set up.

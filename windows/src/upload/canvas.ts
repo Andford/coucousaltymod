@@ -1,123 +1,78 @@
-// The upload canvas — port of UploadCanvasView.swift.
+// The drop scene, drawn (the numbers come from sequence.ts): the card with its
+// dotted drop zone, Tokkip with his basket, the file falling in, the path he
+// walks while it is copied, and the card that asks what to do with it.
 //
-// While the sequence engine is active this canvas draws the whole island body:
-// card, dashed drop frame, drop text, progress bar, the choose card, Tokkip and
-// the file being sucked in. The island's own Tokkip is hidden for the duration,
-// exactly as on macOS, because this canvas draws its own.
+// While the scene runs this canvas is the island's whole body; the island's
+// own Tokkip waits hidden.
 
 import { State } from "../core/state";
-import { drawBack, inkOf, loadLook } from "../tokkip/tokkip";
+import { loadLook, type TokkipLook } from "../tokkip/tokkip";
+import { drawFigure, drawPaw, figure, twinkleShape, type EyeShape, type FigMouth } from "../tokkip/figure";
 import { SCRIPT_FONTS } from "../core/fonts";
 import { N_, isRtl, t } from "../i18n/i18n";
-import {
-  USC, eIn, eInOut, eOut, lerp, progressAt,
-  type UploadEyeShape, type UploadFrame,
-} from "./sequence";
+import { SCENE, lerp, seg, type SceneFrame } from "./sequence";
 
 const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", ${SCRIPT_FONTS}, sans-serif`;
-
-/** The card's inner right edge: no text runs past it. */
-const TEXT_RIGHT = USC.CARD_X + USC.CARD_W - 16;
-/** The two choose buttons, as drawn and as hit areas. */
-const ASK_BTN = { x: 114, w: 168 };
-const CANCEL_BTN = { x: 290, w: 120 };
-/** Drop-zone chips (English keys, shown with `t()`). */
+const C = SCENE.CARD;
+const TEXT_X = 220;
+const TEXT_RIGHT = C.x + C.w - 18;
 const CHIPS = [N_("PDF"), N_("Images"), N_("Code"), N_("Docs")];
+const TEAL = "#2FBF8A";
 
-/** Mirrors the reference `rr()`: a rounded rect, radius clamped to the box. */
-function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  const rad = Math.max(0, Math.min(r, w / 2, h / 2));
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, rad);
-}
+/** The choose card's two buttons, drawn on the canvas and caught by invisible ones. */
+const BUTTON_Y = 118;
+const BUTTON_H = 28;
+const ASK = { x: 130, w: 178 };
+const CANCEL = { x: 316, w: 116 };
 
-/** Superellipse body — port of usBodyPath(m, R). */
-function bodyPath(ctx: CanvasRenderingContext2D, m: number, R: number): { rx: number; ry: number } {
-  const mc = Math.max(0, Math.min(m, 1));
-  const n = 2.15 + (5.5 - 2.15) * mc;
-  const rx = R * (1.04 - 0.04 * mc);
-  const ry = R * (0.97 - 0.03 * mc);
-  ctx.beginPath();
-  for (let i = 0; i <= 96; i++) {
-    const a = (i / 96) * Math.PI * 2;
-    const ca = Math.cos(a);
-    const sa = Math.sin(a);
-    const px = rx * Math.sign(ca) * Math.pow(Math.abs(ca), 2 / n);
-    const py = ry * Math.sign(sa) * Math.pow(Math.abs(sa), 2 / n);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  return { rx, ry };
-}
+/** Studio units in a body height (tokkip.ts: −90 … 120). */
+const BODY_H = 210;
 
-function text(
-  ctx: CanvasRenderingContext2D,
-  s: string,
-  x: number,
-  y: number,
-  font: string,
-  color: string,
+function label(
+  x: CanvasRenderingContext2D, s: string, px: number, py: number, font: string, color: string,
   align: CanvasTextAlign = "left",
 ) {
-  ctx.font = font;
-  ctx.fillStyle = color;
-  ctx.textAlign = align;
-  // Arabic orders its words right to left; the anchor (left, centre, right) stays put.
-  ctx.direction = isRtl() ? "rtl" : "ltr";
-  // SwiftUI's .leading / .center / .trailing anchors are vertically centred.
-  ctx.textBaseline = "middle";
-  ctx.fillText(s, x, y);
+  x.font = font;
+  x.fillStyle = color;
+  x.textAlign = align;
+  x.direction = isRtl() ? "rtl" : "ltr";
+  x.textBaseline = "middle";
+  x.fillText(s, px, py);
 }
 
-/**
- * The font that fits `s` in `maxW`: `weight size FONT`, or smaller down to
- * `minSize` for a longer translation. English was laid out for these widths
- * and keeps its size (only an overlong file name can make it shrink).
- */
-export function fitFont(
-  ctx: CanvasRenderingContext2D,
-  s: string,
-  maxW: number,
-  weight: number,
-  size: number,
-  minSize = size * 0.75,
-): string {
+/** The font that fits `s` in `maxW`, shrinking from `size` to `size × 0.75`. */
+export function fitFont(x: CanvasRenderingContext2D, s: string, maxW: number, weight: number, size: number, minSize = size * 0.75): string {
   let px = size;
-  ctx.font = `${weight} ${px}px ${FONT}`;
-  while (ctx.measureText(s).width > maxW && px > minSize) {
+  x.font = `${weight} ${px}px ${FONT}`;
+  while (x.measureText(s).width > maxW && px > minSize) {
     px = Math.max(minSize, px - 0.5);
-    ctx.font = `${weight} ${px}px ${FONT}`;
+    x.font = `${weight} ${px}px ${FONT}`;
   }
-  return ctx.font;
+  return x.font;
 }
 
-/** `s` cut with an ellipsis so it fits `maxW` in `font` (a file name that is too long). */
-export function ellipsize(ctx: CanvasRenderingContext2D, s: string, maxW: number, font: string): string {
-  ctx.font = font;
-  if (ctx.measureText(s).width <= maxW) return s;
+/** `s`, cut short with an ellipsis so it fits `maxW` in `font`. */
+export function ellipsize(x: CanvasRenderingContext2D, s: string, maxW: number, font: string): string {
+  x.font = font;
+  if (x.measureText(s).width <= maxW) return s;
   let cut = s;
-  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxW) cut = cut.slice(0, -1);
+  while (cut.length > 1 && x.measureText(`${cut}…`).width > maxW) cut = cut.slice(0, -1);
   return `${cut}…`;
 }
 
-/** A label that fits `maxW`: a smaller font first, then an ellipsis. */
-function fitted(ctx: CanvasRenderingContext2D, s: string, maxW: number, weight: number, size: number) {
-  const font = fitFont(ctx, s, maxW, weight, size);
-  return { font, s: ellipsize(ctx, s, maxW, font) };
+function fitted(x: CanvasRenderingContext2D, s: string, maxW: number, weight: number, size: number) {
+  const font = fitFont(x, s, maxW, weight, size);
+  return { font, s: ellipsize(x, s, maxW, font) };
 }
 
 export interface UploadCanvasActions {
-  /** Primary button — hand the file to the chat. */
+  /** Ask about the file in the chat. */
   ask(): void;
-  /** Secondary button. */
   cancel(): void;
 }
 
 export class UploadCanvas {
-  /** Wrapper holding the canvas and the two invisible choose buttons. */
   readonly el: HTMLElement;
-
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
   private overlay: HTMLElement;
@@ -126,502 +81,385 @@ export class UploadCanvas {
   constructor(actions: UploadCanvasActions) {
     this.canvas = document.createElement("canvas");
     this.canvas.id = "upload-canvas";
-
-    // Invisible hit areas at the reference button positions. The labels are
-    // painted on the canvas; these only catch the click.
-    const mk = (x: number, w: number, onclick: () => void) => {
+    const hit = (bx: number, w: number, onclick: () => void) => {
       const b = document.createElement("button");
       b.className = "upload-hit";
-      b.style.left = `${x}px`;
-      b.style.top = "113px";
+      b.style.left = `${bx}px`;
+      b.style.top = `${BUTTON_Y}px`;
       b.style.width = `${w}px`;
-      b.style.height = "26px";
+      b.style.height = `${BUTTON_H}px`;
       b.addEventListener("click", onclick);
       return b;
     };
     this.overlay = document.createElement("div");
     this.overlay.id = "upload-overlay";
-    this.overlay.append(mk(ASK_BTN.x, ASK_BTN.w, actions.ask), mk(CANCEL_BTN.x, CANCEL_BTN.w, actions.cancel));
-
+    this.overlay.append(hit(ASK.x, ASK.w, actions.ask), hit(CANCEL.x, CANCEL.w, actions.cancel));
     this.el = document.createElement("div");
     this.el.id = "upload-layer";
     this.el.append(this.canvas, this.overlay);
-
     this.ctx = this.canvas.getContext("2d");
   }
 
-  /** `wallTime` in seconds drives the marching dashes, like the macOS timeline. */
-  draw(f: UploadFrame, wallTime: number) {
+  draw(f: SceneFrame, wallTime: number) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (this.sizedFor !== dpr) {
       this.sizedFor = dpr;
-      this.canvas.width = Math.round(USC.W * dpr);
-      this.canvas.height = Math.round(USC.ISL_H * dpr);
-      this.canvas.style.width = `${USC.W}px`;
-      this.canvas.style.height = `${USC.ISL_H}px`;
+      this.canvas.width = Math.round(SCENE.W * dpr);
+      this.canvas.height = Math.round(SCENE.H * dpr);
+      this.canvas.style.width = `${SCENE.W}px`;
+      this.canvas.style.height = `${SCENE.H}px`;
     }
-    const ctx = this.ctx;
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, USC.W, USC.ISL_H);
-
-    this.drawScene(ctx, f, wallTime);
-
-    // The buttons only exist once the choose card has faded in.
-    this.overlay.style.display = f.chooseAlpha > 0.5 ? "block" : "none";
-  }
-
-  // ── Scene ─────────────────────────────────────────────────────────────────
-
-  private drawScene(ctx: CanvasRenderingContext2D, f: UploadFrame, wallTime: number) {
-    // Island background.
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, USC.W, USC.ISL_H);
-
-    // Card.
-    ctx.save();
-    rr(ctx, USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H, USC.CARD_R);
-    ctx.clip();
-    ctx.fillStyle = "#0D0E10";
-    ctx.fillRect(USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H);
-
-    // Green glow, fanning up from the bottom edge of the card.
-    if (f.greenWash > 0) {
-      const gx = USC.CARD_X + USC.CARD_W / 2;
-      const gy = USC.CARD_Y + USC.CARD_H;
-      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, USC.CARD_H * 1.5);
-      g.addColorStop(0, `rgba(40,212,130,${f.greenWash * 0.9})`);
-      g.addColorStop(0.55, `rgba(40,212,130,${f.greenWash * 0.3})`);
-      g.addColorStop(1, "rgba(40,212,130,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(USC.CARD_X, USC.CARD_Y, USC.CARD_W, USC.CARD_H);
-    }
-    ctx.restore();
-
-    // Dashed border, marching left to right at ~20 pt/s.
-    if (f.zoneAlpha > 0) {
-      ctx.save();
-      ctx.globalAlpha = f.zoneAlpha;
-      ctx.strokeStyle = f.zoneOver ? "rgba(52,212,153,0.55)" : "rgba(255,255,255,0.14)";
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 5]);
-      ctx.lineDashOffset = -wallTime * 20;
-      rr(ctx, USC.CARD_X + 0.75, USC.CARD_Y + 0.75, USC.CARD_W - 1.5, USC.CARD_H - 1.5, USC.CARD_R - 0.5);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    if (f.zoneAlpha > 0 && f.textAlpha > 0) this.drawDropText(ctx, f);
-    if (f.barAlpha > 0 || f.barReveal > 0) this.drawProgressBar(ctx, f);
-    if (f.chooseAlpha > 0) this.drawChoose(ctx, f);
-
-    this.drawTokkip(ctx, f);
-    if (f.fileVisible) this.drawFile(ctx, f);
-  }
-
-  // ── Drop zone text and chips ──────────────────────────────────────────────
-
-  private drawDropText(ctx: CanvasRenderingContext2D, f: UploadFrame) {
-    ctx.save();
-    ctx.globalAlpha = f.textAlpha;
-    const title = fitted(ctx, t("Drop your files here"), TEXT_RIGHT - USC.TEXT_X, 500, 13);
-    text(ctx, title.s, USC.TEXT_X, USC.TEXT_Y - 4, title.font, "#D5D7DB");
-
-    // The macOS port measures chips the same rough way, so the row lines up; a
-    // translation wider than that estimate gets the room it needs.
-    const labels = CHIPS.map((chip) => t(chip));
-    let chipPx = 11;
-    const widths = () => {
-      ctx.font = `500 ${chipPx}px ${FONT}`;
-      return labels.map((l) => Math.max(l.length * 6.5 + 16, Math.ceil(ctx.measureText(l).width) + 16));
-    };
-    let ws = widths();
-    const rowW = () => ws.reduce((a, b) => a + b, 0) + 6 * (ws.length - 1);
-    while (rowW() > TEXT_RIGHT - USC.TEXT_X && chipPx > 8.5) {
-      chipPx -= 0.5;
-      ws = widths();
-    }
-    let cx = USC.TEXT_X;
-    labels.forEach((chip, i) => {
-      const w = ws[i];
-      ctx.fillStyle = "rgba(255,255,255,0.07)";
-      rr(ctx, cx, USC.TEXT_Y + 9, w, 18, 9);
-      ctx.fill();
-      text(ctx, chip, cx + 8, USC.TEXT_Y + 18, `500 ${chipPx}px ${FONT}`, "#B9BDC4");
-      cx += w + 6;
-    });
-    ctx.restore();
-  }
-
-  // ── Progress bar ──────────────────────────────────────────────────────────
-
-  private drawProgressBar(ctx: CanvasRenderingContext2D, f: UploadFrame) {
-    ctx.save();
-    ctx.globalAlpha = Math.max(f.barAlpha, 0.001);
-
-    const x0 = USC.BAR_X0;
-    const x1 = USC.BAR_X1;
-    const by = USC.BAR_Y;
-    const barLen = (x1 - x0) * f.barReveal;
-
-    // Room up to the percentage (or the check mark) at the bar's right end.
-    const uploading = t("Uploading {name}", { name: State.droppedFile?.name ?? t("file") });
-    const label = fitted(ctx, uploading, x1 - x0 - 56, 500, 12.5);
-    text(ctx, label.s, x0, by - 30, label.font, "#A9ADB5");
-
-    if (f.check > 0) {
-      ctx.save();
-      ctx.translate(x1 - 8, by - 30);
-      ctx.scale(f.check, f.check);
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "#34D399";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-3.6, 0.2);
-      ctx.lineTo(-1, 2.8);
-      ctx.lineTo(3.8, -2.6);
-      ctx.strokeStyle = "#07130E";
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.stroke();
-      ctx.restore();
-    } else {
-      text(ctx, `${Math.round(f.progress * 100)} %`, x1, by - 30, `500 12.5px ${FONT}`, "#A9ADB5", "right");
-    }
-
-    // Track.
-    if (barLen > 0) {
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      rr(ctx, x0, by - 3, barLen, 6, 3);
-      ctx.fill();
-    }
-
-    // Fill.
-    const fx = lerp(x0, x1, f.progress);
-    if (fx > x0 + 1) {
-      const flashGreen = `rgb(${Math.round(lerp(52, 110, f.flash))},${Math.round(
-        lerp(211, 231, f.flash),
-      )},${Math.round(lerp(153, 183, f.flash))})`;
-      const g = ctx.createLinearGradient(x0, 0, fx, 0);
-      g.addColorStop(0, "#1FA87A");
-      g.addColorStop(1, flashGreen);
-      ctx.fillStyle = g;
-      rr(ctx, x0, by - 3, fx - x0, 6, 3);
-      ctx.fill();
-    }
-
-    // Glow trail, its length driven by how fast the bar is moving.
-    if (f.progress > 0.01 && f.progress < 1) {
-      const v =
-        (progressAt(f.t + 0.01, USC.T_PROG_START, f.progEnd) -
-          progressAt(f.t, USC.T_PROG_START, f.progEnd)) / 0.01;
-      const tl = Math.max(8, Math.min(34, 8 + v * 40));
-      const g = ctx.createLinearGradient(fx - tl, 0, fx, 0);
-      g.addColorStop(0, "rgba(52,212,153,0)");
-      g.addColorStop(1, "rgba(110,231,183,0.6)");
-      ctx.save();
-      ctx.filter = "blur(3px)";
-      ctx.fillStyle = g;
-      rr(ctx, fx - tl, by - 4, tl, 8, 4);
-      ctx.fill();
-      ctx.restore();
-    }
-    ctx.restore();
-  }
-
-  // ── Choose card ───────────────────────────────────────────────────────────
-
-  private drawChoose(ctx: CanvasRenderingContext2D, f: UploadFrame) {
-    ctx.save();
-    ctx.globalAlpha = f.chooseAlpha;
-    ctx.translate(0, (1 - f.chooseAlpha) * 4);
-
-    const maxW = TEXT_RIGHT - 114;
-    const ready = fitted(ctx, t("{name} is ready.", { name: State.droppedFile?.name ?? t("file") }), maxW, 600, 14);
-    text(ctx, ready.s, 114, 80, ready.font, "#F5F6F8");
-    const what = fitted(ctx, t("What do you want to do with it?"), maxW, 400, 12.5);
-    text(ctx, what.s, 114, 100, what.font, "#9398A1");
-
-    ctx.fillStyle = "#F5F6F8";
-    rr(ctx, ASK_BTN.x, 113, ASK_BTN.w, 26, 13);
-    ctx.fill();
-    const ask = fitted(ctx, t("Ask a question about it"), ASK_BTN.w - 14, 500, 12.5);
-    text(ctx, ask.s, ASK_BTN.x + ASK_BTN.w / 2, 126, ask.font, "#0B0C0E", "center");
-
-    ctx.fillStyle = "rgba(255,255,255,0.09)";
-    rr(ctx, CANCEL_BTN.x, 113, CANCEL_BTN.w, 26, 13);
-    ctx.fill();
-    const cancel = fitted(ctx, t("Cancel"), CANCEL_BTN.w - 14, 500, 12.5);
-    text(ctx, cancel.s, CANCEL_BTN.x + CANCEL_BTN.w / 2, 126, cancel.font, "#F1F2F4", "center");
-    ctx.restore();
-  }
-
-  // ── Tokkip ─────────────────────────────────────────────────────────────────
-
-  private drawTokkip(ctx: CanvasRenderingContext2D, f: UploadFrame) {
-    const R = f.d / 2 / 1.04;
-    const mc = Math.max(0, Math.min(f.morph, 1));
-
-    ctx.save();
-    ctx.translate(f.x, f.y + f.hop);
-    ctx.rotate(f.tilt);
-    ctx.scale(f.sx, f.sy);
-
-    // Tokkip's ears and tail, fading out as he turns into the box.
+    const x = this.ctx;
+    if (!x) return;
+    x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.clearRect(0, 0, SCENE.W, SCENE.H);
     const look = loadLook();
-    const earsAlpha = Math.max(0, 1 - mc * 1.6);
-    if (earsAlpha > 0.01) {
-      const u = R / 100;
-      const ryNow = R * (0.97 - 0.03 * mc);
-      ctx.save();
-      ctx.scale(u, u);
-      ctx.translate(0, -ryNow / u + 90);
-      drawBack(ctx, look, {
-        t: performance.now() / 1000, earL: 0, earR: 0, droop: 0, happy: true, oy: 0, wave: 0, waveT: 0, alpha: earsAlpha,
+
+    x.fillStyle = "#000000";
+    x.fillRect(0, 0, SCENE.W, SCENE.H);
+    x.fillStyle = "#0D0E10";
+    x.beginPath();
+    x.roundRect(C.x, C.y, C.w, C.h, C.r);
+    x.fill();
+
+    if (f.zone > 0) this.drawZone(x, f, wallTime);
+    if (f.bar > 0) this.drawPath(x, f);
+    if (f.choose > 0) this.drawChoose(x, f);
+    this.drawTokkip(x, f, look, wallTime);
+    if (f.fileAlpha > 0) drawSheet(x, f.fileX, f.fileY, f.fileScale, f.fileAlpha, f.near > 0.5 ? Math.sin(wallTime * 14) * 0.08 : 0);
+    if (f.cheer >= 0) drawConfetti(x, f.cheer);
+
+    this.overlay.style.display = f.choose > 0.5 ? "block" : "none";
+  }
+
+  // ── The drop zone ─────────────────────────────────────────────────────────
+
+  private drawZone(x: CanvasRenderingContext2D, f: SceneFrame, wallTime: number) {
+    x.save();
+    x.globalAlpha = f.zone;
+    // A border of round dots that drift around the card.
+    x.strokeStyle = f.near > 0.3 ? "rgba(47,191,138,.75)" : "rgba(255,255,255,.18)";
+    x.lineWidth = 3;
+    x.lineCap = "round";
+    x.setLineDash([0.1, 9]);
+    x.lineDashOffset = -wallTime * 12;
+    x.beginPath();
+    x.roundRect(C.x + 4, C.y + 4, C.w - 8, C.h - 8, C.r - 3);
+    x.stroke();
+    x.setLineDash([]);
+
+    if (f.zoneText > 0) {
+      x.globalAlpha = f.zone * f.zoneText;
+      const title = fitted(x, t("Drop your files here"), TEXT_RIGHT - TEXT_X, 600, 14);
+      label(x, title.s, TEXT_X, 82, title.font, "#E3E5E9");
+      const labels = CHIPS.map((c) => t(c));
+      let size = 11;
+      const widths = () => {
+        x.font = `500 ${size}px ${FONT}`;
+        return labels.map((l) => Math.ceil(x.measureText(l).width) + 18);
+      };
+      let ws = widths();
+      while (ws.reduce((a, b) => a + b, 0) + 6 * (ws.length - 1) > TEXT_RIGHT - TEXT_X && size > 8.5) {
+        size -= 0.5;
+        ws = widths();
+      }
+      let cx = TEXT_X;
+      labels.forEach((l, i) => {
+        x.fillStyle = "rgba(255,255,255,.08)";
+        x.beginPath();
+        x.roundRect(cx, 98, ws[i]!, 20, 10);
+        x.fill();
+        label(x, l, cx + 9, 108, `500 ${size}px ${FONT}`, "#B9BDC4");
+        cx += ws[i]! + 6;
       });
-      ctx.restore();
     }
-    INK_NOW = inkOf(look);
+    x.restore();
+  }
 
-    const { rx, ry } = bodyPath(ctx, f.morph, R);
+  // ── The path he walks while the file is copied ────────────────────────────
 
-    // Body, in Tokkip's colour.
-    const bg = ctx.createLinearGradient(rx * 0.7, -ry * 0.9, -rx * 0.8, ry * 0.9);
-    bg.addColorStop(0, look.body);
-    bg.addColorStop(1, look.body);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    const lightG = ctx.createLinearGradient(0, -ry, 0, ry);
-    lightG.addColorStop(0, "rgba(255,255,255,0.18)");
-    lightG.addColorStop(1, "rgba(0,0,0,0.06)");
-    ctx.fillStyle = lightG;
-    ctx.fill();
+  private drawPath(x: CanvasRenderingContext2D, f: SceneFrame) {
+    const y = SCENE.FLOOR_Y + SCENE.SIZE / 2 + 3;
+    const x0 = SCENE.PATH_X0 - 26;
+    const x1 = SCENE.PATH_X1 + 26;
+    const fill = lerp(x0, x1, f.progress);
+    x.save();
+    x.globalAlpha = f.bar;
+    const name = State.droppedFile?.name ?? t("file");
+    const right = C.x + C.w - 22;
+    const head = fitted(x, t("Uploading {name}", { name }), right - x0 - 60, 500, 12.5);
+    label(x, head.s, x0, 60, head.font, "#A9ADB5");
+    if (f.check <= 0) label(x, `${Math.round(f.progress * 100)} %`, right, 60, `600 12.5px ${FONT}`, "#A9ADB5", "right");
 
-    // Edge shadow.
-    const sg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3);
-    sg.addColorStop(0, "rgba(0,0,0,0)");
-    sg.addColorStop(0.62, "rgba(0,0,0,0)");
-    sg.addColorStop(1, "rgba(0,0,0,0.12)");
-    ctx.fillStyle = sg;
-    ctx.fill();
-
-    // The body path is reused as a clip for everything drawn inside it.
-    ctx.save();
-    bodyPath(ctx, f.morph, R);
-    ctx.clip();
-
-    // Top rim, once Tokkip is box-shaped enough to have one.
-    if (mc > 0.3) {
-      const a = Math.max(0, Math.min(1, (mc - 0.3) / 0.7));
-      ctx.beginPath();
-      ctx.moveTo(-rx * 0.72, -ry + 0.9);
-      ctx.lineTo(rx * 0.72, -ry + 0.9);
-      ctx.strokeStyle = `rgba(255,255,255,${0.6 * a})`;
-      ctx.lineWidth = 1.2;
-      ctx.lineCap = "round";
-      ctx.stroke();
+    // Stepping stones still to walk, then the ground he has covered.
+    x.fillStyle = "rgba(255,255,255,.14)";
+    for (let px = x0; px <= x1; px += 12) {
+      x.beginPath();
+      x.arc(px, y, 2, 0, Math.PI * 2);
+      x.fill();
     }
+    if (fill > x0 + 1) {
+      const g = x.createLinearGradient(x0, 0, fill, 0);
+      g.addColorStop(0, "rgba(47,191,138,.35)");
+      g.addColorStop(1, TEAL);
+      x.strokeStyle = g;
+      x.lineWidth = 4;
+      x.lineCap = "round";
+      x.beginPath();
+      x.moveTo(x0, y);
+      x.lineTo(fill, y);
+      x.stroke();
+    }
+    if (f.check > 0) {
+      x.save();
+      x.translate(right - 9, 60);
+      x.scale(f.check, f.check);
+      x.fillStyle = TEAL;
+      x.beginPath();
+      x.arc(0, 0, 9, 0, Math.PI * 2);
+      x.fill();
+      x.strokeStyle = "#07130E";
+      x.lineWidth = 2.2;
+      x.lineCap = "round";
+      x.lineJoin = "round";
+      x.beginPath();
+      x.moveTo(-4, 0.3);
+      x.lineTo(-1.2, 3.2);
+      x.lineTo(4.2, -3);
+      x.stroke();
+      x.restore();
+    }
+    x.restore();
+  }
 
-    // Mouth hole.
-    const mh = f.mouth * R * mc;
-    if (mh > 0.3) {
-      const mw = 2 * rx - 0.24 * R;
-      const mx = -mw / 2;
-      const my = -ry + 0.1 * R;
-      const g = ctx.createLinearGradient(0, my, 0, my + mh);
-      g.addColorStop(0, "#030304");
-      g.addColorStop(1, "#101114");
-      ctx.fillStyle = g;
-      rr(ctx, mx, my, mw, mh, Math.min(mw / 2, mh / 2));
-      ctx.fill();
-      if (mh > 4) {
-        const r = Math.min(mw / 2, mh / 2);
-        ctx.beginPath();
-        ctx.moveTo(mx + r, my + mh + 0.5);
-        ctx.lineTo(mx + mw - r, my + mh + 0.5);
-        ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        ctx.lineWidth = 1;
-        ctx.lineCap = "round";
-        ctx.stroke();
+  // ── What now? ─────────────────────────────────────────────────────────────
+
+  private drawChoose(x: CanvasRenderingContext2D, f: SceneFrame) {
+    x.save();
+    x.globalAlpha = f.choose;
+    x.translate(0, (1 - f.choose) * 5);
+    const name = State.droppedFile?.name ?? t("file");
+    const maxW = TEXT_RIGHT - ASK.x;
+    const ready = fitted(x, t("{name} is ready.", { name }), maxW, 600, 14);
+    label(x, ready.s, ASK.x, 78, ready.font, "#F5F6F8");
+    const what = fitted(x, t("What do you want to do with it?"), maxW, 400, 12.5);
+    label(x, what.s, ASK.x, 98, what.font, "#9398A1");
+
+    x.fillStyle = "#F5F6F8";
+    x.beginPath();
+    x.roundRect(ASK.x, BUTTON_Y, ASK.w, BUTTON_H, BUTTON_H / 2);
+    x.fill();
+    const ask = fitted(x, t("Ask a question about it"), ASK.w - 16, 600, 12.5);
+    label(x, ask.s, ASK.x + ASK.w / 2, BUTTON_Y + BUTTON_H / 2, ask.font, "#0B0C0E", "center");
+
+    x.fillStyle = "rgba(255,255,255,.1)";
+    x.beginPath();
+    x.roundRect(CANCEL.x, BUTTON_Y, CANCEL.w, BUTTON_H, BUTTON_H / 2);
+    x.fill();
+    const cancel = fitted(x, t("Cancel"), CANCEL.w - 16, 500, 12.5);
+    label(x, cancel.s, CANCEL.x + CANCEL.w / 2, BUTTON_Y + BUTTON_H / 2, cancel.font, "#F1F2F4", "center");
+    x.restore();
+  }
+
+  // ── Tokkip and his basket ─────────────────────────────────────────────────
+
+  private drawTokkip(x: CanvasRenderingContext2D, f: SceneFrame, look: TokkipLook, wallTime: number) {
+    const u = f.size / BODY_H;
+    const fig = figure(look, wallTime);
+    const faces: Record<SceneFrame["face"], [EyeShape, FigMouth, number]> = {
+      eager: [f.near > 0.5 ? "sparkle" : "open", f.near > 0.5 ? "gape" : "o", 0.3],
+      hug: ["smile", "grin", 0.8],
+      happy: ["smile", "smile", 0.5],
+      proud: ["star", "grin", 0.6],
+      calm: ["open", "smile", 0.3],
+    };
+    const [eye, mouth, blush] = faces[f.face];
+    fig.eye = eye;
+    fig.mouth = mouth;
+    fig.gape = 0.4 + f.near * 0.4;
+    fig.blush = blush;
+    fig.turn = f.lookX * 0.6;
+    fig.nod = f.lookY * 0.5;
+    fig.happy = f.face !== "eager" && f.face !== "calm";
+    fig.droop = f.face === "eager" ? -14 : 0;
+    fig.earL = f.cheer >= 0 && f.cheer < 0.5 ? -20 : 0;
+    fig.earR = f.cheer >= 0 && f.cheer < 0.5 ? 20 : 0;
+    const holding = f.basket > 0.01;
+    const up = holding ? 1 : f.cheer >= 0 && f.cheer < 0.55 ? Math.sin((Math.PI * f.cheer) / 0.55) : 0;
+    const lift = (side: -1 | 1) => {
+      const rest = fig[side < 0 ? "pawL" : "pawR"];
+      const k = holding ? f.basket : up;
+      const target = holding ? { x: side * 66, y: -118, a: side * -0.4 } : { x: side * 110, y: -60, a: side * 0.3 };
+      return { x: lerp(rest.x, target.x, k), y: lerp(rest.y, target.y, k), a: lerp(rest.a, target.a, k) };
+    };
+    const pawL = lift(-1);
+    const pawR = lift(1);
+    fig.paws = false;
+
+    const bottom = 105 * u;
+    x.save();
+    x.translate(f.x, f.y + bottom);
+    x.rotate(f.lean);
+    x.scale(f.sx, f.sy);
+    x.translate(0, -bottom);
+    x.scale(u, u);
+    x.translate(0, -15);
+    drawFigure(x, look, fig);
+    if (holding) {
+      x.save();
+      x.globalAlpha *= f.basket;
+      drawBasket(x, f.basketBounce, f.sinceDrop >= SCENE.FALL - 0.05, wallTime);
+      x.restore();
+    }
+    drawPaw(x, look, pawL);
+    drawPaw(x, look, pawR);
+    x.restore();
+
+    // Twinkles when the file lands.
+    const k = seg(f.sinceDrop, SCENE.FALL - 0.02, SCENE.FALL + 0.5);
+    if (k > 0 && k < 1) {
+      for (let i = 0; i < 6; i++) {
+        const a = -Math.PI / 2 + (i - 2.5) * 0.45;
+        const d = 18 + 30 * k;
+        x.save();
+        x.translate(f.x + Math.cos(a) * d, f.y - f.size * 0.95 + Math.sin(a) * d * 0.7);
+        x.globalAlpha = 1 - k;
+        x.fillStyle = i % 2 ? "#FFE08A" : "#B9F5DC";
+        twinkleShape(x, 5);
+        x.fill();
+        x.restore();
       }
     }
-
-    // Eyes.
-    const ew = R * 0.25;
-    const eh = R * (0.62 - 0.16 * mc);
-    const ey = R * (0.02 + 0.28 * mc);
-    const sp = R * 0.3;
-    const lx = f.lookX * R * (0.34 - 0.08 * mc);
-    const ly = f.lookY * R * (0.16 - 0.09 * mc);
-    for (const sd of [-1, 1]) {
-      ctx.save();
-      ctx.translate(sd * sp + lx, ey + ly);
-      drawEye(ctx, f.eye, ew, eh);
-      ctx.restore();
-    }
-
-    ctx.restore(); // body clip
-    ctx.restore(); // transform
-  }
-
-  // ── The file, and the suction ─────────────────────────────────────────────
-
-  private drawFile(ctx: CanvasRenderingContext2D, f: UploadFrame) {
-    const cx = f.cursorX;
-    const cy = f.cursorY + 14;
-
-    if (f.suck <= 0) {
-      ctx.save();
-      ctx.globalAlpha = 0.92;
-      drawDoc(ctx, cx, cy, 1, 1);
-      ctx.restore();
-      return;
-    }
-
-    const m = f.mouthRect;
-    const W0 = 34;
-    const H0 = 42;
-    const p = eIn(f.suck);
-    const topY = lerp(cy - H0 / 2, m.y - 2, eInOut(f.suck));
-    const hs = lerp(1.08, 0.55, eInOut(f.suck));
-    const Hh = H0 * hs;
-    const sc = lerp(1, 0.55, p);
-    const q = eOut(f.suck);
-    const fCx = lerp(cx, m.x + m.w / 2, eOut(f.suck));
-    const wob = Math.sin(f.suck * Math.PI * 2) * 0.1 * (1 - p);
-    const clipY = m.y + m.h * 0.5;
-
-    // The sheet is drawn as 28 horizontal strips, each narrowed towards the
-    // mouth, so the page appears to funnel in. Everything below the mouth line
-    // is clipped away — that is what makes it look swallowed.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, USC.W, clipY);
-    ctx.clip();
-
-    for (let i = 0; i < 28; i++) {
-      const v0 = i / 28;
-      const wsc = lerp(1, lerp(0.92, (0.22 * m.w) / W0, Math.pow(v0, 1.2)), q) * sc;
-      const yy = topY + v0 * Hh;
-      const hh = Hh / 28 + 0.6;
-
-      ctx.save();
-      ctx.translate(fCx, yy);
-      ctx.rotate(wob);
-      ctx.beginPath();
-      ctx.rect((-W0 * wsc) / 2, 0, W0 * wsc, hh);
-      ctx.clip();
-      ctx.translate(-fCx, -yy);
-      drawDoc(ctx, fCx, topY + Hh / 2, wsc, hs);
-      ctx.restore();
-    }
-    ctx.restore();
-
-    // Green crumbs pulled in with the file.
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2 + 0.6;
-      const k = Math.max(0, Math.min(1, (f.suck - i * 0.08) / 0.7));
-      if (k <= 0 || k >= 1) continue;
-      const sx0 = cx + Math.cos(a) * 24;
-      const sy0 = cy + Math.sin(a) * 24;
-      const ex = m.x + m.w / 2;
-      const ey = m.y + m.h * 0.3;
-      const kk = Math.pow(k, 0.7);
-      const px = lerp(sx0, ex, kk);
-      const py = lerp(sy0, ey, kk) - Math.sin(Math.PI * k) * 6;
-      const rad = 2.2 * (1 - k * 0.5);
-      ctx.beginPath();
-      ctx.arc(px, py, rad, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(52,212,153,${1 - k})`;
-      ctx.fill();
-    }
   }
 }
 
-// ── Eye shapes ──────────────────────────────────────────────────────────────
+// ── Pieces ────────────────────────────────────────────────────────────────────
 
-const INK = "#0E0F12";
-
-/** Tokkip's eye colour this frame (his look's ink). */
-let INK_NOW = INK;
-
-function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number, h: number) {
-  switch (shape) {
-    case "pill":
-      ctx.fillStyle = INK_NOW;
-      rr(ctx, -w / 2, -h / 2, w, h, w / 2);
-      ctx.fill();
-      break;
-
-    case "cup": {
-      // Flat top, semicircular bottom.
-      const hh = h * 0.55;
-      ctx.beginPath();
-      ctx.moveTo(-w / 2, -hh / 2);
-      ctx.lineTo(w / 2, -hh / 2);
-      ctx.lineTo(w / 2, hh / 2 - w / 2);
-      ctx.arc(0, hh / 2 - w / 2, w / 2, 0, Math.PI, false);
-      ctx.closePath();
-      ctx.fillStyle = INK_NOW;
-      ctx.fill();
-      break;
-    }
-
-    case "content":
-      ctx.beginPath();
-      ctx.arc(0, -h * 0.12, w * 0.85, Math.PI * 0.15, Math.PI * 0.85, false);
-      ctx.strokeStyle = INK_NOW;
-      ctx.lineWidth = w * 0.5;
-      ctx.lineCap = "round";
-      ctx.stroke();
-      break;
+/** A woven basket, held over his head (studio units); `full` shows the file's corner. */
+function drawBasket(x: CanvasRenderingContext2D, bounce: number, full: boolean, t: number) {
+  x.save();
+  x.translate(0, -150 + bounce * 10);
+  x.scale(1 + bounce * 0.06, 1 - bounce * 0.06);
+  const straw = "#D9A35B";
+  const dark = "#B07A36";
+  if (full) {
+    x.save();
+    x.translate(6, -30);
+    x.rotate(0.15 + Math.sin(t * 3) * 0.03);
+    x.fillStyle = "#F4F4F6";
+    x.beginPath();
+    x.roundRect(-22, -26, 44, 40, 5);
+    x.fill();
+    x.fillStyle = "#4C8DF6";
+    x.fillRect(-14, -14, 28, 6);
+    x.fillStyle = "#C9CBD2";
+    x.fillRect(-14, -4, 22, 4);
+    x.restore();
   }
+  // Handle.
+  x.strokeStyle = dark;
+  x.lineWidth = 8;
+  x.lineCap = "round";
+  x.beginPath();
+  x.moveTo(-58, -26);
+  x.bezierCurveTo(-56, -96, 56, -96, 58, -26);
+  x.stroke();
+  // Body.
+  const body = new Path2D();
+  body.moveTo(-76, -30);
+  body.lineTo(76, -30);
+  body.lineTo(58, 30);
+  body.quadraticCurveTo(0, 40, -58, 30);
+  body.closePath();
+  x.fillStyle = straw;
+  x.fill(body);
+  x.save();
+  x.clip(body);
+  x.strokeStyle = dark;
+  x.lineWidth = 3;
+  for (let i = -90; i <= 90; i += 14) {
+    x.beginPath();
+    x.moveTo(i, -32);
+    x.lineTo(i * 0.78, 40);
+    x.stroke();
+  }
+  for (let j = -18; j <= 30; j += 12) {
+    x.beginPath();
+    x.moveTo(-80, j);
+    x.quadraticCurveTo(0, j + 6, 80, j);
+    x.stroke();
+  }
+  x.restore();
+  // Rim.
+  x.fillStyle = dark;
+  x.beginPath();
+  x.roundRect(-82, -38, 164, 16, 8);
+  x.fill();
+  x.fillStyle = "rgba(255,255,255,.18)";
+  x.beginPath();
+  x.roundRect(-76, -35, 120, 5, 3);
+  x.fill();
+  x.restore();
 }
 
-// ── Document icon ───────────────────────────────────────────────────────────
+/** The file being dragged: a sheet with a folded corner. */
+function drawSheet(x: CanvasRenderingContext2D, cx: number, cy: number, scale: number, alpha: number, wobble: number) {
+  const w = 32 * scale;
+  const h = 40 * scale;
+  const fold = 9 * scale;
+  x.save();
+  x.globalAlpha = alpha;
+  x.translate(cx, cy);
+  x.rotate(wobble);
+  x.translate(-w / 2, -h / 2);
+  x.shadowColor = "rgba(0,0,0,.45)";
+  x.shadowBlur = 8;
+  x.shadowOffsetY = 3;
+  x.fillStyle = "#F4F4F6";
+  x.beginPath();
+  x.moveTo(3, 0);
+  x.lineTo(w - fold, 0);
+  x.lineTo(w, fold);
+  x.lineTo(w, h - 3);
+  x.quadraticCurveTo(w, h, w - 3, h);
+  x.lineTo(3, h);
+  x.quadraticCurveTo(0, h, 0, h - 3);
+  x.lineTo(0, 3);
+  x.quadraticCurveTo(0, 0, 3, 0);
+  x.fill();
+  x.shadowColor = "transparent";
+  x.fillStyle = "#D5D6DB";
+  x.beginPath();
+  x.moveTo(w - fold, 0);
+  x.lineTo(w - fold, fold);
+  x.lineTo(w, fold);
+  x.fill();
+  x.fillStyle = "#4C8DF6";
+  x.fillRect(w * 0.18, h * 0.32, w * 0.64, h * 0.12);
+  x.fillStyle = "#C9CBD2";
+  for (const r of [0.54, 0.68]) x.fillRect(w * 0.18, h * r, w * 0.5, h * 0.07);
+  x.restore();
+}
 
-/**
- * The generic sheet with a folded corner. macOS swaps in the real file icon from
- * NSWorkspace; Windows has no equivalent reachable from the webview, so this is
- * the shape in every case — it is the same fallback the Swift draws.
- */
-function drawDoc(ctx: CanvasRenderingContext2D, cx: number, cy: number, wsc: number, hsc: number) {
-  const w = 34 * wsc;
-  const h = 42 * hsc;
-  const x = cx - w / 2;
-  const y = cy - h / 2;
-  const fold = 8 * Math.min(wsc, hsc);
+const CONFETTI = Array.from({ length: 26 }, (_, i) => ({
+  x: SCENE.PATH_X1 - 60 + ((i * 53) % 130),
+  vx: ((i * 29) % 21) - 10,
+  vy: -60 - ((i * 17) % 50),
+  c: ["#FF5C8A", "#FFD447", "#7C5CFF", TEAL, "#4C8DF6"][i % 5]!,
+  r: (i * 0.7) % 3,
+}));
 
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.45)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
-  ctx.beginPath();
-  ctx.moveTo(x + 2, y);
-  ctx.lineTo(x + w - fold, y);
-  ctx.lineTo(x + w, y + fold);
-  ctx.lineTo(x + w, y + h - 2);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - 2, y + h);
-  ctx.lineTo(x + 2, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - 2);
-  ctx.lineTo(x, y + 2);
-  ctx.quadraticCurveTo(x, y, x + 2, y);
-  ctx.closePath();
-  ctx.fillStyle = "#F4F4F6";
-  ctx.fill();
-  ctx.restore();
-
-  ctx.beginPath();
-  ctx.moveTo(x + w - fold, y);
-  ctx.lineTo(x + w - fold, y + fold);
-  ctx.lineTo(x + w, y + fold);
-  ctx.closePath();
-  ctx.fillStyle = "#D5D6DB";
-  ctx.fill();
-
-  ctx.fillStyle = "#3B82F5";
-  rr(ctx, x + w * 0.18, y + h * 0.58, w * 0.64, h * 0.16, 2);
-  ctx.fill();
+function drawConfetti(x: CanvasRenderingContext2D, s: number) {
+  if (s > 1.4) return;
+  for (const p of CONFETTI) {
+    const px = p.x + p.vx * s * 2;
+    const py = SCENE.FLOOR_Y - 20 + p.vy * s + 140 * s * s;
+    x.save();
+    x.translate(px, py);
+    x.rotate(p.r + s * 8);
+    x.globalAlpha = 1 - seg(s, 0.8, 1.4);
+    x.fillStyle = p.c;
+    x.fillRect(-3.5, -1.8, 7, 3.6);
+    x.restore();
+  }
 }

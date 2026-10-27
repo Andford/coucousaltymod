@@ -11,7 +11,7 @@ import { Bridge, emitToWindow, onEvent, type DesktopMode } from "../core/bridge"
 import type { BotEmoteName } from "../core/layout";
 import { Sound } from "../core/sound";
 import { loadLook, onLookChange } from "../tokkip/tokkip";
-import { BotEngine } from "../tokkip/engine";
+import { TokkipMotion } from "../tokkip/motion";
 import {
   DESKTOP_EVENTS, DOUBLE_CLICK_MS, DRAG_THRESHOLD, PANEL_SIZE, agentActive, gaze, isOverBody,
   layerDragTopLeft, lookOrigin, pointerDistance, shouldSleep, windowDragTopLeft,
@@ -32,7 +32,7 @@ const AWAKE_FRAME_MS = 1000 / 30;
 const ASLEEP_FRAME_MS = 250;
 
 class DesktopTokkip {
-  private engine = new BotEngine();
+  private engine = new TokkipMotion();
   private canvas: HTMLCanvasElement;
   private mode: DesktopMode = "off";
 

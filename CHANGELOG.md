@@ -1,5 +1,13 @@
 # Cambios
 
+## Octubre 2026 — Tokkip 2.0 · Tokkip PC 1.2 · Tokkip Notas 0.4
+
+- **Tokkip se mueve a su manera**: un motor de animación nuevo, hecho para Tokkip, igual en el teléfono, el reloj, los widgets y la PC. Brinca, se estira, estornuda, tararea, mira a los lados, baila cuatro pasos distintos con la música, levanta las patitas, hace berrinche con vapor, gira de gusto al terminar algo y se marea con estrellitas.
+- **Patitas y cejas**: Tokkip tiene patitas (saluda, se rasca la cabeza cuando tiene una duda, se tapa el sol cuando busca, teclea cuando trabaja) y cejas que acompañan su cara.
+- **Ropa nueva, propia**: 16 prendas — gorrito de fiesta, corona, gorro de lana, diadema de corazones, corona de flores, lentes de sol, sombrero de paja, moño tricolor, sombrero de bruja, corona de cempasúchil, bufanda, astas de reno, gorro navideño, lentes redondos, moño y audífonos — y un calendario de temporadas para México (Reyes, San Valentín, primavera, verano, fiestas patrias, Halloween, Día de Muertos, invierno y Navidad).
+- **Tokkip PC**: saludo de arranque nuevo con su globo de «¡Hola!», y al soltar un archivo Tokkip lo atrapa en una canastita y lo lleva caminando mientras se copia.
+- **Identificadores propios**: el teléfono y el reloj son ahora `mx.loperstack.tokkip`, la carátula `mx.loperstack.tokkip.watchface` y Tokkip PC `mx.loperstack.tokkippc`. En Android se instala como app nueva: exporta tu respaldo antes y restáuralo después. Tokkip PC pasa solo tus datos y tus claves.
+
 ## Octubre 2026 — Tokkip Notas 0.3.2 (Android) · 0.3.1 (Windows)
 
 - **Arreglado en Android**: la pluma y el dedo ya dibujan; antes la hoja se deslizaba.

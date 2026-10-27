@@ -61,6 +61,8 @@ pub(super) fn old_dirs() -> Vec<(PathBuf, PathBuf)> {
     for (var, new) in [("APPDATA", config_dir()), ("LOCALAPPDATA", local_dir())] {
         if let Some(base) = std::env::var_os(var).map(PathBuf::from) {
             out.push((base.join("Coucou"), new));
+            // The webview's own folder (its storage) goes by the identifier.
+            out.push((base.join(super::OLD_IDENTIFIER), base.join(super::IDENTIFIER)));
         }
     }
     out

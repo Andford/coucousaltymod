@@ -10,8 +10,8 @@ data class MoodLevel(val value: Int, val label: String, val color: Long, val fac
 val MOODS = listOf(
     MoodLevel(5, "Genial", 0xFF4ADE80, TokkipEngine.Eye.STAR),
     MoodLevel(4, "Bien", 0xFF2DD4BF, TokkipEngine.Eye.HAPPY),
-    MoodLevel(3, "Normal", 0xFFA5A9B1, TokkipEngine.Eye.PILL),
-    MoodLevel(2, "Bajón", 0xFF818CF8, TokkipEngine.Eye.TIRED),
+    MoodLevel(3, "Normal", 0xFFA5A9B1, TokkipEngine.Eye.OPEN),
+    MoodLevel(2, "Bajón", 0xFF818CF8, TokkipEngine.Eye.SLEEPY),
     MoodLevel(1, "Mal", 0xFFF4505E, TokkipEngine.Eye.LINE),
 )
 

@@ -1,5 +1,5 @@
-// Tokkip in Jetpack Compose — the PC's Tokkip (TokkipEngine, a port of
-// windows/src/tokkip/engine.ts), drawn on a Canvas.
+// Tokkip in Jetpack Compose: TokkipEngine (the same motion as Tokkip PC's
+// windows/src/tokkip/motion.ts), drawn on a Canvas.
 //
 // Smooth and cheap: the engine runs on the frame clock only while something
 // moves, and between blinks the loop sleeps. A frame only redraws the Canvas,

@@ -236,7 +236,7 @@ object TokkipNotifier {
                     context, 201, CH_MORNING,
                     title = if (name.isBlank()) "Buenos días" else "Buenos días, $name",
                     text = noted?.let { "${it.text} ${it.tip}" } ?: phrase, sub = extra, theme = Theme.MORNING,
-                    face = if (rest == Rest.TIRED) TokkipEngine.Eye.TIRED else TokkipEngine.Eye.HAPPY,
+                    face = if (rest == Rest.TIRED) TokkipEngine.Eye.SLEEPY else TokkipEngine.Eye.HAPPY,
                     open = openApp(context, "home"),
                 )
             }
@@ -337,7 +337,7 @@ object TokkipNotifier {
                     )
                     post(
                         context, code, CH_MONEY, title = "Pago: ${debt.name}", text = text, sub = left,
-                        theme = Theme.MONEY, face = if (days < 0) TokkipEngine.Eye.TIRED else TokkipEngine.Eye.DOT,
+                        theme = Theme.MONEY, face = if (days < 0) TokkipEngine.Eye.SLEEPY else TokkipEngine.Eye.DOT,
                         open = openApp(context, "money"), action = if (preview) null else "Ya pagué" to paid,
                     )
                 }

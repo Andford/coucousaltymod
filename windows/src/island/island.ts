@@ -15,12 +15,12 @@ import { State } from "../core/state";
 import { SPOTIFY_ID, islandDances } from "../core/spotify";
 import { Wellness, WELLNESS_ID, breathFrame } from "../core/wellness";
 import { loadLook, onLookChange } from "../tokkip/tokkip";
-import { BotEngine, hexToRGB } from "../tokkip/engine";
+import { TokkipMotion, hexToRGB } from "../tokkip/motion";
 import { Greeting } from "../tokkip/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../tokkip/minibots";
 import { SeasonCache, parseOutfit } from "../tokkip/wardrobe";
 import { UploadCanvas } from "../upload/canvas";
-import { USC, UploadSeq } from "../upload/sequence";
+import { PRE_PROGRESS, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
 import { h } from "../views/dom";
 import { IslandStateMachine } from "./fsm";
@@ -39,7 +39,6 @@ const HIT_MARGIN = 14;
 const UPLOAD_VIEWS: ReadonlySet<IslandViewName> = new Set(["upload", "uploading", "choose"]);
 
 /** Seconds between the drop and the moment the progress bar starts filling. */
-const PRE_PROGRESS = USC.T_PROG_START - USC.T_DROP;
 
 const modeOrder = (m: IslandMode) => (m === "hidden" ? 0 : m === "compact" ? 1 : 2);
 
@@ -71,12 +70,14 @@ export class Island {
   private botCy = new Spring(16);
   private botSize = new Spring(10);
 
-  private engine = new BotEngine();
+  private engine = new TokkipMotion();
   private greeting = new Greeting();
   private greetingShown = false;
   private seasons = new SeasonCache();
 
   private running = false;
+  /** Wakes the frame loop for Tokkip's next blink or fidget while nothing else runs. */
+  private idleWake: number | null = null;
   private lastFrame = 0;
   private dirty = true;
   private canvasPx = 0;
@@ -955,6 +956,10 @@ export class Island {
   // ── Frame loop ──────────────────────────────────────────────────────────────
 
   ensureRunning() {
+    if (this.idleWake != null) {
+      window.clearTimeout(this.idleWake);
+      this.idleWake = null;
+    }
     if (this.running) return;
     this.running = true;
     this.lastFrame = performance.now();
@@ -1024,6 +1029,13 @@ export class Island {
     } else {
       this.running = false;
       Sound.idle();
+      // Tokkip still blinks and fidgets now and then: wake for that, unless hidden.
+      if (State.mode !== "hidden" && !State.paused) {
+        this.idleWake = window.setTimeout(() => {
+          this.idleWake = null;
+          this.ensureRunning();
+        }, this.engine.idleWaitMs());
+      }
     }
   };
 

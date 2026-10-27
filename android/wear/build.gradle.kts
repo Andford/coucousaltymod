@@ -10,11 +10,11 @@ android {
 
     defaultConfig {
         // The same id and key as the phone app: the Data Layer only links apps that match.
-        applicationId = "mx.loperstack.mochi"
+        applicationId = "mx.loperstack.tokkip"
         minSdk = 33
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.14.0"
+        versionCode = 30
+        versionName = "2.0.0"
     }
 
     signingConfigs {
@@ -23,7 +23,7 @@ android {
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
                 storePassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "mochi"
+                keyAlias = System.getenv("TOKKIP_KEY_ALIAS") ?: "tokkip"
                 keyPassword = System.getenv("TOKKIP_KEYSTORE_PASSWORD")
             }
         }
